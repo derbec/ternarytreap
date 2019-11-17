@@ -1,48 +1,18 @@
-import 'dart:convert';
 import 'dart:math';
 
-/// A function that transforms a key
-typedef KeyTransform = String Function(String key);
+/// A function mapping a string to a key.
+///
+/// This is applied before all operations.
+/// For example a mapping may be defined between the set of strings
+/// and their lowercase equivilents see: [TernaryTreap.lowercase]
+typedef KeyMapping = String Function(String str);
 
-typedef _Visitor<T> = void Function(
-    _Node<T> thisNode, String currentStr, int currentDepth);
-
-/// Wraps search results of [TernaryTreap.search()] and
-/// [TernaryTreap.searchPrefix()].
-/// A single [key] can be inserted multiple times with different
-/// data thus [data] is a list.
-class TernaryTreapResult<T> {
-  /// Constructs a new [TernaryTreapResult].
-  ///
-  /// @param [key] The unique key for this result
-  /// @param [data] The data for this result
-  /// @throws [ArgumentError] If passed null data.
-  TernaryTreapResult(this.key, this.data) {
-    if (key == null) {
-      throw ArgumentError.notNull('key');
-    }
-    if (data == null) {
-      throw ArgumentError.notNull('data');
-    }
-  }
-
-  /// The unique key for this result.
-  final String key;
-
-  /// A list of user supplied data objects.
-  ///
-  /// Because user may insert the same key multiple times with different
-  /// data this is a list. Will never be null.
-  final List<T> data;
-
-  /// Create map for json encoding.
-  ///
-  /// @returns Map repesenting object.
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        TernaryTreap._key: key,
-        TernaryTreap._data: data,
-      };
-}
+// Visitor pattern signature
+// Return value allows early stopping
+// if return is true then traversal continues.
+// if return is false traversal stops.
+typedef _NodeVisitor<V> = bool Function(
+    _Node<V> thisNode, String currentStr, int currentDepth);
 
 /// A hybrid of [Ternary search trie](https://en.wikipedia.org/wiki/Ternary_search_tree)
 /// and [Treap](https://en.wikipedia.org/wiki/Treap) with following properties:
@@ -52,55 +22,67 @@ class TernaryTreapResult<T> {
 ///   minimise search paths.
 ///
 /// Additionally each unique key can be associated with 0..n arbitrary
-/// data objects (where n is number of inserts over same key).
+/// values (where n is number of inserts over same key).
 ///
 /// For example the key 'it' may map to 'IT', 'It' or 'it'.
 /// Each of these key representations could require its own
 /// metadata such as weighting etc.
 /// # Structure
+///
+/// A [TernaryTreap] is a tree of [_Node].
+///
 /// ```
 ///                +---+   Graph with 3 keys,
 ///                | C |   each associated with
 ///                +-+-+   different number of
-///                  |     data objects:
+///                  |     value objects:
 ///                  |
-///                +-+-+   CAN: no data
-///   +------------+ U |   CUP: 2 data objects
-///   |            +-+-+   CUT: 1 data object
+///                +-+-+   CAN: no value
+///   +------------+U 5|   CUP: 2 value objects
+///   |            +-+-+   CUT: 1 value object
 /// +-+-+            |
-/// | A |            |
+/// |A 3|            |
 /// +-+-+          +-+-+
-///   |            | P +-------------+
+///   |            |P 8+-------------+
 /// +-+-+          +-+-+             |
 /// | N |            |             +-+-+
-/// +---+            |             | T |
+/// +---+            |             |T 2|
 ///          +------+++------+     +-+-+
-///          | Data | | Data |       |
+///          | Value | Value |       |
 ///          +------+-+------+       |
-///                               +--+---+
-///                               | Data |
-///                               +------+
+///                              +---+---+
+///                              | Value |
+///                              +-------+
 /// ```
-/// Note: Each node also contains a priority value for balancing purposes.
-class TernaryTreap<T> {
+/// Each [_Node] stores:
+///
+/// * A character [_Node._codeUnit] such that Ternary Tree invarient
+/// is maintained.
+/// * An integer priority value [_Node._priority] such that Treap invarient:
+/// (_thisNode._left._priority > _thisNode._priority) &&
+/// (_thisNode._right._priority > _thisNode._priority)
+class TernaryTreap<V> {
   /// Constructs a new [TernaryTreap].
   ///
-  /// @param [keyTransform] Optional instance of [KeyTransform] to be
+  /// @param [keyMapping] Optional instance of [KeyMapping] to be
   /// applied to all keys processed by this [TernaryTreap].
   /// @returns New [TernaryTreap].
-  TernaryTreap([KeyTransform keyTransform]) : _keyTransform = keyTransform;
+  TernaryTreap([KeyMapping keyMapping]) : _keyMapping = keyMapping;
 
-  /// Key for stats map depth value.
+  /// Key for stats map.
+  ///
+  /// Maximum [_Node] depth.
   static const String depth = 'depth';
 
   /// Key for stats map node count value.
+  ///
+  /// Total number of [_Node] objects.
   static const String nodeCount = 'nodecount';
 
   /// Key for stats map key count value.
+  ///
+  /// Number of unique keys
   static const String keyCount = 'keycount';
-
-  static const String _key = 'key';
-  static const String _data = 'data';
 
   /// Transform a key to all lowercase.
   /// When passed to [TernaryTreap()] this transform will be applied
@@ -108,7 +90,7 @@ class TernaryTreap<T> {
   ///
   /// @param key A key to transform.
   /// @returns key after transformation.
-  static String lowerCase(String key) => key.toLowerCase();
+  static String lowercase(String str) => str.toLowerCase();
 
   /// Transform a key such that:
   ///
@@ -120,117 +102,167 @@ class TernaryTreap<T> {
   ///
   /// @param key A key to transform.
   /// @returns key after transformation.
-  static String collapseWhitespace(String key) =>
-      key.replaceAll(RegExp(r'^\s+|\s+$'), '').replaceAll(RegExp(r'\s+'), ' ');
+  static String collapseWhitespace(String str) =>
+      str.replaceAll(RegExp(r'^\s+|\s+$'), '').replaceAll(RegExp(r'\s+'), ' ');
 
-  /// Transform a key with both [lowerCase()] and [collapseWhitespace()].
+  /// Transform a key with both [lowercase] and [collapseWhitespace].
   /// When passed to [TernaryTreap()] this transform will be applied
   /// to all key arguments passed by client
   ///
   /// @param key A key to transform.
   /// @returns key after transformation.
-  static String lowerCollapse(String key) =>
-      collapseWhitespace(key).toLowerCase();
+  static String lowerCollapse(String str) =>
+      collapseWhitespace(str).toLowerCase();
 
   final Random _random = Random();
-  _Node<T> _root;
-  final KeyTransform _keyTransform;
+  final KeyMapping _keyMapping;
+  _Node<V> _root;
+  int _numKeys = 0;
 
-  /// Insert a key and optional data object.
+  /// Return number of keys in [TernaryTreap]
+  int get length => _numKeys;
+
+  /// Return all keys in [TernaryTreap]
+  Iterable<String> get keys {
+    final List<String> result = <String>[];
+    forEach((String key, List<V> values) {
+      result.add(key);
+    });
+    return result;
+  }
+
+  /// Return all values in [TernaryTreap]
+  ///
+  /// Returned in key order
+  Iterable<List<V>> get values {
+    final List<List<V>> result = <List<V>>[];
+    forEach((String key, List<V> values) {
+      result.add(values);
+    });
+    return result;
+  }
+
+  /// Insert a key and optional value.
   ///
   /// @param [key] A unique sequence of characters to be stored for retrieval.
-  /// @param [data] A user specified data object to associate with this key.
+  /// @param [value] A user specified value to associate with this key.
+  /// The value is checked against existing entries for this key (==) and
+  /// if already associated with the key is not added. @see [_Node.values]
   /// @throws [ArgumentError] if key is empty.
-  void insert(String key, [T data]) {
+  void add(String key, [V value]) {
     if (key.isEmpty) {
       throw ArgumentError();
     }
-    _root = _insert(_root, _transformKey(key).codeUnits, 0, data);
+    _root = _add(_root, _transformKey(key).codeUnits, 0, value);
   }
 
-  /// Search for all keys that contain [prefix].
+  /// Applies [f] to each key/value pair of the [TernaryTreap]
   ///
-  /// @param [prefix] A prefix to search for.
-  /// If [prefix] is empty then all keys are returned.
-  /// @returns A list of [TernaryTreapResult] objects representing all keys
-  /// starting with prefix and any associated data objects.
-  /// List is in order of traversal. If no keys found then empty list returned.
-  List<TernaryTreapResult<T>> searchPrefix(String prefix) {
-    final String prefixTransformed = _transformKey(prefix);
-    final List<TernaryTreapResult<T>> entries = <TernaryTreapResult<T>>[];
-    if (prefixTransformed.isEmpty) {
-      //Traverse entire tree
-      _inorderTraversalFromNode(_root, '', 0,
-          (_Node<T> thisNode, String currentStr, int currentDepth) {
-        if (thisNode._isEnd) {
-          entries.add(TernaryTreapResult<T>(currentStr, thisNode.data));
-        }
-      });
-    } else {
-      //Traverse from last node of prefix
-      final _Node<T> lastPrefixNode =
-          _descendToPrefixLastNode(_root, prefixTransformed.codeUnits, 0);
-      _prefixTraversalFromNode(lastPrefixNode, '', 0,
-          (_Node<T> thisNode, String currentStr, int currentDepth) {
-        if (thisNode._isEnd) {
-          entries.add(TernaryTreapResult<T>(
-              prefixTransformed + currentStr, thisNode.data));
-        }
-      });
+  /// Calling [f] must not add or remove keys from the [TernaryTreap]
+  void forEach(void Function(String key, List<V> values) f) {
+    _inorderTraversalFromNode(_root, '', 0,
+        (_Node<V> thisNode, String currentStr, int currentDepth) {
+      if (thisNode._isEnd) {
+        f(currentStr, thisNode.values);
+      }
+      return true;
+    });
+  }
+
+  /// Applies [f] to each key/value pair of the [TernaryTreap]
+  /// where key (after [KeyMapping] applied) is prefixed by [prefix].
+  ///
+  /// Calling [f] must not add or remove keys from the [TernaryTreap]
+  /// The return value of [f] is used for early stopping.
+  /// This is useful when only a subset of the entire resultset is required.
+  /// When [f] returns true iteration continues.
+  /// When [f] returns false iteration stops.
+  /// @throws ArgumentError if [prefix] is empty
+  void forEachPrefixedBy(
+      String prefix, bool Function(String key, List<V> value) f) {
+    if (prefix.isEmpty) {
+      throw ArgumentError();
     }
-    return entries;
+
+    final String prefixMapped = _transformKey(prefix);
+    //Traverse from last node of prefix
+    final _Node<V> lastPrefixNode =
+        _descendToPrefixLastNode(_root, prefixMapped.codeUnits, 0);
+    _prefixTraversalFromNode(lastPrefixNode, '', 0,
+        (_Node<V> thisNode, String currentStr, int currentDepth) {
+      if (thisNode._isEnd) {
+        return f(prefixMapped + currentStr, thisNode.values);
+      } else {
+        return true;
+      }
+    });
   }
 
-  /// Search for specified [key].
+  /// Does specified [key] exist?.
   ///
-  /// @param [key] The key to search for.
-  /// @returns An instance of [TernaryTreapResult] representing [key]
-  /// and any associated data objects.
-  /// If no keys found then empty list returned.
-  TernaryTreapResult<T> search(String key) {
+  /// @param [key] The key to check.
+  /// @returns true if key exists, false otherwise.
+  bool containsKey(String key) => this[key] != null;
+
+  /// Return value for specified [key].
+  ///
+  /// @param [key] The key to get.
+  /// @returns List of values corresponding to [key].
+  /// If no value associated with key then return empty [List].
+  /// If key found then return null.
+  List<V> operator [](String key) {
     if (key.isEmpty) {
       throw ArgumentError();
     }
-    final String prefixTransformed = _transformKey(key);
-    final _Node<T> lastPrefixNode =
-        _descendToPrefixLastNode(_root, prefixTransformed.codeUnits, 0);
+    final String keyMapped = _transformKey(key);
+    final _Node<V> lastPrefixNode =
+        _descendToPrefixLastNode(_root, keyMapped.codeUnits, 0);
     if (lastPrefixNode == null) {
       return null;
     }
     assert(lastPrefixNode._isEnd, 'Not at word end');
-    return TernaryTreapResult<T>(prefixTransformed, lastPrefixNode.data);
+    return lastPrefixNode.values;
   }
 
   /// Generate a string representation of this [TernaryTreap].
-  /// Requires that data objects be json encodable.
+  /// Requires that values be json encodable.
   ///
-  /// @param [padding] Optional left padding to indicate depth.
-  /// @returns An list of [String] objects in order of traversal formated as:
-  /// key -> data (json encoded)
-  List<String> formattedTree([String padding = '-']) {
-    final List<String> lines = <String>[];
+  /// @param [paddingChar] Optional left padding to indicate tree depth.
+  /// Default = '-', use '' for no depth.
+  /// @returns String representation of objects in order of traversal
+  /// formated as:
+  /// key -> value (json encoded)
+  @override
+  String toString([String paddingChar = '-']) {
+    final StringBuffer lines = StringBuffer();
     _inorderTraversalFromNode(_root, '', 0,
-        (_Node<T> thisNode, String currentStr, int currentDepth) {
+        (_Node<V> thisNode, String currentStr, int currentDepth) {
       if (thisNode._isEnd) {
-        lines.add('${currentStr.padLeft(currentDepth + 1, padding)}'
-            ' -> ${json.encode(thisNode.data)}');
+        final String keyPadding =
+            ''.padLeft(currentDepth + 1 - currentStr.length, paddingChar);
+        final String valuePadding = ''.padLeft(keyPadding.length, ' ');
+        lines.writeln(keyPadding + currentStr);
+        for (final V datum in thisNode.values) {
+          lines.writeln(valuePadding + datum.toString());
+        }
       }
+      return true;
     });
-    return lines;
+    return lines.toString();
   }
 
   /// Generate stats for this [TernaryTreap].
   ///
   /// @returns A [Map] with statistical info accessed via keys:
-  ///           [Depth] - Maximum depth of [TernaryTreap].
-  ///           [NodeCount] - Total number of nodes in [TernaryTreap].
-  ///           [KeyCount] - Total number of keys in [TernaryTreap].
+  ///   * [depth] - Maximum [_Node] depth.
+  ///   * [nodeCount] - Total number of [_Node] objects.
+  ///   * [keyCount] - Total number of unique keys.
   Map<String, int> stats() {
     int depth = 0;
     int nodeCount = 0;
     int keyCount = 0;
     _inorderTraversalFromNode(_root, '', 0,
-        (_Node<T> thisNode, String currentStr, int currentDepth) {
+        (_Node<V> thisNode, String currentStr, int currentDepth) {
       if (currentDepth > depth) {
         depth = currentDepth;
       }
@@ -238,6 +270,7 @@ class TernaryTreap<T> {
       if (thisNode._isEnd) {
         keyCount++;
       }
+      return true;
     });
     return <String, int>{
       TernaryTreap.depth: depth,
@@ -247,34 +280,43 @@ class TernaryTreap<T> {
   }
 
   String _transformKey(String key) =>
-      _keyTransform == null ? key : _keyTransform(key);
+      _keyMapping == null ? key : _keyMapping(key);
 
-  _Node<T> _insert(
-      _Node<T> thisNode, List<int> codeUnits, int i, dynamic data) {
-    _Node<T> _thisNode;
+  _Node<V> _add(_Node<V> thisNode, List<int> codeUnits, int i, dynamic value) {
+    _Node<V> _thisNode;
     if (null == thisNode) {
-      _thisNode = _Node<T>(codeUnits[i], _random.nextInt(1 << 32));
+      _thisNode = _Node<V>(codeUnits[i], _random.nextInt(1 << 32));
     } else {
       _thisNode = thisNode;
     }
 
     if (codeUnits[i] < _thisNode._codeUnit) {
-      _thisNode._left = _insert(_thisNode._left, codeUnits, i, data);
+      _thisNode._left = _add(_thisNode._left, codeUnits, i, value);
       if (_thisNode._left._priority > _thisNode._priority) {
         _thisNode = _rotateRight(_thisNode);
       }
     } else if (codeUnits[i] > _thisNode._codeUnit) {
-      _thisNode._right = _insert(_thisNode._right, codeUnits, i, data);
+      _thisNode._right = _add(_thisNode._right, codeUnits, i, value);
       if (_thisNode._right._priority > _thisNode._priority) {
         _thisNode = _rotateLeft(_thisNode);
       }
     } else {
       if (i + 1 < codeUnits.length) {
-        _thisNode._mid = _insert(_thisNode._mid, codeUnits, i + 1, data);
+        _thisNode._mid = _add(_thisNode._mid, codeUnits, i + 1, value);
       } else {
-        _thisNode.data ??= <T>[];
-        if (data != null) {
-          _thisNode.data.add(data);
+        // Terminal node for this key
+        if (_thisNode.values == null) {
+          //This is a new key
+          _thisNode.values ??= <V>[];
+          _numKeys++;
+        }
+
+        if (value != null) {
+          // check if value already attached to node
+          // prevent duplicates.
+          if (!_thisNode.values.contains(value)) {
+            _thisNode.values.add(value as V);
+          }
         }
       }
     }
@@ -282,8 +324,8 @@ class TernaryTreap<T> {
     return _thisNode;
   }
 
-  _Node<T> _descendToPrefixLastNode(
-      _Node<T> thisNode, List<int> codeUnits, int ptr) {
+  _Node<V> _descendToPrefixLastNode(
+      _Node<V> thisNode, List<int> codeUnits, int ptr) {
     if (thisNode == null) {
       return null;
     }
@@ -303,14 +345,17 @@ class TernaryTreap<T> {
     }
   }
 
-  void _inorderTraversalFromNode(_Node<T> thisNode, String currentStr,
-      int currentDepth, _Visitor<T> visitor) {
+  void _inorderTraversalFromNode(_Node<V> thisNode, String currentStr,
+      int currentDepth, _NodeVisitor<V> visitor) {
     if (thisNode != null) {
       _inorderTraversalFromNode(
           thisNode._left, currentStr, currentDepth + 1, visitor);
       final String nextStr =
           currentStr + String.fromCharCode(thisNode._codeUnit);
-      visitor(thisNode, nextStr, currentDepth);
+      // allow early stopping by visitor
+      if (!visitor(thisNode, nextStr, currentDepth)) {
+        return;
+      }
       _inorderTraversalFromNode(
           thisNode._mid, nextStr, currentDepth + 1, visitor);
       _inorderTraversalFromNode(
@@ -318,10 +363,13 @@ class TernaryTreap<T> {
     }
   }
 
-  void _prefixTraversalFromNode(_Node<T> thisNode, String currentStr,
-      int currentDepth, _Visitor<T> visitor) {
+  void _prefixTraversalFromNode(_Node<V> thisNode, String currentStr,
+      int currentDepth, _NodeVisitor<V> visitor) {
     if (thisNode != null) {
-      visitor(thisNode, currentStr, currentDepth);
+      // Allow early stopping by visitor
+      if (!visitor(thisNode, currentStr, currentDepth)) {
+        return;
+      }
       _inorderTraversalFromNode(
           thisNode._mid, currentStr, currentDepth + 1, visitor);
     }
@@ -332,9 +380,9 @@ class TernaryTreap<T> {
   //    b   e   -->  c   a
   //   / \              / \
   //  c   d            d   e
-  _Node<T> _rotateRight(_Node<T> a) {
-    final _Node<T> b = a._left;
-    final _Node<T> d = b._right;
+  _Node<V> _rotateRight(_Node<V> a) {
+    final _Node<V> b = a._left;
+    final _Node<V> d = b._right;
     b._right = a;
     a._left = d;
     return b;
@@ -345,27 +393,29 @@ class TernaryTreap<T> {
   //   c   a    -->   b   e
   //      / \        / \
   //     d   e      c   d
-  _Node<T> _rotateLeft(_Node<T> b) {
-    final _Node<T> a = b._right;
-    final _Node<T> d = a._left;
+  _Node<V> _rotateLeft(_Node<V> b) {
+    final _Node<V> a = b._right;
+    final _Node<V> d = a._left;
     a._left = b;
     b._right = d;
     return a;
   }
 }
 
-class _Node<T> {
+class _Node<V> {
   _Node(this._codeUnit, this._priority);
 
   final int _codeUnit;
   final int _priority;
 
-  //A single node may map to multiple data objects
-  List<T> data;
+  // A single node may map to multiple values due to KeyMapping.
+  // Is maintained as a set, i.e. only one instance of a
+  // particular value is associated with a particular key
+  List<V> values;
 
-  _Node<T> _left;
-  _Node<T> _mid;
-  _Node<T> _right;
+  _Node<V> _left;
+  _Node<V> _mid;
+  _Node<V> _right;
 
-  bool get _isEnd => data != null;
+  bool get _isEnd => values != null;
 }

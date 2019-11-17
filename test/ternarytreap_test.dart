@@ -2,6 +2,49 @@ import 'dart:convert';
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:test/test.dart';
 
+// Wraps search results of search for testing
+//
+// A single [key] can be inserted multiple times with different
+// data thus [data] is a list to handle one to many relation.
+class _KeyData<V> {
+  // Constructs a new [KeyData].
+  //
+  // @param [key] The unique key for this result
+  // @param [data] The data for this result
+  // @throws [ArgumentError] If passed null data.
+  _KeyData(this.key, this.data) {
+    if (key == null) {
+      throw ArgumentError.notNull('key');
+    }
+    if (data == null) {
+      throw ArgumentError.notNull('data');
+    }
+  }
+
+  static const String _key = 'key';
+  static const String _data = 'data';
+
+  // The unique key for this result.
+  final String key;
+
+  // A list of user supplied data objects.
+  //
+  // Because user may insert the same key multiple times with different
+  // data this is a list. Will never be null.
+  final List<V> data;
+
+  // Return String value.
+  //
+  // @returns String repesenting object.
+  @override
+  String toString() => toJson().toString();
+
+  // Return [Map] for json encoding.
+  //
+  // @returns String repesenting object.
+  Map<String, dynamic> toJson() => <String, dynamic>{_key: key, _data: data};
+}
+
 void main() {
   group('TernaryTreap', () {
     const int numKeys = 1000;
@@ -28,21 +71,23 @@ void main() {
 
     final TernaryTreap<int> tst = TernaryTreap<int>();
     for (final int x in testInput) {
-      tst.insert(x.toString(), x);
+      tst.add(x.toString(), x);
     }
-    test('Traversal', () {
-      final List<TernaryTreapResult<int>> expectedOutput =
-          <TernaryTreapResult<int>>[
-        for (final String word in sortedKeys)
-          TernaryTreapResult<int>(word, collator[word])
+
+    test('forEach', () {
+      final List<_KeyData<int>> expectedOutput = <_KeyData<int>>[
+        for (String word in sortedKeys) _KeyData<int>(word, collator[word])
       ];
 
-      final List<TernaryTreapResult<int>> output = tst.searchPrefix('');
+      final List<_KeyData<int>> result = <_KeyData<int>>[];
+      tst.forEach((String key, List<int> data) {
+        result.add(_KeyData<int>(key, data));
+      });
 
-      expect(json.encode(output), equals(json.encode(expectedOutput)));
+      expect(json.encode(result), equals(json.encode(expectedOutput)));
     });
 
-    test('Prefix', () {
+    test('forEachPrefixedBy', () {
       //Use key from middle of range
       final String key = (startVal + (numKeys / 2).round()).toString();
 
@@ -50,24 +95,42 @@ void main() {
       for (int i = 0; i < key.length; i++) {
         final String prefix = key.substring(0, i + 1);
 
-        final List<TernaryTreapResult<int>> expectedOutput =
-            <TernaryTreapResult<int>>[
+        final List<_KeyData<int>> expectedOutput = <_KeyData<int>>[
           for (String word in sortedKeys)
-            if (word.startsWith(prefix))
-              TernaryTreapResult<int>(word, collator[word])
+            if (word.startsWith(prefix)) _KeyData<int>(word, collator[word])
         ];
 
-        expect(json.encode(tst.searchPrefix(prefix)),
-            equals(json.encode(expectedOutput)));
+        final List<_KeyData<int>> result = <_KeyData<int>>[];
+        tst.forEachPrefixedBy(prefix, (String key, List<int> data) {
+          result.add(_KeyData<int>(key, data));
+          return true;
+        });
+
+        expect(json.encode(result), equals(json.encode(expectedOutput)));
       }
     });
 
-    test('Search', () {
+    test('keys', () {
+      expect(json.encode(tst.keys), equals(json.encode(sortedKeys)));
+    });
+
+    test('[]', () {
       //Use key from middle of range
       final String key = (startVal + (numKeys / 2).round()).toString();
 
-      expect(json.encode(tst.search(key)),
-          equals(json.encode(TernaryTreapResult<int>(key, collator[key]))));
+      expect(json.encode(tst[key]), equals(json.encode(collator[key])));
+
+      expect(json.encode(tst['NOT FOUND']), equals(json.encode(null)));
+    });
+
+    test('containsKey', () {
+      //Use key from middle of range
+      final String key = (startVal + (numKeys / 2).round()).toString();
+
+      expect(json.encode(tst.containsKey(key)), equals(json.encode(true)));
+
+      expect(json.encode(tst.containsKey('NOT FOUND')),
+          equals(json.encode(false)));
     });
 
     test('Stats', () {
@@ -75,46 +138,30 @@ void main() {
       expect(stats[TernaryTreap.keyCount], equals((numKeys * 1.5).round()));
     });
 
-    test('FormatTree', () {
-      final List<String> lines = tst.formattedTree('-');
-      expect(lines.length, equals((numKeys * 1.5).round()));
+    test('Length', () {
+      expect(tst.length, equals((numKeys * 1.5).round()));
     });
 
-    test('KeyTransforms', () {
-      TernaryTreap<int> tree = TernaryTreap<int>(TernaryTreap.lowerCase)
-        ..insert('TeStInG');
-      expect(json.encode(tree.search('tEsTiNg')),
-          equals(json.encode(TernaryTreapResult<int>('testing', <int>[]))));
+    test('KeyMappings', () {
+      TernaryTreap<int> tree = TernaryTreap<int>(TernaryTreap.lowercase)
+        ..add('TeStInG', 1);
+
+      expect(json.encode(tree['fake']), equals(json.encode(null)));
+
+      expect(json.encode(tree['tEsTiNg']), equals(json.encode(<int>[1])));
 
       expect(
-          json.encode(tree.searchPrefix('T')),
-          equals(json.encode(<TernaryTreapResult<int>>[
-            TernaryTreapResult<int>('testing', <int>[])
-          ])));
+          json.encode(tree['testing']),
+          equals(
+              json.encode(<int>[1])));
 
       tree = TernaryTreap<int>(TernaryTreap.collapseWhitespace)
-        ..insert(' t es   ti     ng  ');
-      expect(json.encode(tree.search('t es ti ng')),
-          equals(json.encode(TernaryTreapResult<int>('t es ti ng', <int>[]))));
-
-      expect(
-          json.encode(tree.searchPrefix('t es ti')),
-          equals(json.encode(<TernaryTreapResult<int>>[
-            TernaryTreapResult<int>('t es ti ng', <int>[])
-          ])));
+        ..add(' t es   ti     ng  ', 1);
+      expect(json.encode(tree['t es ti ng']), equals(json.encode(<int>[1])));
 
       tree = TernaryTreap<int>(TernaryTreap.lowerCollapse)
-        ..insert(' T eS   KK     Bg  ');
-      expect(
-          json.encode(tree.search('t es kk bg')),
-          equals(
-              json.encode(TernaryTreapResult<int>('t es kk bg', <int>[]))));
-
-      expect(
-          json.encode(tree.searchPrefix('t es kk')),
-          equals(json.encode(<TernaryTreapResult<int>>[
-            TernaryTreapResult<int>('t es kk bg', <int>[])
-          ])));
+        ..add(' T eS   KK     Bg  ', 1);
+      expect(json.encode(tree['t es kk bg']), equals(json.encode(<int>[1])));
     });
   });
 }
