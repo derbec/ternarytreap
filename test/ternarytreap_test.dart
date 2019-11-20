@@ -2,66 +2,29 @@ import 'dart:convert';
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:test/test.dart';
 
-// Wraps search results of search for testing
-//
-// A single [key] can be inserted multiple times with different
-// data thus [data] is a list to handle one to many relation.
-class _KeyData<V> {
-  // Constructs a new [KeyData].
-  //
-  // @param [key] The unique key for this result
-  // @param [data] The data for this result
-  // @throws [ArgumentError] If passed null data.
-  _KeyData(this.key, this.data) {
-    if (key == null) {
-      throw ArgumentError.notNull('key');
-    }
-    if (data == null) {
-      throw ArgumentError.notNull('data');
-    }
-  }
-
-  static const String _key = 'key';
-  static const String _data = 'data';
-
-  // The unique key for this result.
-  final String key;
-
-  // A list of user supplied data objects.
-  //
-  // Because user may insert the same key multiple times with different
-  // data this is a list. Will never be null.
-  final List<V> data;
-
-  // Return String value.
-  //
-  // @returns String repesenting object.
-  @override
-  String toString() => toJson().toString();
-
-  // Return [Map] for json encoding.
-  //
-  // @returns String repesenting object.
-  Map<String, dynamic> toJson() => <String, dynamic>{_key: key, _data: data};
-}
+Map<String, dynamic> mapEntryToJson(MapEntry<String, List<int>> mapEntry) =>
+    <String, dynamic>{'key': mapEntry.key, 'val': mapEntry.value};
 
 void main() {
   group('TernaryTreap', () {
-    const int numKeys = 1000;
-    const int startVal = 123456798887;
+    const int numUniqueKeys = 10753;
+    const int startVal = 17;
 
     //Test data
     //Create increasing keys with overlap - worst case scenario for tree
     final List<int> testInput = <int>[
-      for (int i = 0; i < numKeys; i++) startVal + i,
-      for (int i = 0; i < numKeys; i++) (startVal + (numKeys / 2).round()) + i
+      for (int i = 0; i < numUniqueKeys; i++) startVal + i,
+      for (int i = 0; i < numUniqueKeys; i++)
+        (startVal + (numUniqueKeys / 2).round()) + i
     ];
 
     //Test output
     final Map<String, List<int>> collator = <String, List<int>>{};
     for (final int x in testInput) {
       if (collator.containsKey(x.toString())) {
-        collator[x.toString()].add(x);
+        if (!collator[x.toString()].contains(x)) {
+          collator[x.toString()].add(x);
+        }
       } else {
         collator[x.toString()] = <int>[x];
       }
@@ -75,13 +38,14 @@ void main() {
     }
 
     test('forEach', () {
-      final List<_KeyData<int>> expectedOutput = <_KeyData<int>>[
-        for (String word in sortedKeys) _KeyData<int>(word, collator[word])
+      final List<Map<String, dynamic>> expectedOutput = <Map<String, dynamic>>[
+        for (String word in sortedKeys)
+          mapEntryToJson(MapEntry<String, List<int>>(word, collator[word]))
       ];
 
-      final List<_KeyData<int>> result = <_KeyData<int>>[];
+      final List<Map<String, dynamic>> result = <Map<String, dynamic>>[];
       tst.forEach((String key, List<int> data) {
-        result.add(_KeyData<int>(key, data));
+        result.add(mapEntryToJson(MapEntry<String, List<int>>(key, data)));
       });
 
       expect(json.encode(result), equals(json.encode(expectedOutput)));
@@ -89,20 +53,22 @@ void main() {
 
     test('forEachPrefixedBy', () {
       //Use key from middle of range
-      final String key = (startVal + (numKeys / 2).round()).toString();
+      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       //for each character in prefix compare prefix return to ternarytreap
       for (int i = 0; i < key.length; i++) {
         final String prefix = key.substring(0, i + 1);
 
-        final List<_KeyData<int>> expectedOutput = <_KeyData<int>>[
+        final List<Map<String, dynamic>> expectedOutput =
+            <Map<String, dynamic>>[
           for (String word in sortedKeys)
-            if (word.startsWith(prefix)) _KeyData<int>(word, collator[word])
+            if (word.startsWith(prefix))
+              mapEntryToJson(MapEntry<String, List<int>>(word, collator[word]))
         ];
 
-        final List<_KeyData<int>> result = <_KeyData<int>>[];
+        final List<Map<String, dynamic>> result = <Map<String, dynamic>>[];
         tst.forEachPrefixedBy(prefix, (String key, List<int> data) {
-          result.add(_KeyData<int>(key, data));
+          result.add(mapEntryToJson(MapEntry<String, List<int>>(key, data)));
           return true;
         });
 
@@ -111,12 +77,29 @@ void main() {
     });
 
     test('keys', () {
-      expect(json.encode(tst.keys), equals(json.encode(sortedKeys)));
+      expect(json.encode(tst.keys.toList()), equals(json.encode(sortedKeys)));
+    });
+
+    test('values', () {
+      final List<List<int>> expectedOutput = <List<int>>[
+        for (String word in sortedKeys) collator[word]
+      ];
+      expect(json.encode(tst.values.toList()),
+          equals(json.encode(expectedOutput)));
+    });
+test('entries', () {
+    final List<Map<String, dynamic>> expectedOutput =
+          <Map<String,dynamic>>[
+        for (String word in sortedKeys)
+          mapEntryToJson(MapEntry<String, List<int>>(word, collator[word]))
+      ];
+      expect(json.encode(tst.entries.map(mapEntryToJson).toList()),
+          equals(json.encode(expectedOutput)));
     });
 
     test('[]', () {
       //Use key from middle of range
-      final String key = (startVal + (numKeys / 2).round()).toString();
+      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       expect(json.encode(tst[key]), equals(json.encode(collator[key])));
 
@@ -125,7 +108,7 @@ void main() {
 
     test('containsKey', () {
       //Use key from middle of range
-      final String key = (startVal + (numKeys / 2).round()).toString();
+      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       expect(json.encode(tst.containsKey(key)), equals(json.encode(true)));
 
@@ -133,13 +116,16 @@ void main() {
           equals(json.encode(false)));
     });
 
-    test('Stats', () {
+    test('stats', () {
+      final int numKeys = (numUniqueKeys * 1.5).round();
       final Map<String, int> stats = tst.stats();
-      expect(stats[TernaryTreap.keyCount], equals((numKeys * 1.5).round()));
+      expect(stats[TernaryTreap.keyCount], equals(numKeys));
     });
 
-    test('Length', () {
-      expect(tst.length, equals((numKeys * 1.5).round()));
+    test('length', () {
+      final int numKeys = (numUniqueKeys * 1.5).round();
+      expect(tst.length, equals(numKeys));
+      expect(tst.length2, equals(numKeys));
     });
 
     test('KeyMappings', () {
@@ -150,10 +136,7 @@ void main() {
 
       expect(json.encode(tree['tEsTiNg']), equals(json.encode(<int>[1])));
 
-      expect(
-          json.encode(tree['testing']),
-          equals(
-              json.encode(<int>[1])));
+      expect(json.encode(tree['testing']), equals(json.encode(<int>[1])));
 
       tree = TernaryTreap<int>(TernaryTreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);

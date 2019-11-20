@@ -1,4 +1,8 @@
+import 'dart:collection';
 import 'dart:math';
+import 'package:meta/meta.dart';
+
+const _maxSafeInteger = 9007199254740991;
 
 /// A function mapping a string to a key.
 ///
@@ -13,6 +17,166 @@ typedef KeyMapping = String Function(String str);
 // if return is false traversal stops.
 typedef _NodeVisitor<V> = bool Function(
     _Node<V> thisNode, String currentStr, int currentDepth);
+
+class _TernaryTreeKeyIterable<V> extends IterableMixin<String> {
+  _TernaryTreeKeyIterable(this._owner);
+  final TernaryTreap<V> _owner;
+
+  @override
+  int get length => _owner.length;
+  @override
+  bool get isEmpty => _owner.isEmpty;
+
+  @override
+  Iterator<String> get iterator =>
+      _TernaryTreeKeyIterator<V>(_owner, _owner._root);
+}
+
+class _TernaryTreeValueIterable<V> extends IterableMixin<List<V>> {
+  _TernaryTreeValueIterable(this._owner);
+  final TernaryTreap<V> _owner;
+
+  @override
+  int get length => _owner.length;
+  @override
+  bool get isEmpty => _owner.isEmpty;
+
+  @override
+  Iterator<List<V>> get iterator =>
+      _TernaryTreeValueIterator<V>(_owner, _owner._root);
+}
+
+class _TernaryTreeMapEntryIterable<V>
+    extends IterableMixin<MapEntry<String, List<V>>> {
+  _TernaryTreeMapEntryIterable(this._owner);
+  final TernaryTreap<V> _owner;
+
+  @override
+  int get length => _owner.length;
+  @override
+  bool get isEmpty => _owner.isEmpty;
+
+  @override
+  Iterator<MapEntry<String, List<V>>> get iterator =>
+      _TernaryTreeMapEntryIterator<V>(_owner, _owner._root);
+}
+
+// store call stack data for iterators
+@immutable
+class _StackFrame<V> {
+  const _StackFrame(this.node, this.prefix);
+  final _Node<V> node;
+  final String prefix;
+}
+
+/// Base class for in order [TernaryTreap] iterators.
+abstract class _TernaryTreeIteratorBase<V> {
+  /// Construct new [_TernaryTreeIteratorBase] to start from
+  /// [root] which belongs to owner
+  _TernaryTreeIteratorBase(TernaryTreap<V> owner, _Node<V> root,
+      [String prefix = ''])
+      : _owner = owner,
+        _ownerStartingVersion = owner._version {
+    if (root == null) {
+      throw ArgumentError.notNull('root');
+    }
+    if (prefix == null) {
+      throw ArgumentError.notNull('prefix');
+    }
+
+    _pushAllLeft(_StackFrame<V>(root, prefix));
+  }
+
+  final ListQueue<_StackFrame<V>> _stack = ListQueue<_StackFrame<V>>();
+
+  final TernaryTreap<V> _owner;
+
+  final int _ownerStartingVersion;
+
+  String _currentKey;
+  List<V> _currentValue;
+
+  /// Moves to the next element.
+  ///
+  /// Returns true if current contains the next element.
+  /// Returns false if no elements are left.
+  /// It is safe to invoke moveNext even when the
+  /// iterator is already positioned after the last element.
+  /// In this case moveNext returns false again and has no effect.
+  /// A call to moveNext may throw [ConcurrentModificationError] if
+  /// iteration has been broken by changing the underlying collection.
+  bool moveNext() {
+    if (_owner._version != _ownerStartingVersion) {
+      throw ConcurrentModificationError(_owner);
+    }
+
+    while (_stack.isNotEmpty) {
+      final _StackFrame<V> context = _stack.removeLast();
+
+      // push right and mid for later consumption
+      if (context.node._right != null) {
+        _pushAllLeft(_StackFrame<V>(context.node._right, context.prefix));
+      }
+
+      if (context.node._mid != null) {
+        _pushAllLeft(_StackFrame<V>(context.node._mid,
+            context.prefix + String.fromCharCode(context.node._codeUnit)));
+      }
+
+      if (context.node._isEnd) {
+        _currentKey =
+            context.prefix + String.fromCharCode(context.node._codeUnit);
+        _currentValue = context.node.values;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _pushAllLeft(_StackFrame<V> context) {
+    _StackFrame<V> _context = context;
+    // add frame to stack and drill down the left
+    _stack.addLast(_context);
+    while (_context.node._left != null) {
+      _context = _StackFrame<V>(_context.node._left, _context.prefix);
+      _stack.addLast(_context);
+    }
+  }
+}
+
+/// Iterate through keys
+class _TernaryTreeKeyIterator<V> extends _TernaryTreeIteratorBase<V>
+    implements Iterator<String> {
+  /// Construct new [_TernaryTreeKeyIterator]
+  _TernaryTreeKeyIterator(TernaryTreap<V> owner, _Node<V> root,
+      [String prefix = ''])
+      : super(owner, root, prefix);
+
+  @override
+  String get current => _currentKey;
+}
+
+/// Iterate through keys
+class _TernaryTreeValueIterator<V> extends _TernaryTreeIteratorBase<V>
+    implements Iterator<List<V>> {
+  /// Construct new [_TernaryTreeKeyIterator]
+  _TernaryTreeValueIterator(TernaryTreap<V> owner, _Node<V> root)
+      : super(owner, root);
+
+  @override
+  List<V> get current => _currentValue;
+}
+
+/// Iterate through keys
+class _TernaryTreeMapEntryIterator<V> extends _TernaryTreeIteratorBase<V>
+    implements Iterator<MapEntry<String, List<V>>> {
+  /// Construct new [_TernaryTreeKeyIterator]
+  _TernaryTreeMapEntryIterator(TernaryTreap<V> owner, _Node<V> root)
+      : super(owner, root);
+
+  @override
+  MapEntry<String, List<V>> get current => MapEntry(_currentKey, _currentValue);
+}
 
 /// A hybrid of [Ternary search trie](https://en.wikipedia.org/wiki/Ternary_search_tree)
 /// and [Treap](https://en.wikipedia.org/wiki/Treap) with following properties:
@@ -41,7 +205,7 @@ typedef _NodeVisitor<V> = bool Function(
 ///   +------------+U 5|   CUP: 2 value objects
 ///   |            +-+-+   CUT: 1 value object
 /// +-+-+            |
-/// |A 3|            |
+/// |A 3|            |     *Numbers represent priorities.
 /// +-+-+          +-+-+
 ///   |            |P 8+-------------+
 /// +-+-+          +-+-+             |
@@ -61,7 +225,7 @@ typedef _NodeVisitor<V> = bool Function(
 /// * An integer priority value [_Node._priority] such that Treap invarient:
 /// (_thisNode._left._priority > _thisNode._priority) &&
 /// (_thisNode._right._priority > _thisNode._priority)
-class TernaryTreap<V> {
+class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// Constructs a new [TernaryTreap].
   ///
   /// @param [keyMapping] Optional instance of [KeyMapping] to be
@@ -118,29 +282,31 @@ class TernaryTreap<V> {
   final KeyMapping _keyMapping;
   _Node<V> _root;
   int _numKeys = 0;
+  int _version = 0;
 
-  /// Return number of keys in [TernaryTreap]
+  @override
   int get length => _numKeys;
 
-  /// Return all keys in [TernaryTreap]
-  Iterable<String> get keys {
-    final List<String> result = <String>[];
-    forEach((String key, List<V> values) {
-      result.add(key);
-    });
-    return result;
-  }
+  int get length2 => _root.numDecendants;
 
-  /// Return all values in [TernaryTreap]
-  ///
-  /// Returned in key order
-  Iterable<List<V>> get values {
-    final List<List<V>> result = <List<V>>[];
-    forEach((String key, List<V> values) {
-      result.add(values);
-    });
-    return result;
-  }
+  @override
+  bool get isEmpty => _numKeys == 0;
+
+  @override
+  bool get isNotEmpty => _numKeys > 0;
+
+  @override
+  bool containsKey(Object key) => this[key] != null;
+
+  @override
+  Iterable<String> get keys => _TernaryTreeKeyIterable<V>(this);
+
+  @override
+  Iterable<List<V>> get values => _TernaryTreeValueIterable<V>(this);
+
+  @override
+  Iterable<MapEntry<String, List<V>>> get entries =>
+      _TernaryTreeMapEntryIterable<V>(this);
 
   /// Insert a key and optional value.
   ///
@@ -153,6 +319,7 @@ class TernaryTreap<V> {
     if (key.isEmpty) {
       throw ArgumentError();
     }
+    _incVersion();
     _root = _add(_root, _transformKey(key).codeUnits, 0, value);
   }
 
@@ -198,23 +365,18 @@ class TernaryTreap<V> {
     });
   }
 
-  /// Does specified [key] exist?.
-  ///
-  /// @param [key] The key to check.
-  /// @returns true if key exists, false otherwise.
-  bool containsKey(String key) => this[key] != null;
-
   /// Return value for specified [key].
   ///
   /// @param [key] The key to get.
   /// @returns List of values corresponding to [key].
   /// If no value associated with key then return empty [List].
   /// If key found then return null.
-  List<V> operator [](String key) {
-    if (key.isEmpty) {
+  @override
+  List<V> operator [](Object key) {
+    if (!(key is String)) {
       throw ArgumentError();
     }
-    final String keyMapped = _transformKey(key);
+    final String keyMapped = _transformKey(key as String);
     final _Node<V> lastPrefixNode =
         _descendToPrefixLastNode(_root, keyMapped.codeUnits, 0);
     if (lastPrefixNode == null) {
@@ -279,12 +441,22 @@ class TernaryTreap<V> {
     };
   }
 
-  String _transformKey(String key) =>
-      _keyMapping == null ? key : _keyMapping(key);
+  // increment modification version
+  void _incVersion() =>
+      _version = (_version >= _maxSafeInteger) ? 0 : _version + 1;
+
+  // Map key using specified [KeyMapping]
+  String _transformKey(String key) {
+    if (key.isEmpty) {
+      throw ArgumentError();
+    }
+
+    return _keyMapping == null ? key : _keyMapping(key);
+  }
 
   _Node<V> _add(_Node<V> thisNode, List<int> codeUnits, int i, dynamic value) {
     _Node<V> _thisNode;
-    if (null == thisNode) {
+    if (thisNode == null) {
       _thisNode = _Node<V>(codeUnits[i], _random.nextInt(1 << 32));
     } else {
       _thisNode = thisNode;
@@ -321,7 +493,25 @@ class TernaryTreap<V> {
       }
     }
 
+    _updateDescendantCounts(_thisNode);
+
     return _thisNode;
+  }
+
+  void _updateDescendantCounts(_Node<V> _thisNode) {
+    // Accumulate descendant counts and update own count
+    _thisNode.numDecendants = (_thisNode._left == null
+            ? 0
+            : (_thisNode._left.numDecendants +
+                (_thisNode._left._isEnd ? 1 : 0))) +
+        (_thisNode._mid == null
+            ? 0
+            : (_thisNode._mid.numDecendants +
+                (_thisNode._mid._isEnd ? 1 : 0))) +
+        (_thisNode._right == null
+            ? 0
+            : (_thisNode._right.numDecendants +
+                (_thisNode._right._isEnd ? 1 : 0)));
   }
 
   _Node<V> _descendToPrefixLastNode(
@@ -382,9 +572,18 @@ class TernaryTreap<V> {
   //  c   d            d   e
   _Node<V> _rotateRight(_Node<V> a) {
     final _Node<V> b = a._left;
+    final _Node<V> c = b._left;
     final _Node<V> d = b._right;
-    b._right = a;
+    final _Node<V> e = a._right;
+
+    // Rotate
     a._left = d;
+    b._right = a;
+
+    // Adjust descendant counts from bottom up
+    _updateDescendantCounts(a);
+    _updateDescendantCounts(b);
+
     return b;
   }
 
@@ -395,10 +594,35 @@ class TernaryTreap<V> {
   //     d   e      c   d
   _Node<V> _rotateLeft(_Node<V> b) {
     final _Node<V> a = b._right;
+    final _Node<V> c = b._left;
     final _Node<V> d = a._left;
-    a._left = b;
+    final _Node<V> e = a._right;
+
+    // Rotate
     b._right = d;
+    a._left = b;
+
+    // Adjust descendant counts from bottom up
+    _updateDescendantCounts(b);
+    _updateDescendantCounts(a);
+
     return a;
+  }
+
+  @override
+  void operator []=(String key, List<V> value) {
+    // TODO: implement []=
+  }
+
+  @override
+  void clear() {
+    // TODO: implement clear
+  }
+
+  @override
+  List<V> remove(Object key) {
+    // TODO: implement remove
+    return null;
   }
 }
 
@@ -407,6 +631,7 @@ class _Node<V> {
 
   final int _codeUnit;
   final int _priority;
+  int numDecendants = 0; //Number of end nodes below this node.
 
   // A single node may map to multiple values due to KeyMapping.
   // Is maintained as a set, i.e. only one instance of a
