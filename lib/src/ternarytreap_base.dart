@@ -2,7 +2,8 @@ import 'dart:collection';
 import 'dart:math';
 import 'package:meta/meta.dart';
 
-const _maxSafeInteger = 9007199254740991;
+// 2^53-1
+const int _maxSafeInteger = 9007199254740991;
 
 /// A function mapping a string to a key.
 ///
@@ -11,54 +12,78 @@ const _maxSafeInteger = 9007199254740991;
 /// and their lowercase equivilents see: [TernaryTreap.lowercase]
 typedef KeyMapping = String Function(String str);
 
-// Visitor pattern signature
-// Return value allows early stopping
-// if return is true then traversal continues.
-// if return is false traversal stops.
-typedef _NodeVisitor<V> = bool Function(
-    _Node<V> thisNode, String currentStr, int currentDepth);
-
-class _TernaryTreeKeyIterable<V> extends IterableMixin<String> {
-  _TernaryTreeKeyIterable(this._owner);
+abstract class _TernaryTreeIterableBase<V, I> extends IterableMixin<I> {
+  _TernaryTreeIterableBase(this._owner, this._root, this._prefix);
   final TernaryTreap<V> _owner;
+  final _Node<V> _root;
+  final String _prefix;
+
+  //
+  @override
+  int get length {
+    if (_root == null) {
+      return 0;
+    }
+
+    return _prefix.isEmpty ? _root._sizeDFSTree : _root._sizePrefixTree;
+  }
 
   @override
-  int get length => _owner.length;
-  @override
-  bool get isEmpty => _owner.isEmpty;
+  bool get isEmpty => _root == null;
+}
+
+class _TernaryTreeKeyIterable<V> extends _TernaryTreeIterableBase<V, String> {
+  _TernaryTreeKeyIterable(TernaryTreap<V> owner, _Node<V> root,
+      [String prefix = ''])
+      : super(owner, root, prefix);
 
   @override
   Iterator<String> get iterator =>
-      _TernaryTreeKeyIterator<V>(_owner, _owner._root);
+      _TernaryTreeKeyIterator<V>(_owner, _root, _prefix);
 }
 
-class _TernaryTreeValueIterable<V> extends IterableMixin<List<V>> {
-  _TernaryTreeValueIterable(this._owner);
-  final TernaryTreap<V> _owner;
-
-  @override
-  int get length => _owner.length;
-  @override
-  bool get isEmpty => _owner.isEmpty;
+/// Iterates through values of the [TernaryTreap].
+///
+/// Values are ordered first by key and then by insertion order.
+/// Due to the 1 to n relationship between key and values
+/// (necessary for key mapping) each element returned will be a list
+/// containing 1 or more elemets that are associated with a key.
+///
+/// If a key maps to an empty values list then it is skipped, no
+/// empty lists are returned.
+///
+/// For convenience the getter [flattened] may be used to flatten
+/// this into a single combined list. @see [flattened]
+class TernaryTreeValuesIterable<V>
+    extends _TernaryTreeIterableBase<V, List<V>> {
+  /// Constructs a TernaryTreeValuesIterable
+  TernaryTreeValuesIterable(TernaryTreap<V> owner, _Node<V> root,
+      [String prefix = ''])
+      : super(owner, root, prefix);
 
   @override
   Iterator<List<V>> get iterator =>
-      _TernaryTreeValueIterator<V>(_owner, _owner._root);
+      _TernaryTreeValuesIterator<V>(_owner, _root, _prefix);
+
+  /// Return an iterable that combines individual Key->Values
+  /// relations into a single flat ordering.
+  ///
+  /// For example if [TernaryTreap.valuesByKeyPrefix] returns:
+  /// `[['Card', 'card'],['Cat', 'cat', 'CAT']]` then
+  /// [TernaryTreap.valuesByKeyPrefix.flattened] will return
+  /// `['Card', 'card','Cat', 'cat', 'CAT']`.
+  Iterable<V> get flattened => expand((List<V> values) => values);
 }
 
 class _TernaryTreeMapEntryIterable<V>
-    extends IterableMixin<MapEntry<String, List<V>>> {
-  _TernaryTreeMapEntryIterable(this._owner);
-  final TernaryTreap<V> _owner;
-
-  @override
-  int get length => _owner.length;
-  @override
-  bool get isEmpty => _owner.isEmpty;
+    extends _TernaryTreeIterableBase<V, MapEntry<String, List<V>>> {
+  _TernaryTreeMapEntryIterable(TernaryTreap<V> owner, _Node<V> root,
+      [String prefix = ''])
+      : super(owner, root, prefix);
 
   @override
   Iterator<MapEntry<String, List<V>>> get iterator =>
-      _TernaryTreeMapEntryIterator<V>(_owner, _owner._root);
+      _TernaryTreeMapEntryIterator<V>(_owner, _root, _prefix);
 }
 
 // store call stack data for iterators
@@ -77,14 +102,24 @@ abstract class _TernaryTreeIteratorBase<V> {
       [String prefix = ''])
       : _owner = owner,
         _ownerStartingVersion = owner._version {
-    if (root == null) {
-      throw ArgumentError.notNull('root');
-    }
     if (prefix == null) {
       throw ArgumentError.notNull('prefix');
     }
-
-    _pushAllLeft(_StackFrame<V>(root, prefix));
+    if (root != null) {
+      // If prefix was specified then our result tree is hanging
+      // from _root.mid however current value must reflect _root
+      // after first call of moveNext()
+      if (prefix.isNotEmpty) {
+        if (root._isKeyEnd) {
+          _prefixFrame = _StackFrame<V>(root, prefix);
+        }
+        if (root._mid != null) {
+          _pushAllLeft(_StackFrame<V>(root._mid, prefix));
+        }
+      } else {
+        _pushAllLeft(_StackFrame<V>(root, ''));
+      }
+    }
   }
 
   final ListQueue<_StackFrame<V>> _stack = ListQueue<_StackFrame<V>>();
@@ -93,6 +128,7 @@ abstract class _TernaryTreeIteratorBase<V> {
 
   final int _ownerStartingVersion;
 
+  _StackFrame<V> _prefixFrame; // Handle prefix end node
   String _currentKey;
   List<V> _currentValue;
 
@@ -105,9 +141,27 @@ abstract class _TernaryTreeIteratorBase<V> {
   /// In this case moveNext returns false again and has no effect.
   /// A call to moveNext may throw [ConcurrentModificationError] if
   /// iteration has been broken by changing the underlying collection.
+  ///
+  /// Note: The Values list returned may or may not be a reference to the
+  /// underlying list stored in [_Node] dpending on the value of
+  /// [TernaryTreap.treatKeyAsStringValue].
   bool moveNext() {
     if (_owner._version != _ownerStartingVersion) {
       throw ConcurrentModificationError(_owner);
+    }
+
+    // Handle one time case where root node represents final char of
+    // prefix and should not be explored
+    if (_prefixFrame != null) {
+      _currentKey = _prefixFrame.prefix;
+      // Handle string map as special case by inserting key as first value.
+      if (_owner.treatKeyAsStringValue && V == String) {
+        _currentValue = <V>[_currentKey as V, ..._prefixFrame.node._values];
+      } else {
+        _currentValue = _prefixFrame.node._values;
+      }
+      _prefixFrame = null;
+      return true;
     }
 
     while (_stack.isNotEmpty) {
@@ -123,10 +177,16 @@ abstract class _TernaryTreeIteratorBase<V> {
             context.prefix + String.fromCharCode(context.node._codeUnit)));
       }
 
-      if (context.node._isEnd) {
+      if (context.node._isKeyEnd) {
         _currentKey =
             context.prefix + String.fromCharCode(context.node._codeUnit);
-        _currentValue = context.node.values;
+
+        // Handle string map as special case by inserting key as first value.
+        if (_owner.treatKeyAsStringValue && V == String) {
+          _currentValue = <V>[_currentKey as V, ...context.node._values];
+        } else {
+          _currentValue = context.node._values;
+        }
         return true;
       }
     }
@@ -156,12 +216,23 @@ class _TernaryTreeKeyIterator<V> extends _TernaryTreeIteratorBase<V>
   String get current => _currentKey;
 }
 
-/// Iterate through keys
-class _TernaryTreeValueIterator<V> extends _TernaryTreeIteratorBase<V>
+/// Iterate through values
+class _TernaryTreeValuesIterator<V> extends _TernaryTreeIteratorBase<V>
     implements Iterator<List<V>> {
   /// Construct new [_TernaryTreeKeyIterator]
-  _TernaryTreeValueIterator(TernaryTreap<V> owner, _Node<V> root)
-      : super(owner, root);
+  _TernaryTreeValuesIterator(TernaryTreap<V> owner, _Node<V> root,
+      [String prefix = ''])
+      : super(owner, root, prefix);
+
+  @override
+  bool moveNext() {
+    bool next = super.moveNext();
+    // skip empty value lists
+    while (next && _currentValue.isEmpty) {
+      next = super.moveNext();
+    }
+    return next;
+  }
 
   @override
   List<V> get current => _currentValue;
@@ -171,11 +242,13 @@ class _TernaryTreeValueIterator<V> extends _TernaryTreeIteratorBase<V>
 class _TernaryTreeMapEntryIterator<V> extends _TernaryTreeIteratorBase<V>
     implements Iterator<MapEntry<String, List<V>>> {
   /// Construct new [_TernaryTreeKeyIterator]
-  _TernaryTreeMapEntryIterator(TernaryTreap<V> owner, _Node<V> root)
-      : super(owner, root);
+  _TernaryTreeMapEntryIterator(TernaryTreap<V> owner, _Node<V> root,
+      [String prefix = ''])
+      : super(owner, root, prefix);
 
   @override
-  MapEntry<String, List<V>> get current => MapEntry(_currentKey, _currentValue);
+  MapEntry<String, List<V>> get current =>
+      MapEntry<String, List<V>>(_currentKey, _currentValue);
 }
 
 /// A hybrid of [Ternary search trie](https://en.wikipedia.org/wiki/Ternary_search_tree)
@@ -230,23 +303,9 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   ///
   /// @param [keyMapping] Optional instance of [KeyMapping] to be
   /// applied to all keys processed by this [TernaryTreap].
+  /// @param [treatKeyAsStringValue] if true then keys are returned as values.
   /// @returns New [TernaryTreap].
-  TernaryTreap([KeyMapping keyMapping]) : _keyMapping = keyMapping;
-
-  /// Key for stats map.
-  ///
-  /// Maximum [_Node] depth.
-  static const String depth = 'depth';
-
-  /// Key for stats map node count value.
-  ///
-  /// Total number of [_Node] objects.
-  static const String nodeCount = 'nodecount';
-
-  /// Key for stats map key count value.
-  ///
-  /// Number of unique keys
-  static const String keyCount = 'keycount';
+  TernaryTreap({this.keyMapping, this.treatKeyAsStringValue = true});
 
   /// Transform a key to all lowercase.
   /// When passed to [TernaryTreap()] this transform will be applied
@@ -279,41 +338,91 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
       collapseWhitespace(str).toLowerCase();
 
   final Random _random = Random();
-  final KeyMapping _keyMapping;
+
+  /// The [KeyMapping] is use by this [TernaryTreap]
+  final KeyMapping keyMapping;
+
+  /// If true then keys will be included as values during processing
+  /// when [TernaryTreap] is configured for objects of type [String]
+  /// This prevents storing the same string twice for the common
+  /// [TernaryTreap<String>] case.
+  final bool treatKeyAsStringValue;
+
   _Node<V> _root;
-  int _numKeys = 0;
   int _version = 0;
 
   @override
-  int get length => _numKeys;
-
-  int get length2 => _root.numDecendants;
+  int get length => _root == null ? 0 : _root._sizeDFSTree;
 
   @override
-  bool get isEmpty => _numKeys == 0;
-
-  @override
-  bool get isNotEmpty => _numKeys > 0;
+  bool get isEmpty => _root == null;
 
   @override
   bool containsKey(Object key) => this[key] != null;
 
   @override
-  Iterable<String> get keys => _TernaryTreeKeyIterable<V>(this);
+  Iterable<String> get keys => _TernaryTreeKeyIterable<V>(this, _root);
 
   @override
-  Iterable<List<V>> get values => _TernaryTreeValueIterable<V>(this);
+  TernaryTreeValuesIterable<V> get values =>
+      TernaryTreeValuesIterable<V>(this, _root);
 
   @override
   Iterable<MapEntry<String, List<V>>> get entries =>
-      _TernaryTreeMapEntryIterable<V>(this);
+      _TernaryTreeMapEntryIterable<V>(this, _root);
+
+  /// Returns [Iterable] collection of each key/value pair of the [TernaryTreap]
+  /// where key (after [KeyMapping] applied) is prefixed by [prefix].
+  ///
+  /// @throws ArgumentError if [prefix] is empty
+  Iterable<MapEntry<String, List<V>>> entriesByKeyPrefix(String prefix) {
+    final String prefixMapped = _transformKey(prefix);
+
+    //Traverse from last node of prefix
+    final _Node<V> lastPrefixNode =
+        _getPrefixLastNode(_root, prefixMapped.codeUnits, 0);
+
+    return _TernaryTreeMapEntryIterable<V>(this, lastPrefixNode, prefixMapped);
+  }
+
+  /// Returns [Iterable] collection of each key of the [TernaryTreap]
+  /// where key (after [KeyMapping] applied) is prefixed by [prefix].
+  ///
+  /// @throws ArgumentError if [prefix] is empty
+  Iterable<String> keysByPrefix(String prefix) {
+    final String prefixMapped = _transformKey(prefix);
+
+    //Traverse from last node of prefix
+    final _Node<V> lastPrefixNode =
+        _getPrefixLastNode(_root, prefixMapped.codeUnits, 0);
+
+    return _TernaryTreeKeyIterable<V>(this, lastPrefixNode, prefixMapped);
+  }
+
+  /// Returns [TernaryTreeValuesIterable] giving of each value
+  /// of the [TernaryTreap] where key (after [KeyMapping] applied)
+  /// is prefixed by [prefix].
+  ///
+  /// Each element will be a [List<V>] object, to flatten iterator into
+  /// single [List] @see [TernaryTreeValuesIterable.flattened]
+  ///
+  /// @throws ArgumentError if [prefix] is empty
+  TernaryTreeValuesIterable<V> valuesByKeyPrefix(String prefix) {
+    final String prefixMapped = _transformKey(prefix);
+
+    //Traverse from last node of prefix
+    final _Node<V> lastPrefixNode =
+        _getPrefixLastNode(_root, prefixMapped.codeUnits, 0);
+
+    return TernaryTreeValuesIterable<V>(this, lastPrefixNode, prefixMapped);
+  }
 
   /// Insert a key and optional value.
   ///
   /// @param [key] A unique sequence of characters to be stored for retrieval.
   /// @param [value] A user specified value to associate with this key.
   /// The value is checked against existing entries for this key (==) and
-  /// if already associated with the key is not added. @see [_Node.values]
+  /// if already associated with the key is not added. @see [_Node._values]
   /// @throws [ArgumentError] if key is empty.
   void add(String key, [V value]) {
     if (key.isEmpty) {
@@ -326,43 +435,32 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// Applies [f] to each key/value pair of the [TernaryTreap]
   ///
   /// Calling [f] must not add or remove keys from the [TernaryTreap]
+  @override
   void forEach(void Function(String key, List<V> values) f) {
-    _inorderTraversalFromNode(_root, '', 0,
-        (_Node<V> thisNode, String currentStr, int currentDepth) {
-      if (thisNode._isEnd) {
-        f(currentStr, thisNode.values);
-      }
-      return true;
-    });
+    final _TernaryTreeMapEntryIterator<V> itr = entries.iterator;
+
+    // We can avoid an object creation per key by not accessing the
+    // 'current' getter of itr.
+    while (itr.moveNext()) {
+      f(itr._currentKey, itr._currentValue);
+    }
   }
 
   /// Applies [f] to each key/value pair of the [TernaryTreap]
   /// where key (after [KeyMapping] applied) is prefixed by [prefix].
   ///
   /// Calling [f] must not add or remove keys from the [TernaryTreap]
-  /// The return value of [f] is used for early stopping.
-  /// This is useful when only a subset of the entire resultset is required.
-  /// When [f] returns true iteration continues.
-  /// When [f] returns false iteration stops.
   /// @throws ArgumentError if [prefix] is empty
   void forEachPrefixedBy(
-      String prefix, bool Function(String key, List<V> value) f) {
-    if (prefix.isEmpty) {
-      throw ArgumentError();
-    }
+      String prefix, void Function(String key, List<V> values) f) {
+    final _TernaryTreeMapEntryIterator<V> itr =
+        entriesByKeyPrefix(prefix).iterator;
 
-    final String prefixMapped = _transformKey(prefix);
-    //Traverse from last node of prefix
-    final _Node<V> lastPrefixNode =
-        _descendToPrefixLastNode(_root, prefixMapped.codeUnits, 0);
-    _prefixTraversalFromNode(lastPrefixNode, '', 0,
-        (_Node<V> thisNode, String currentStr, int currentDepth) {
-      if (thisNode._isEnd) {
-        return f(prefixMapped + currentStr, thisNode.values);
-      } else {
-        return true;
-      }
-    });
+    // We can avoid an object creation per key by not accessing the
+    // 'current' getter of itr.
+    while (itr.moveNext()) {
+      f(itr._currentKey, itr._currentValue);
+    }
   }
 
   /// Return value for specified [key].
@@ -370,20 +468,71 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// @param [key] The key to get.
   /// @returns List of values corresponding to [key].
   /// If no value associated with key then return empty [List].
-  /// If key found then return null.
+  /// If key not found then return null.
   @override
   List<V> operator [](Object key) {
     if (!(key is String)) {
       throw ArgumentError();
     }
-    final String keyMapped = _transformKey(key as String);
+
     final _Node<V> lastPrefixNode =
-        _descendToPrefixLastNode(_root, keyMapped.codeUnits, 0);
-    if (lastPrefixNode == null) {
+        _getPrefixLastNode(_root, _transformKey(key as String).codeUnits, 0);
+
+    if (lastPrefixNode == null || !lastPrefixNode._isKeyEnd) {
       return null;
     }
-    assert(lastPrefixNode._isEnd, 'Not at word end');
-    return lastPrefixNode.values;
+
+    // Handle string map as special case by inserting key as first value.
+    if (treatKeyAsStringValue && V == String) {
+      return <V>[key as V, ...lastPrefixNode._values];
+    } else {
+      return lastPrefixNode._values;
+    }
+  }
+
+  /// Set list of values corresponding to [key]
+  @override
+  void operator []=(String key, List<V> value) {
+    _incVersion();
+    final String keyMapped = _transformKey(key);
+    _Node<V> lastPrefixNode = _getPrefixLastNode(_root, keyMapped.codeUnits, 0);
+
+    if (lastPrefixNode == null) {
+      // Node does not exists so insert a new one
+      add(key);
+      // Get newly added now
+      lastPrefixNode = _getPrefixLastNode(_root, keyMapped.codeUnits, 0);
+    }
+
+    // Update values with shallow copy
+    lastPrefixNode._values = value.toList();
+
+    // Take into account String special case and remove key from list of
+    // values if present
+    if (treatKeyAsStringValue && V == String) {
+      lastPrefixNode._values.remove(key);
+    }
+  }
+
+  @override
+  void clear() {
+    _incVersion();
+    _root = null;
+  }
+
+  @override
+  List<V> remove(Object key) {
+    if (!(key is String)) {
+      throw ArgumentError();
+    }
+    _incVersion();
+    final List<V> values =
+        _remove(_root, null, _transformKey(key).codeUnits, 0);
+    if (_root != null && _root._numDFSDescendants == 0) {
+      /// There are no end nodes left in tree so delete root
+      _root = null;
+    }
+    return values;
   }
 
   /// Generate a string representation of this [TernaryTreap].
@@ -397,48 +546,23 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   @override
   String toString([String paddingChar = '-']) {
     final StringBuffer lines = StringBuffer();
-    _inorderTraversalFromNode(_root, '', 0,
-        (_Node<V> thisNode, String currentStr, int currentDepth) {
-      if (thisNode._isEnd) {
-        final String keyPadding =
-            ''.padLeft(currentDepth + 1 - currentStr.length, paddingChar);
-        final String valuePadding = ''.padLeft(keyPadding.length, ' ');
-        lines.writeln(keyPadding + currentStr);
-        for (final V datum in thisNode.values) {
-          lines.writeln(valuePadding + datum.toString());
-        }
-      }
-      return true;
-    });
-    return lines.toString();
-  }
+    final _TernaryTreeMapEntryIterator<V> itr = entries.iterator;
 
-  /// Generate stats for this [TernaryTreap].
-  ///
-  /// @returns A [Map] with statistical info accessed via keys:
-  ///   * [depth] - Maximum [_Node] depth.
-  ///   * [nodeCount] - Total number of [_Node] objects.
-  ///   * [keyCount] - Total number of unique keys.
-  Map<String, int> stats() {
-    int depth = 0;
-    int nodeCount = 0;
-    int keyCount = 0;
-    _inorderTraversalFromNode(_root, '', 0,
-        (_Node<V> thisNode, String currentStr, int currentDepth) {
-      if (currentDepth > depth) {
-        depth = currentDepth;
+    // We can avoid an object creation per key by not accessing the
+    // 'current' getter of itr.
+    while (itr.moveNext()) {
+      final int currentDepth = itr._stack.length;
+
+      final String keyPadding =
+          ''.padLeft(currentDepth + 1 - itr._currentKey.length, paddingChar);
+
+      final String valuePadding = ''.padLeft(keyPadding.length, ' ');
+      lines.writeln(keyPadding + itr._currentKey);
+      for (final V datum in itr._currentValue) {
+        lines.writeln(valuePadding + datum.toString());
       }
-      nodeCount++;
-      if (thisNode._isEnd) {
-        keyCount++;
-      }
-      return true;
-    });
-    return <String, int>{
-      TernaryTreap.depth: depth,
-      TernaryTreap.nodeCount: nodeCount,
-      TernaryTreap.keyCount: keyCount
-    };
+    }
+    return lines.toString();
   }
 
   // increment modification version
@@ -451,10 +575,10 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
       throw ArgumentError();
     }
 
-    return _keyMapping == null ? key : _keyMapping(key);
+    return keyMapping == null ? key : keyMapping(key);
   }
 
-  _Node<V> _add(_Node<V> thisNode, List<int> codeUnits, int i, dynamic value) {
+  _Node<V> _add(_Node<V> thisNode, List<int> codeUnits, int i, V value) {
     _Node<V> _thisNode;
     if (thisNode == null) {
       _thisNode = _Node<V>(codeUnits[i], _random.nextInt(1 << 32));
@@ -477,91 +601,108 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
         _thisNode._mid = _add(_thisNode._mid, codeUnits, i + 1, value);
       } else {
         // Terminal node for this key
-        if (_thisNode.values == null) {
-          //This is a new key
-          _thisNode.values ??= <V>[];
-          _numKeys++;
-        }
+        //This is a new key
+        _thisNode._values ??= <V>[];
 
+        // If a value has been specified then consider adding it to list
         if (value != null) {
-          // check if value already attached to node
-          // prevent duplicates.
-          if (!_thisNode.values.contains(value)) {
-            _thisNode.values.add(value as V);
+          // Check special case where value is the same as key
+          // When this is the case we dont need to store seperatly
+          // in value list.
+          if (!(treatKeyAsStringValue &&
+              V == String &&
+              (value as String) == String.fromCharCodes(codeUnits))) {
+            // check if value already attached to node
+            if (!_thisNode._values.contains(value)) {
+              _thisNode._values.add(value);
+            }
           }
         }
       }
     }
 
-    _updateDescendantCounts(_thisNode);
+    return _updateDescendantCounts(_thisNode);
+  }
 
+  _Node<V> _updateDescendantCounts(_Node<V> _thisNode) {
+    if (_thisNode != null) {
+      // Accumulate prefix descendant counts and update own count
+      _thisNode._numDFSDescendants =
+          (_thisNode._left == null ? 0 : _thisNode._left._sizeDFSTree) +
+              (_thisNode._mid == null ? 0 : _thisNode._mid._sizeDFSTree) +
+              (_thisNode._right == null ? 0 : _thisNode._right._sizeDFSTree);
+    }
     return _thisNode;
   }
 
-  void _updateDescendantCounts(_Node<V> _thisNode) {
-    // Accumulate descendant counts and update own count
-    _thisNode.numDecendants = (_thisNode._left == null
-            ? 0
-            : (_thisNode._left.numDecendants +
-                (_thisNode._left._isEnd ? 1 : 0))) +
-        (_thisNode._mid == null
-            ? 0
-            : (_thisNode._mid.numDecendants +
-                (_thisNode._mid._isEnd ? 1 : 0))) +
-        (_thisNode._right == null
-            ? 0
-            : (_thisNode._right.numDecendants +
-                (_thisNode._right._isEnd ? 1 : 0)));
-  }
-
-  _Node<V> _descendToPrefixLastNode(
-      _Node<V> thisNode, List<int> codeUnits, int ptr) {
+  List<V> _remove(
+      _Node<V> thisNode, _Node<V> parentNode, List<int> codeUnits, int idx) {
     if (thisNode == null) {
       return null;
     }
 
-    if (codeUnits[ptr] < thisNode._codeUnit) {
-      return _descendToPrefixLastNode(thisNode._left, codeUnits, ptr);
+    if (codeUnits[idx] < thisNode._codeUnit) {
+      final List<V> values = _remove(thisNode._left, thisNode, codeUnits, idx);
+      if (values != null) {
+        _updateDescendantCounts(thisNode);
+      }
+      return values;
     } else {
-      if (codeUnits[ptr] > thisNode._codeUnit) {
-        return _descendToPrefixLastNode(thisNode._right, codeUnits, ptr);
+      if (codeUnits[idx] > thisNode._codeUnit) {
+        final List<V> values =
+            _remove(thisNode._right, thisNode, codeUnits, idx);
+        if (values != null) {
+          _updateDescendantCounts(thisNode);
+        }
+        return values;
       } else {
-        if (ptr == (codeUnits.length - 1)) {
-          return thisNode;
+        // This node represents word end for key
+        if (idx == (codeUnits.length - 1)) {
+          // First check if key exists
+          if (!thisNode._isKeyEnd) {
+            // Key doesnt exist
+            return null;
+          }
+          // Node has no key descendants
+          if (thisNode._numDFSDescendants == 0) {
+            // Delete from parent and return
+            if (parentNode != null) {
+              parentNode._mid = null;
+            }
+          }
+          // Remove end node status
+          final List<V> values = thisNode._values;
+          thisNode._values = null;
+          return values;
         } else {
-          return _descendToPrefixLastNode(thisNode._mid, codeUnits, ptr + 1);
+          final List<V> values =
+              _remove(thisNode._mid, thisNode, codeUnits, idx + 1);
+          if (values != null) {
+            _updateDescendantCounts(thisNode);
+          }
+          return values;
         }
       }
     }
   }
 
-  void _inorderTraversalFromNode(_Node<V> thisNode, String currentStr,
-      int currentDepth, _NodeVisitor<V> visitor) {
-    if (thisNode != null) {
-      _inorderTraversalFromNode(
-          thisNode._left, currentStr, currentDepth + 1, visitor);
-      final String nextStr =
-          currentStr + String.fromCharCode(thisNode._codeUnit);
-      // allow early stopping by visitor
-      if (!visitor(thisNode, nextStr, currentDepth)) {
-        return;
-      }
-      _inorderTraversalFromNode(
-          thisNode._mid, nextStr, currentDepth + 1, visitor);
-      _inorderTraversalFromNode(
-          thisNode._right, currentStr, currentDepth + 1, visitor);
+  _Node<V> _getPrefixLastNode(_Node<V> thisNode, List<int> codeUnits, int idx) {
+    if (thisNode == null) {
+      return null;
     }
-  }
 
-  void _prefixTraversalFromNode(_Node<V> thisNode, String currentStr,
-      int currentDepth, _NodeVisitor<V> visitor) {
-    if (thisNode != null) {
-      // Allow early stopping by visitor
-      if (!visitor(thisNode, currentStr, currentDepth)) {
-        return;
+    if (codeUnits[idx] < thisNode._codeUnit) {
+      return _getPrefixLastNode(thisNode._left, codeUnits, idx);
+    } else {
+      if (codeUnits[idx] > thisNode._codeUnit) {
+        return _getPrefixLastNode(thisNode._right, codeUnits, idx);
+      } else {
+        if (idx == (codeUnits.length - 1)) {
+          return thisNode;
+        } else {
+          return _getPrefixLastNode(thisNode._mid, codeUnits, idx + 1);
+        }
       }
-      _inorderTraversalFromNode(
-          thisNode._mid, currentStr, currentDepth + 1, visitor);
     }
   }
 
@@ -572,9 +713,7 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   //  c   d            d   e
   _Node<V> _rotateRight(_Node<V> a) {
     final _Node<V> b = a._left;
-    final _Node<V> c = b._left;
     final _Node<V> d = b._right;
-    final _Node<V> e = a._right;
 
     // Rotate
     a._left = d;
@@ -594,9 +733,7 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   //     d   e      c   d
   _Node<V> _rotateLeft(_Node<V> b) {
     final _Node<V> a = b._right;
-    final _Node<V> c = b._left;
     final _Node<V> d = a._left;
-    final _Node<V> e = a._right;
 
     // Rotate
     b._right = d;
@@ -608,22 +745,6 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
 
     return a;
   }
-
-  @override
-  void operator []=(String key, List<V> value) {
-    // TODO: implement []=
-  }
-
-  @override
-  void clear() {
-    // TODO: implement clear
-  }
-
-  @override
-  List<V> remove(Object key) {
-    // TODO: implement remove
-    return null;
-  }
 }
 
 class _Node<V> {
@@ -631,16 +752,31 @@ class _Node<V> {
 
   final int _codeUnit;
   final int _priority;
-  int numDecendants = 0; //Number of end nodes below this node.
+  // Number of end nodes below this node if a DFS was performed.
+  // Allows fast calculation of subtree size
+  int _numDFSDescendants = 0;
 
   // A single node may map to multiple values due to KeyMapping.
   // Is maintained as a set, i.e. only one instance of a
   // particular value is associated with a particular key
-  List<V> values;
+  List<V> _values;
 
   _Node<V> _left;
   _Node<V> _mid;
   _Node<V> _right;
 
-  bool get _isEnd => values != null;
+  // Does this node represent the final character of a key?
+  bool get _isKeyEnd => _values != null;
+  // return number of end nodes in subtree with this node as root
+  int get _sizeDFSTree =>
+      _values == null ? _numDFSDescendants : _numDFSDescendants + 1;
+
+  // return number of end nodes in subtree with this node as prefix root
+  int get _sizePrefixTree {
+    int size = _values == null ? 0 : 1;
+    if (_mid != null) {
+      size += _mid._sizeDFSTree;
+    }
+    return size;
+  }
 }

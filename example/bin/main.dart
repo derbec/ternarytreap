@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:ternarytreap/ternarytreap.dart';
-import 'package:example/session.dart';
+import 'package:example/activities.dart';
+import '../../../ternarytreap/test/words.dart';
 
-Session _session;
+Activity _session;
 StreamSubscription<String> _subscription;
 
 void main(List<String> args) {
@@ -14,21 +15,39 @@ void main(List<String> args) {
     return;
   }
   _displayHeader();
+
+  List<String> _words = <String>[];
+
+  if (args.length > 1) {
+    if (args[1] == 'preload') {
+      _words = words;
+    } else {
+      stderr
+        ..writeln('*** Invalid 2nd Argument! ***')
+        ..writeln('*** 2nd argument must be either "preload"'
+            ' or empty! ***');
+      return;
+    }
+  }
+
   switch (args[0]) {
     case '0':
-      _session = Session();
+      _session = InputActivity();
       stdout.writeln('Using no Keymapping');
       break;
     case '1':
-      _session = Session(TernaryTreap.lowercase);
+      _session =
+          InputActivity(keyMapping: TernaryTreap.lowercase, preload: _words);
       stdout.writeln('Using lowercase KeyMapping');
       break;
     case '2':
-      _session = Session(TernaryTreap.collapseWhitespace);
+      _session = InputActivity(
+          keyMapping: TernaryTreap.collapseWhitespace, preload: _words);
       stdout.writeln('Using collapseWhitespace KeyMapping');
       break;
     case '3':
-      _session = Session(TernaryTreap.lowerCollapse);
+      _session = InputActivity(
+          keyMapping: TernaryTreap.lowerCollapse, preload: _words);
       stdout.writeln('Using lowerCollapse KeyMapping');
       break;
     default:
@@ -36,7 +55,8 @@ void main(List<String> args) {
       _displayHelp();
       return;
   }
-  _displayPrompt();
+
+  stdout.writeln(_session.prompt);
   _subscription = readLine().listen(processLine);
 }
 
@@ -45,21 +65,15 @@ Stream<String> readLine() =>
 
 void processLine(String line) {
   if (!_session.processLine(line)) {
-    _subscription.cancel();
-    stdout.writeln('Finished');
-    _displayTree();
-  } else {
-    _displayPrompt();
-  }
-}
+    if (_session is QueryActivity) {
+      _subscription.cancel();
 
-void _displayPrompt() {
-  if (_session.title == null) {
-    _displayTree();
-    stdout.writeln('Enter title for insertion (Enter empty title to quit)');
-  } else {
-    stdout.writeln('Enter optional description to add as data');
+      stdout..writeln('Finished')..writeln(_session.treeString());
+      return;
+    }
+    _session = QueryActivity(_session);
   }
+  stdout.writeln(_session.prompt);
 }
 
 void _displayHeader() {
@@ -67,8 +81,10 @@ void _displayHeader() {
     ..writeln('*** TernaryTreap example ***')
     ..writeln('Demonstrates the key -> '
         'data relationship using different KeyMappings.')
-    ..writeln('A custom data object is used containing title, description'
-        ' and timestamp.')
+    ..writeln('A dictionary is created via custom data object'
+        ' containing word, definition and timestamp.')
+    ..write('Try entering different versions/capitalisations (e.g: Cat/CAT/cat)'
+        ' to view one to many relationship between key and values')
     ..writeln('At each round the current TernaryTreap state is shown.')
     ..writeln('***************************');
 }
@@ -77,31 +93,21 @@ void _displayHelp() {
   stdout
     ..writeln()
     ..writeln('Usage:')
-    ..writeln('dart main.dart <KeyMapping>')
+    ..writeln('dart main.dart <KeyMapping> <preload>')
     ..writeln()
-    ..writeln('KeyMapping Indexes:')
+    ..writeln('KeyMappings:')
     ..writeln('0 - No key transform')
     ..writeln('1 - Lowercase key transform')
     ..writeln('2 - Collapse whitespace key transform')
     ..writeln('3 - Lowercase and Collapse whitespace key transform')
     ..writeln()
+    ..writeln('preload argument will insert prexisting word list if desired')
+    ..writeln()
     ..writeln('Examples:')
     ..writeln('dart main.dart 0')
     ..writeln('dart main.dart 1')
-    ..writeln('dart main.dart 2');
-}
-
-void _displayTree() {
-  final String state = _session.ternaryTreap.toString();
-  if (state.isEmpty) {
-    stdout..writeln()..writeln('*** TernaryTreap is empty')..writeln();
-  } else {
-    stdout
-      ..writeln()
-      ..writeln('*** Current TernaryTreap state showing'
-          ' depth, keys and data')
-      ..write(state)
-      ..writeln('****')
-      ..writeln();
-  }
+    ..writeln('dart main.dart 2')
+    ..writeln('dart main.dart 3 preload')
+    ..writeln('dart main.dart 2 preload')
+    ;
 }

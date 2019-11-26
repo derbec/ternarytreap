@@ -7,34 +7,51 @@ Map<String, dynamic> mapEntryToJson(MapEntry<String, List<int>> mapEntry) =>
 
 void main() {
   group('TernaryTreap', () {
-    const int numUniqueKeys = 10753;
+    const int numUniqueKeys = 10;
+    // Total number of keys taking into account overlap and special keys
+    final int numKeys = (numUniqueKeys * 1.5).round() + 3;
     const int startVal = 17;
 
     //Test data
     //Create increasing keys with overlap - worst case scenario for tree
-    final List<int> testInput = <int>[
+    final List<int> testKeys = <int>[
+      (numUniqueKeys * 3 + startVal + 1),
       for (int i = 0; i < numUniqueKeys; i++) startVal + i,
       for (int i = 0; i < numUniqueKeys; i++)
-        (startVal + (numUniqueKeys / 2).round()) + i
+        (startVal + (numUniqueKeys / 2).round()) + i,
+      // Special keys for mapping to empty data
+      (numUniqueKeys * 3 + startVal + 2),
+      (numUniqueKeys * 3 + startVal + 3),
     ];
 
     //Test output
     final Map<String, List<int>> collator = <String, List<int>>{};
-    for (final int x in testInput) {
+    for (final int x in testKeys) {
       if (collator.containsKey(x.toString())) {
         if (!collator[x.toString()].contains(x)) {
           collator[x.toString()].add(x);
         }
       } else {
-        collator[x.toString()] = <int>[x];
+        // Map special keys to empty data
+        if (x > (numUniqueKeys * 3 + startVal)) {
+          collator[x.toString()] = <int>[];
+        } else {
+          collator[x.toString()] = <int>[x];
+        }
       }
     }
 
     final List<String> sortedKeys = collator.keys.toList()..sort();
 
-    final TernaryTreap<int> tst = TernaryTreap<int>();
-    for (final int x in testInput) {
-      tst.add(x.toString(), x);
+    final TernaryTreap<int> tst =
+        TernaryTreap<int>(treatKeyAsStringValue: false);
+    for (final int x in testKeys) {
+      // Special keys are added with no data
+      if (x > (numUniqueKeys * 3 + startVal)) {
+        tst.add(x.toString());
+      } else {
+        tst.add(x.toString(), x);
+      }
     }
 
     test('forEach', () {
@@ -69,11 +86,35 @@ void main() {
         final List<Map<String, dynamic>> result = <Map<String, dynamic>>[];
         tst.forEachPrefixedBy(prefix, (String key, List<int> data) {
           result.add(mapEntryToJson(MapEntry<String, List<int>>(key, data)));
-          return true;
         });
 
         expect(json.encode(result), equals(json.encode(expectedOutput)));
+
+        // Check that subtree length is maintained correctly while here
+        final int subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+
+        expect(subTreeLength, equals(expectedOutput.length));
       }
+    });
+
+    test('one key', () {
+      final TernaryTreap<int> oneKey = TernaryTreap<int>()..add('a');
+      expect(oneKey.length, equals(1));
+      expect(oneKey.entries.length, equals(1));
+      expect(oneKey.entriesByKeyPrefix('a').length, equals(1));
+      expect(oneKey.entriesByKeyPrefix('b').length, equals(0));
+
+      expect(
+          json.encode(
+              oneKey.entriesByKeyPrefix('b').map(mapEntryToJson).toList()),
+          equals(json.encode(<MapEntry<String, List<int>>>[])));
+
+      expect(
+          json.encode(
+              oneKey.entriesByKeyPrefix('a').map(mapEntryToJson).toList()),
+          equals(json.encode(<Map<String, dynamic>>[
+            mapEntryToJson(const MapEntry<String, List<int>>('a', <int>[]))
+          ])));
     });
 
     test('keys', () {
@@ -81,15 +122,16 @@ void main() {
     });
 
     test('values', () {
+      //Filter out empty lists
       final List<List<int>> expectedOutput = <List<int>>[
-        for (String word in sortedKeys) collator[word]
+        for (String word in sortedKeys)
+          if (collator[word].isNotEmpty) collator[word]
       ];
       expect(json.encode(tst.values.toList()),
           equals(json.encode(expectedOutput)));
     });
-test('entries', () {
-    final List<Map<String, dynamic>> expectedOutput =
-          <Map<String,dynamic>>[
+    test('entries', () {
+      final List<Map<String, dynamic>> expectedOutput = <Map<String, dynamic>>[
         for (String word in sortedKeys)
           mapEntryToJson(MapEntry<String, List<int>>(word, collator[word]))
       ];
@@ -104,6 +146,21 @@ test('entries', () {
       expect(json.encode(tst[key]), equals(json.encode(collator[key])));
 
       expect(json.encode(tst['NOT FOUND']), equals(json.encode(null)));
+
+      expect(json.encode(tst['1']), equals(json.encode(null)));
+    });
+
+    test('[]=', () {
+      final TernaryTreap<int> tree =
+          TernaryTreap<int>(keyMapping: TernaryTreap.lowercase);
+
+      tree['At'] = <int>[1];
+
+      expect(json.encode(tree['At']), equals(json.encode(<int>[1])));
+
+      tree['at'] = <int>[2, 3];
+
+      expect(json.encode(tree['AT']), equals(json.encode(<int>[2, 3])));
     });
 
     test('containsKey', () {
@@ -116,21 +173,14 @@ test('entries', () {
           equals(json.encode(false)));
     });
 
-    test('stats', () {
-      final int numKeys = (numUniqueKeys * 1.5).round();
-      final Map<String, int> stats = tst.stats();
-      expect(stats[TernaryTreap.keyCount], equals(numKeys));
-    });
-
     test('length', () {
-      final int numKeys = (numUniqueKeys * 1.5).round();
       expect(tst.length, equals(numKeys));
-      expect(tst.length2, equals(numKeys));
     });
 
     test('KeyMappings', () {
-      TernaryTreap<int> tree = TernaryTreap<int>(TernaryTreap.lowercase)
-        ..add('TeStInG', 1);
+      TernaryTreap<int> tree =
+          TernaryTreap<int>(keyMapping: TernaryTreap.lowercase)
+            ..add('TeStInG', 1);
 
       expect(json.encode(tree['fake']), equals(json.encode(null)));
 
@@ -138,13 +188,35 @@ test('entries', () {
 
       expect(json.encode(tree['testing']), equals(json.encode(<int>[1])));
 
-      tree = TernaryTreap<int>(TernaryTreap.collapseWhitespace)
+      tree = TernaryTreap<int>(keyMapping: TernaryTreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);
       expect(json.encode(tree['t es ti ng']), equals(json.encode(<int>[1])));
 
-      tree = TernaryTreap<int>(TernaryTreap.lowerCollapse)
+      tree = TernaryTreap<int>(keyMapping: TernaryTreap.lowerCollapse)
         ..add(' T eS   KK     Bg  ', 1);
       expect(json.encode(tree['t es kk bg']), equals(json.encode(<int>[1])));
+    });
+
+    test('Remove', () {
+      final TernaryTreap<int> tree =
+          TernaryTreap<int>(keyMapping: TernaryTreap.lowercase);
+
+      tree['At'] = <int>[1];
+
+      expect(json.encode(tree.remove('At')), equals(json.encode(<int>[1])));
+
+      tree['be'] = <int>[2, 3];
+
+      expect(json.encode(tree.remove('CAT')), equals(json.encode(null)));
+
+      expect(json.encode(tree.remove('BE')), equals(json.encode(<int>[2, 3])));
+
+      collator.keys.toList().forEach(tst.remove);
+
+      print(tst.toString());
+
+      expect(tst.length, equals(0));
+      expect(tst.isEmpty, equals(true));
     });
   });
 }

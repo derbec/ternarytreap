@@ -25,12 +25,13 @@ class Metadata {
 }
 
 void main(List<String> args) {
-  final ternaryTreap = TernaryTreap<Metadata>(TernaryTreap.lowerCollapse)
-    ..add('Cat', Metadata('Cat', 'Purrs'))
-    ..add('Cart', Metadata('Cart', 'Transport'))
-    ..add('Dog', Metadata('Dog', 'Friend'))
-    ..add('Zebra', Metadata('Zebra', 'Stripes'))
-    ..add('CAT', Metadata('CAT', 'Scan'));
+  final ternaryTreap =
+      TernaryTreap<Metadata>(keyMapping: TernaryTreap.lowerCollapse)
+        ..add('Cat', Metadata('Cat', 'Purrs'))
+        ..add('Cart', Metadata('Cart', 'Transport'))
+        ..add('Dog', Metadata('Dog', 'Friend'))
+        ..add('Zebra', Metadata('Zebra', 'Stripes'))
+        ..add('CAT', Metadata('CAT', 'Scan'));
 
   //print(ternaryTreap.searchByPrefix('ca'));
 
