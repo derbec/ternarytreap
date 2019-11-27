@@ -1,6 +1,8 @@
-/// Support for doing something awesome.
+/// Self balancing prefix search trie. Use for:
 ///
-/// More dartdocs go here.
+/// * Autocompletion tasks - autocompleting textboxes etc.
+/// * As a generic, fast and memory efficient collection
+/// allowing prefixed based searching.
 library ternarytreap;
 
 export 'src/prefixmatcher.dart';

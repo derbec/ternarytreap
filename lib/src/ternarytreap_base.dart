@@ -52,8 +52,8 @@ class _TernaryTreeKeyIterable<V> extends _TernaryTreeIterableBase<V, String> {
 /// If a key maps to an empty values list then it is skipped, no
 /// empty lists are returned.
 ///
-/// For convenience the getter [flattened] may be used to flatten
-/// this into a single combined list. @see [flattened]
+/// For convenience the getter [flatten] may be used to flatten
+/// this into a single combined list. @see [flatten]
 class TernaryTreeValuesIterable<V>
     extends _TernaryTreeIterableBase<V, List<V>> {
   /// Constructs a TernaryTreeValuesIterable
@@ -70,9 +70,9 @@ class TernaryTreeValuesIterable<V>
   ///
   /// For example if [TernaryTreap.valuesByKeyPrefix] returns:
   /// `[['Card', 'card'],['Cat', 'cat', 'CAT']]` then
-  /// [TernaryTreap.valuesByKeyPrefix.flattened] will return
+  /// applying [flatten] will return
   /// `['Card', 'card','Cat', 'cat', 'CAT']`.
-  Iterable<V> get flattened => expand((List<V> values) => values);
+  Iterable<V> get flatten => expand((List<V> values) => values);
 }
 
 class _TernaryTreeMapEntryIterable<V>
@@ -255,14 +255,13 @@ class _TernaryTreeMapEntryIterator<V> extends _TernaryTreeIteratorBase<V>
 /// and [Treap](https://en.wikipedia.org/wiki/Treap) with following properties:
 ///
 /// * Fast prefix searching and low memory cost of a ternary search tree.
-/// * Self balancing capability of a treap to flatten tree and
-///   minimise search paths.
+/// * Self balancing capability of a treap.
 ///
-/// Additionally each unique key can be associated with 0..n arbitrary
-/// values (where n is number of inserts over same key).
+/// Each unique key can be associated with 0..n arbitrary
+/// values determined by the behaviour of a [KeyMapping].
 ///
 /// For example the key 'it' may map to 'IT', 'It' or 'it'.
-/// Each of these key representations could require its own
+/// Each of these values could also store
 /// metadata such as weighting etc.
 /// # Structure
 ///
@@ -296,23 +295,21 @@ class _TernaryTreeMapEntryIterator<V> extends _TernaryTreeIteratorBase<V>
 /// * A character [_Node._codeUnit] such that Ternary Tree invarient
 /// is maintained.
 /// * An integer priority value [_Node._priority] such that Treap invarient:
-/// (_thisNode._left._priority > _thisNode._priority) &&
-/// (_thisNode._right._priority > _thisNode._priority)
+/// '(_Node._left._priority > _Node._priority) &&
+/// (_Node._right._priority > _Node._priority)' is maintained.
 class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// Constructs a new [TernaryTreap].
   ///
-  /// @param [keyMapping] Optional instance of [KeyMapping] to be
-  /// applied to all keys processed by this [TernaryTreap].
-  /// @param [treatKeyAsStringValue] if true then keys are returned as values.
-  /// @returns New [TernaryTreap].
+  /// The [keyMapping] argument supplies an ptional instance of
+  /// [KeyMapping] to be applied to all keys processed by this [TernaryTreap].
+  /// If [treatKeyAsStringValue] is 'true' then keys are included as value when
+  /// value type is [String].
   TernaryTreap({this.keyMapping, this.treatKeyAsStringValue = true});
 
-  /// Transform a key to all lowercase.
+  /// Transform key to all lowercase.
+  ///
   /// When passed to [TernaryTreap()] this transform will be applied
   /// to all key arguments passed by client
-  ///
-  /// @param key A key to transform.
-  /// @returns key after transformation.
   static String lowercase(String str) => str.toLowerCase();
 
   /// Transform a key such that:
@@ -322,18 +319,13 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   ///
   /// When passed to [TernaryTreap()] this transform will be applied
   /// to all key arguments passed by client.
-  ///
-  /// @param key A key to transform.
-  /// @returns key after transformation.
   static String collapseWhitespace(String str) =>
       str.replaceAll(RegExp(r'^\s+|\s+$'), '').replaceAll(RegExp(r'\s+'), ' ');
 
   /// Transform a key with both [lowercase] and [collapseWhitespace].
+  ///
   /// When passed to [TernaryTreap()] this transform will be applied
   /// to all key arguments passed by client
-  ///
-  /// @param key A key to transform.
-  /// @returns key after transformation.
   static String lowerCollapse(String str) =>
       collapseWhitespace(str).toLowerCase();
 
@@ -343,7 +335,8 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   final KeyMapping keyMapping;
 
   /// If true then keys will be included as values during processing
-  /// when [TernaryTreap] is configured for objects of type [String]
+  /// when [TernaryTreap] is configured for objects of type [String].
+  ///
   /// This prevents storing the same string twice for the common
   /// [TernaryTreap<String>] case.
   final bool treatKeyAsStringValue;
@@ -374,7 +367,7 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// Returns [Iterable] collection of each key/value pair of the [TernaryTreap]
   /// where key (after [KeyMapping] applied) is prefixed by [prefix].
   ///
-  /// @throws ArgumentError if [prefix] is empty
+  /// Throws ArgumentError if [prefix] is empty
   Iterable<MapEntry<String, List<V>>> entriesByKeyPrefix(String prefix) {
     final String prefixMapped = _transformKey(prefix);
 
@@ -388,7 +381,7 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// Returns [Iterable] collection of each key of the [TernaryTreap]
   /// where key (after [KeyMapping] applied) is prefixed by [prefix].
   ///
-  /// @throws ArgumentError if [prefix] is empty
+  /// Throws ArgumentError if [prefix] is empty
   Iterable<String> keysByPrefix(String prefix) {
     final String prefixMapped = _transformKey(prefix);
 
@@ -404,9 +397,9 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// is prefixed by [prefix].
   ///
   /// Each element will be a [List<V>] object, to flatten iterator into
-  /// single [List] @see [TernaryTreeValuesIterable.flattened]
+  /// single [List] see [TernaryTreeValuesIterable.flatten].
   ///
-  /// @throws ArgumentError if [prefix] is empty
+  /// Throws ArgumentError if [prefix] is empty.
   TernaryTreeValuesIterable<V> valuesByKeyPrefix(String prefix) {
     final String prefixMapped = _transformKey(prefix);
 
@@ -419,11 +412,13 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
 
   /// Insert a key and optional value.
   ///
-  /// @param [key] A unique sequence of characters to be stored for retrieval.
-  /// @param [value] A user specified value to associate with this key.
-  /// The value is checked against existing entries for this key (==) and
-  /// if already associated with the key is not added. @see [_Node._values]
-  /// @throws [ArgumentError] if key is empty.
+  /// [key] is a string to be converted via [KeyMapping] into a key.
+  /// An optional [value] may be supplied to associate with this key.
+  /// The value is checked for equality against existing values for
+  /// this key ('==') and if already associated with the key is
+  /// not added. See [_Node._values].
+  ///
+  /// Throws [ArgumentError] if key is empty.
   void add(String key, [V value]) {
     if (key.isEmpty) {
       throw ArgumentError();
@@ -450,7 +445,7 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// where key (after [KeyMapping] applied) is prefixed by [prefix].
   ///
   /// Calling [f] must not add or remove keys from the [TernaryTreap]
-  /// @throws ArgumentError if [prefix] is empty
+  /// Throws ArgumentError if [prefix] is empty
   void forEachPrefixedBy(
       String prefix, void Function(String key, List<V> values) f) {
     final _TernaryTreeMapEntryIterator<V> itr =
@@ -463,12 +458,10 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
     }
   }
 
-  /// Return value for specified [key].
+  /// Return list of values for specified [key].
   ///
-  /// @param [key] The key to get.
-  /// @returns List of values corresponding to [key].
-  /// If no value associated with key then return empty [List].
-  /// If key not found then return null.
+  /// If no value associated with key then returns empty [List].
+  /// If key not found then returns null.
   @override
   List<V> operator [](Object key) {
     if (!(key is String)) {
@@ -526,11 +519,18 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
       throw ArgumentError();
     }
     _incVersion();
-    final List<V> values =
-        _remove(_root, null, _transformKey(key).codeUnits, 0);
+    final String transformedKey = _transformKey(key);
+    final List<V> values = _remove(_root, null, transformedKey.codeUnits, 0);
     if (_root != null && _root._numDFSDescendants == 0) {
       /// There are no end nodes left in tree so delete root
       _root = null;
+    }
+
+    // Handle string map as special case by inserting key as first value.
+    if (values != null) {
+      if (treatKeyAsStringValue && V == String) {
+        return <V>[transformedKey as V, ...values];
+      }
     }
     return values;
   }
@@ -538,11 +538,12 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   /// Generate a string representation of this [TernaryTreap].
   /// Requires that values be json encodable.
   ///
-  /// @param [paddingChar] Optional left padding to indicate tree depth.
+  /// Optional left [paddingChar] to indicate tree depth.
   /// Default = '-', use '' for no depth.
-  /// @returns String representation of objects in order of traversal
+  /// Returns String representation of objects in order of traversal
   /// formated as:
-  /// key -> value (json encoded)
+  /// key
+  /// value (value type must have valid [toString] method)
   @override
   String toString([String paddingChar = '-']) {
     final StringBuffer lines = StringBuffer();
@@ -686,6 +687,7 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
     }
   }
 
+  // Return the [_Node] representing the final codeUnit of prefix
   _Node<V> _getPrefixLastNode(_Node<V> thisNode, List<int> codeUnits, int idx) {
     if (thisNode == null) {
       return null;

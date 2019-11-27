@@ -1,76 +1,144 @@
 # TernaryTreap
-Self balancing prefix search trie. Good for:
+Self balancing ternary tree designed for:
 
 * Autocompletion tasks - autocompleting textboxes etc.
-* As a generic, fast and memory efficient collection allowing prefixed based searching.
+* Use as a generic, fast and memory efficient collection allowing prefixed based searching.
+* Includes class PrefixMatcher which suffices for most autocomplete cases.
 
 # Usage
 
-## The Short Version
+## TL;DR
 
-## The Long Version
+For simple prefix matching within a set of strings use: [PrefixMatcher](#prefixmatcher) with appropriate [KeyMapping](ternarytreap/KeyMapping.html).
 
-### The simplest use case for TernaryTreap is prefix matching
+
+```dart
+// PrefixMatcher class is optimised for matching a prefix to a set of input strings.
+  final PrefixMatcher matcher = PrefixMatcher(TernaryTreap.lowerCollapse)
+    ..addAll(['cat', 'Cat', 'CAT', 'CanaRy', 'CANARY']);
+```
+```dart
+print(matcher.match('can'));
+```
+```shell
+(CanaRy, CANARY)
+```
+
+For more complex usage read on.
+
+## Most basic case
 
 Insert keys and later return those starting with a given prefix.
 
 This is useful for implementing autocompletion text boxes etc.
 
 ```dart
-import 'package:ternarytreap/ternarytreap.dart';
-
-  final TernaryTreap ternaryTreap = TernaryTreap()
-    ..insert('cat')
-    ..insert('dog')
-    ..insert('fish')
-    ..insert('canary')
-    ..insert('bird')
-    ..insert('catfish');
-
-  print(ternaryTreap.searchKeysByPrefix('ca'));
-```
-```shell
-[canary, cat, catfish]
+void main(List<String> args) {
+  final TernaryTreap<String> ternaryTreap = TernaryTreap<String>()
+    ..add('cat')
+    ..add('Canary')
+    ..add('dog')
+    ..add('zebra')
+    ..add('CAT');
 ```
 ```dart
-print(ternaryTreap.searchKeysByPrefix('cat'));
+print(ternaryTreap.keys);
 ```
 ```shell
-[cat, catfish]
+(CAT, Canary, cat, dog, zebra)
 ```
 ```dart
-print(ternaryTreap.searchKeysByPrefix('catf'));
+print(ternaryTreap.keysByPrefix('ca'));
 ```
 ```shell
-[catfish]
+(cat)
 ```
 ```dart
-print(ternaryTreap.searchKeysByPrefix('catfq'));
+print(ternaryTreap.values.flatten);
 ```
 ```shell
-[]
+(CAT, Canary, cat, dog, zebra)
 ```
+```dart
+print(ternaryTreap.valuesByKeyPrefix('ca').flatten);
+```
+```shell
+(cat)
+```
+```dart
+print(ternaryTreap.toString());
+```
+```shell
+-CAT
+ CAT
+Canary
+Canary
+cat
+cat
+dog
+dog
+zebra
+zebra
+```
+## Case insensitivity and other key mappings
 
-### Case sensitivity and other key mappings
-
-The above example matches strings exactly.
+The above example matches strings exactly, i.e. `keysByPrefix('ca')`
+returns 'cat' but not 'CAT'.
 
 To add case insensitivity or other mappings use a [KeyMapping](ternarytreap/KeyMapping.html) when constructing TernaryTree.
 
 ```dart
-  final ternaryTreap = TernaryTreap(TernaryTreap.lowerCase)
-    ..insert('CAt')
-    ..insert('doG')
-    ..insert('cAnaRy')
-    ..insert('caTfiSh');
+import 'package:ternarytreap/ternarytreap.dart';
 
-  print(ternaryTreap.searchKeysByPrefix('ca'));
+void main(List<String> args) {
+  final TernaryTreap<String> ternaryTreap =
+      TernaryTreap<String>(keyMapping: TernaryTreap.lowercase)
+        ..add('cat')
+        ..add('Canary')
+        ..add('dog')
+        ..add('zebra')
+        ..add('CAT');
+}
+```
+```dart
+print(ternaryTreap.keys);
 ```
 ```shell
-[canary, cat, catfish]
+(canary, cat, dog, zebra)
+```
+```dart
+print(ternaryTreap.keysByPrefix('ca'));
+```
+```shell
+(canary, cat)
+```
+```dart
+print(ternaryTreap.values.flatten);
+```
+```shell
+(canary, cat, dog, zebra)
+```
+```dart
+print(ternaryTreap.valuesByKeyPrefix('ca').flatten);
+```
+```shell
+(canary, cat)
+```
+```dart
+print(ternaryTreap.toString());
+```
+```shell
+canary
+canary
+cat
+cat
+dog
+dog
+zebra
+zebra
 ```
 
-Some common [KeyMapping](ternarytreap/KeyMapping.html) options are supplied such as:
+Some common `KeyMapping` options are supplied such as:
 
 * [lowerCase](ternarytreap/TernaryTreap/lowercase.html)
 * [collapseWhitespace](ternarytreap/TernaryTreap/collapseWhitespace.html)
@@ -78,75 +146,99 @@ Some common [KeyMapping](ternarytreap/KeyMapping.html) options are supplied such
 
 Create your own easily.
 
-### Attaching String Data to Retain Key->Input Mapping
+## Attaching String Data to Retain Key->Input Mapping
 
-[KeyMapping](ternarytreap/KeyMapping.html) functions may represent an n to 1 relation to input strings.
+`KeyMapping` functions may represent an n to 1 relation from input strings to keys.
 
-When a [KeyMapping](ternarytreap/KeyMapping.html) such as [lowercase](ternarytreap/TernaryTreap/lowercase.html) maps multiple inputs to the same key the original input keys are lost.
+When a `KeyMapping` such as `lowercase` maps multiple inputs to the same key the original input strings are lost.
+
+In the example below this results in input strings 'CAT' and 'Cat' being lost.
 
 ```dart
-  final ternaryTreap = TernaryTreap(TernaryTreap.lowerCase)
-    ..insert('cat')
-    ..insert('Cat')
-    ..insert('CAT');
+final TernaryTreap<String> ternaryTreap2 =
+      TernaryTreap<String>(keyMapping: TernaryTreap.lowercase)
+        ..add('cat')
+        ..add('Cat')
+        ..add('CAT');
 
-  print(ternaryTreap.searchKeysByPrefix('ca'));
+  print(ternaryTreap2.valuesByKeyPrefix('ca').flatten);
 ```
 ```shell
-[cat]
+(cat)
 ```
 
 To retain the original string you may attach it as data during insertion.
 
-Subsequent searches will return [KeyData](ternarytreap/KeyData-class.html) instances that encapsulate the 1 to n relationship between key and data.
+These strings may now be recovered during subsequent queries.
 
 ```dart
-  final ternaryTreap = TernaryTreap(TernaryTreap.lowerCase)
-    ..insert('cat', 'cat')
-    ..insert('Cat', 'Cat')
-    ..insert('CAT', 'CAT')
-    ..insert('CanaRy', 'CanaRy')
-    ..insert('CANARY', 'CANARY');
+import 'package:ternarytreap/ternarytreap.dart';
 
-  // Note difference between searchKeysByPrefix and searchByPrefix
-  print(ternaryTreap.searchKeysByPrefix('ca'));
-  // searchByPrefix returns a struct [KeyData] to handle the
-  // 1 to n relationship between keys and associated data.
-  print(ternaryTreap.searchByPrefix('ca'));
+void main(List<String> args) {
+  final TernaryTreap<String> ternaryTreap =
+      TernaryTreap<String>(keyMapping: TernaryTreap.lowercase)
+    ..add('cat', 'cat')
+    ..add('Cat', 'Cat')
+    ..add('CAT', 'CAT')
+    ..add('CanaRy', 'CanaRy')
+    ..add('CANARY', 'CANARY');
+}
+```
+```dart
+print(ternaryTreap.keys);
 ```
 ```shell
-[cat]
-[{key: canary, data: [CanaRy, CANARY]}, {key: cat, data: [cat, Cat, CAT]}]
+(canary, cat)
 ```
-
-Use the [PrefixMatcher](ternarytreap/PrefixMatcher-class.html) class which simplifies this functionality for String data:
-
 ```dart
-// PrefixMatcher class is optimised for matching a prefix to a set of input strings.
-final prefixMatcher = PrefixMatcher(TernaryTreap.lowerCase)
-    ..insert('cat')
-    ..insert('Cat')
-    ..insert('CAT')
-    ..insert('CanaRy')
-    ..insert('CANARY');
-
-  print(prefixMatcher.searchByPrefix('ca'));
+print(ternaryTreap.keysByPrefix('ca'));
+```
+```shell
+(canary, cat)
+```
+```dart
+print(ternaryTreap.values.flatten);
+```
+```shell
+(canary, CanaRy, CANARY, cat, Cat, CAT)
+```
+```dart
+print(ternaryTreap.valuesByKeyPrefix('cat').flatten);
+```
+```shell
+(cat, Cat, CAT)
+```
+```dart
+print(ternaryTreap.toString());
+```
+```shell
+canary
+canary
+CanaRy
+CANARY
+cat
+cat
+Cat
+CAT
 ```
 
-### Attaching Complex data Types
+## Attaching Complex data Types
 
 Sometimes it is useful to associate input strings with more complex datatypes.
 
-For example to store title, description and a timestamp the following datatype may suffice:
+For example to store an 'Animal' with name, description and a timestamp the following datatype may suffice:
 
 ```dart
-// An example of a data object, takes a title and description, and adds a timestamp.
-class Metadata {
-  Metadata(this.title, this.description)
+import 'package:ternarytreap/ternarytreap.dart';
+
+// An example of a data object, takes a name and description,
+// and adds a timestamp.
+class Animal {
+  Animal(this.name, this.description)
       : timestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
-  /// Title - will be set to original input string pre KeyMapping
-  final String title;
+  /// name - will be set to original input string pre KeyMapping
+  final String name;
 
   final String description;
 
@@ -157,57 +249,58 @@ class Metadata {
   /// @returns String repesenting object.
   @override
   String toString() => <String, dynamic>{
-        'title': title,
+        'name': name,
         'description': description,
         'timestamp': timestamp,
       }.toString();
 }
+
+void main(List<String> args) {
+  final TernaryTreap<Animal> ternaryTreap =
+      TernaryTreap<Animal>(keyMapping: TernaryTreap.lowerCollapse)
+        ..add('Cat', Animal('Cat', 'Purrs'))
+        ..add('Canary', Animal('Canary', 'Yellow'))
+        ..add('Dog', Animal('Dog', 'Friend'))
+        ..add('Zebra', Animal('Zebra', 'Stripes'))
+        ..add('CAT', Animal('CAT', 'Scan'));
 ```
-
-Insert as usual:
-
 ```dart
-  final ternaryTreap = TernaryTreap<Metadata>(TernaryTreap.lowerCollapse)
-    ..insert('Cat', Metadata('Cat', 'Purrs'))
-    ..insert('Cart', Metadata('Cart', 'Transport'))
-    ..insert('Dog', Metadata('Dog', 'Friend'))
-    ..insert('Zebra', Metadata('Zebra', 'Stripes'))
-    ..insert('CAT', Metadata('CAT', 'Scan'));
-
-  // show arrangment of inserted data in TernaryTreap
-  print(ternaryTreap.toString());
+print(ternaryTreap.keys);
 ```
-
 ```shell
--cart
- {title: Cart, description: Transport, timestamp: 1573802305583}
---cat
-  {title: Cat, description: Purrs, timestamp: 1573802305573}
-  {title: CAT, description: Scan, timestamp: 1573802305584}
+(canary, cat, dog, zebra)
+```
+```dart
+print(ternaryTreap.keysByPrefix('ca'));
+```
+```shell
+(canary, cat)
+```
+```dart
+print(ternaryTreap.values);
+```
+```shell
+([{name: Canary, description: Yellow, timestamp: 1574730578753}], [{name: Cat, description: Purrs, timestamp: 1574730578735}, {name: CAT, description: Scan, timestamp: 1574730578754}], [{name: Dog, description: Friend, timestamp: 1574730578754}], [{name: Zebra, description: Stripes, timestamp: 1574730578754}])
+```
+```dart
+print(ternaryTreap.valuesByKeyPrefix('ca'));
+```
+```shell
+([{name: Canary, description: Yellow, timestamp: 1574730578753}], [{name: Cat, description: Purrs, timestamp: 1574730578735}, {name: CAT, description: Scan, timestamp: 1574730578754}])
+```
+```dart
+print(ternaryTreap.toString());
+```
+```shell
+canary
+{name: Canary, description: Yellow, timestamp: 1574730578753}
+cat
+{name: Cat, description: Purrs, timestamp: 1574730578735}
+{name: CAT, description: Scan, timestamp: 1574730578754}
 dog
-{title: Dog, description: Friend, timestamp: 1573802305584}
--zebra
- {title: Zebra, description: Stripes, timestamp: 1573802305584}
-```
-
-Search for all that match prefix: 'ca'
-
-```dart
-  print(ternaryTreap.searchByPrefix('ca'));
-```
-
-```shell
-[{key: cart, data: [{title: Cart, description: Transport, timestamp: 1573802305583}]}, {key: cat, data: [{title: Cat, description: Purrs, timestamp: 1573802305573}, {title: CAT, description: Scan, timestamp: 1573802305584}]}]
-```
-
-Search for all that match prefix: 'z'
-
-```dart
-  print(ternaryTreap.searchByPrefix('z'));
-```
-
-```shell
-[{key: zebra, data: [{title: Zebra, description: Stripes, timestamp: 1573802305584}]}]
+{name: Dog, description: Friend, timestamp: 1574730578754}
+zebra
+{name: Zebra, description: Stripes, timestamp: 1574730578754}
 ```
 
 ## Features and bugs

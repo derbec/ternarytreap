@@ -9,58 +9,54 @@ import 'package:ternarytreap/src/ternarytreap_base.dart';
 class PrefixMatcher with IterableMixin<String> {
   /// Constructs a new [PrefixMatcher].
   ///
-  /// @param [keyMapping] Optional instance of [KeyMapping] to be
+  /// Argument [keyMapping] is an optional instance of [KeyMapping] to be
   /// applied to all keys processed by this [PrefixMatcher].
-  /// @returns New [PrefixMatcher].
-  /// @see [TernaryTreap()]
+  /// see [TernaryTreap()].
   PrefixMatcher([KeyMapping keyMapping])
-      : ternaryTreap = TernaryTreap<String>(keyMapping:keyMapping);
+      : ternaryTreap = TernaryTreap<String>(keyMapping: keyMapping);
 
   /// Underlying [TernaryTreap]
   final TernaryTreap<String> ternaryTreap;
 
-  /// Add a key and store input string as data attached to the key.
-  /// If key allready exists then string is added to existing key.
+  /// Insert an input string for later querying.
   ///
-  /// @param [str] A unique sequence of characters to be stored for retrieval.
-  /// @throws [ArgumentError] if key is empty.
+  /// [str] is a string to be converted via [KeyMapping] into a key.
+  ///
+  /// Throws [ArgumentError] if key is empty.
   /// @see [TernaryTreap.add]
   void add(String str) => ternaryTreap.add(str, str);
 
-  /// Add all strings from [iterable] to the [PrefixMatcher]
+  /// Add all strings from [iterable] to the [PrefixMatcher].
   ///
-  /// @param An iterable generating strings
   void addAll(Iterable<String> iterable) => iterable.forEach(add);
 
   /// Return an Iterable of previously added strings that start with [prefix].
   ///
   /// Returned strings are ordered by key (i.e. grouped by [KeyMapping]),
   /// and then by order of insertion.
-  Iterable<String> match(String prefix) => ternaryTreap
-      .valuesByKeyPrefix(prefix).flattened;
+  Iterable<String> match(String prefix) =>
+      ternaryTreap.valuesByKeyPrefix(prefix).flatten;
 
-  /// Return data for specified [key].
-  ///
-  /// @param [key] The key to get.
   /// @returns List of [String] objects corresponding to [key].
+  ///
   /// If no data associated with key then return empty [List].
   /// If key found then return null.
   List<String> operator [](String key) => ternaryTreap[key];
 
   /// Remove specified string [key] and return list of strings that
   /// were associated with [key]
+  /// See [TernaryTreap.remove]
   List<String> remove(String key) => ternaryTreap.remove(key);
 
   /// Does specified [key] exist?.
   ///
-  /// @param [key] The key to check.
-  /// @returns true if key exists, false otherwise.
-  /// @see [TernaryTreap.containsKey]
+  /// Returns true if key exists, false otherwise.
+  /// See [TernaryTreap.containsKey]
   @override
   bool contains(Object key) => ternaryTreap.containsKey(key);
 
   @override
-  Iterator<String> get iterator => ternaryTreap.values.flattened.iterator;
+  Iterator<String> get iterator => ternaryTreap.values.flatten.iterator;
 
   @override
   int get length => ternaryTreap.length;

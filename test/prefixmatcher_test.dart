@@ -54,5 +54,25 @@ void main() {
         expect(json.encode(matcher[word]), equals(json.encode(collator[word])));
       }
     });
+
+    test('Remove', () {
+      final PrefixMatcher tree = PrefixMatcher(TernaryTreap.lowercase)
+        ..add('at');
+
+      expect(
+          json.encode(tree.remove('at')), equals(json.encode(<String>['at'])));
+
+      tree.add('be');
+
+      expect(json.encode(tree.remove('CAT')), equals(json.encode(null)));
+
+      expect(
+          json.encode(tree.remove('BE')), equals(json.encode(<String>['be'])));
+
+      collator.keys.toList().forEach(tree.remove);
+
+      expect(tree.length, equals(0));
+      expect(tree.isEmpty, equals(true));
+    });
   });
 }

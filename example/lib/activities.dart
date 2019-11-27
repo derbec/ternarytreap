@@ -95,8 +95,8 @@ class InputActivity extends Activity {
   @override
   TernaryTreap<DictEntry> get ternaryTreap => _ternaryTreap;
 
-  /// Title currently being inserted
-  String title;
+  /// Word currently being inserted
+  String word;
 
   /// Process a single line of data from client.
   /// If empty title entered then session over and
@@ -105,27 +105,21 @@ class InputActivity extends Activity {
   /// @returns true if more data expected, false otherwise
   @override
   bool processLine(String line) {
-    if (title == null) {
+    if (word == null) {
       // we are expecting a key
       if (line.isEmpty) {
         // End of session, signal client
         return false;
       } else {
-        title = line;
+        word = line;
         return true;
       }
     } else {
-      // we are expecting a description
-      if (line.isEmpty) {
-        // no description given
-        // add key without data
-        _ternaryTreap.add(title);
-      } else {
-        // store original input string as title
-        _ternaryTreap.add(title, DictEntry(title, line));
-      }
+      // store input as value
+      _ternaryTreap.add(word, DictEntry(word, line));
+
       // Reset for next round
-      title = null;
+      word = null;
       return true;
     }
   }
@@ -133,7 +127,7 @@ class InputActivity extends Activity {
   @override
   String get prompt {
     final String prefix = 'Entry # ${ternaryTreap.length.toString()}';
-    if (title == null) {
+    if (word == null) {
       return '${treeString()}'
           '$prefix Enter word for insertion (or Enter to quit)';
     } else {

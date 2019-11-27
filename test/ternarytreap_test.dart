@@ -213,8 +213,6 @@ void main() {
 
       collator.keys.toList().forEach(tst.remove);
 
-      print(tst.toString());
-
       expect(tst.length, equals(0));
       expect(tst.isEmpty, equals(true));
     });
