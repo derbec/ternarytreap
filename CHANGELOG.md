@@ -5,3 +5,8 @@
 ## 1.0.1
 
 - Updated docs
+
+## 1.0.2
+
+- Changed meta dependancy to cooperate with flutter_test
+

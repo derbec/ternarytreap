@@ -18,11 +18,10 @@ A command line app is in example/bin:
 The 'preload' option causes a list of words to be loaded at start to play with query function etc.
 
 ## Examples:
-`
-dart main.dart 0
-dart main.dart 1
-dart main.dart 2
 
-dart main.dart 2 preload
-`
+* `dart main.dart 0`
+* `dart main.dart 1`
+* `dart main.dart 2`
+* `dart main.dart 2 preload`
+
 
