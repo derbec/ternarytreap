@@ -43,8 +43,7 @@ void main() {
 
     final List<String> sortedKeys = collator.keys.toList()..sort();
 
-    final TernaryTreap<int> tst =
-        TernaryTreap<int>(treatKeyAsStringValue: false);
+    final TernaryTreap<int> tst = TernaryTreap<int>();
     for (final int x in testKeys) {
       // Special keys are added with no data
       if (x > (numUniqueKeys * 3 + startVal)) {

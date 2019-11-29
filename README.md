@@ -9,7 +9,7 @@ Self balancing ternary tree designed for:
 
 ## TL;DR
 
-For simple prefix matching within a set of strings use: [PrefixMatcher](#prefixmatcher) with appropriate [KeyMapping](ternarytreap/KeyMapping.html).
+For simple prefix matching within a set of strings use: [PrefixMatcher](ternarytreap/PrefixMatcher-class.html) with appropriate [KeyMapping](ternarytreap/KeyMapping.html).
 
 
 ```dart
