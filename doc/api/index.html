@@ -62,7 +62,7 @@
 </ul>
 <h1 id="usage">Usage</h1>
 <h2 id="tldr">TL;DR</h2>
-<p>For simple prefix matching within a set of strings use: <a href="ternarytreap/PrefixMatcher-class.html">PrefixMatcher</a> with appropriate <a href="ternarytreap/KeyMapping.html">KeyMapping</a>.</p>
+<p>For simple prefix matching within a set of strings use: <a href="https://pub.dev/documentation/ternarytreap/latest/ternarytreap/PrefixMatcher-class.html">PrefixMatcher</a> with appropriate <a href="https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html">KeyMapping</a>.</p>
 <pre class="language-dart"><code class="language-dart">// PrefixMatcher class is optimised for matching a prefix to a set of input strings.
   final PrefixMatcher matcher = PrefixMatcher(TernaryTreap.lowerCollapse)
     ..addAll(['cat', 'Cat', 'CAT', 'CanaRy', 'CANARY']);
@@ -115,7 +115,7 @@ zebra
 <h2 id="case-insensitivity-and-other-key-mappings">Case insensitivity and other key mappings</h2>
 <p>The above example matches strings exactly, i.e. <code>keysByPrefix('ca')</code>
 returns 'cat' but not 'CAT'.</p>
-<p>To add case insensitivity or other mappings use a <a href="ternarytreap/KeyMapping.html">KeyMapping</a> when constructing TernaryTree.</p>
+<p>To add case insensitivity or other mappings use a <a href="https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html">KeyMapping</a> when constructing TernaryTree.</p>
 <pre class="language-dart"><code class="language-dart">import 'package:ternarytreap/ternarytreap.dart';
 
 void main(List&lt;String&gt; args) {
@@ -157,9 +157,9 @@ zebra
 </code></pre>
 <p>Some common <code>KeyMapping</code> options are supplied such as:</p>
 <ul>
-<li><a href="ternarytreap/TernaryTreap/lowercase.html">lowerCase</a></li>
-<li><a href="ternarytreap/TernaryTreap/collapseWhitespace.html">collapseWhitespace</a></li>
-<li><a href="ternarytreap/TernaryTreap/lowerCollapse.html">lowerCollapse</a></li>
+<li><a href="https://pub.dev/documentation/ternarytreap/latest/ternarytreap/TernaryTreap/lowercase.html">lowerCase</a></li>
+<li><a href="https://pub.dev/documentation/ternarytreap/latest/ternarytreap/TernaryTreap/collapseWhitespace.html">collapseWhitespace</a></li>
+<li><a href="https://pub.dev/documentation/ternarytreap/latest/ternarytreap/TernaryTreap/lowerCollapse.html">lowerCollapse</a></li>
 </ul>
 <p>Create your own easily.</p>
 <h2 id="attaching-string-data-to-retain-key-input-mapping">Attaching String Data to Retain Key-&gt;Input Mapping</h2>
@@ -308,7 +308,7 @@ zebra
 <footer>
   <span class="no-break">
     ternarytreap
-      1.0.2
+      1.0.3
   </span>
 
   <!-- footer-text placeholder -->

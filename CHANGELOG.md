@@ -10,3 +10,7 @@
 
 - Changed meta dependancy to cooperate with flutter_test
 
+## 1.0.3
+
+- Updated doc links
+

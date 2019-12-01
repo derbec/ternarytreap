@@ -9,7 +9,7 @@ Self balancing ternary tree designed for:
 
 ## TL;DR
 
-For simple prefix matching within a set of strings use: [PrefixMatcher](ternarytreap/PrefixMatcher-class.html) with appropriate [KeyMapping](ternarytreap/KeyMapping.html).
+For simple prefix matching within a set of strings use: [PrefixMatcher](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/PrefixMatcher-class.html) with appropriate [KeyMapping](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html).
 
 
 ```dart
@@ -85,7 +85,7 @@ zebra
 The above example matches strings exactly, i.e. `keysByPrefix('ca')`
 returns 'cat' but not 'CAT'.
 
-To add case insensitivity or other mappings use a [KeyMapping](ternarytreap/KeyMapping.html) when constructing TernaryTree.
+To add case insensitivity or other mappings use a [KeyMapping](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html) when constructing TernaryTree.
 
 ```dart
 import 'package:ternarytreap/ternarytreap.dart';
@@ -140,9 +140,9 @@ zebra
 
 Some common `KeyMapping` options are supplied such as:
 
-* [lowerCase](ternarytreap/TernaryTreap/lowercase.html)
-* [collapseWhitespace](ternarytreap/TernaryTreap/collapseWhitespace.html)
-* [lowerCollapse](ternarytreap/TernaryTreap/lowerCollapse.html)
+* [lowerCase](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/TernaryTreap/lowercase.html)
+* [collapseWhitespace](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/TernaryTreap/collapseWhitespace.html)
+* [lowerCollapse](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/TernaryTreap/lowerCollapse.html)
 
 Create your own easily.
 

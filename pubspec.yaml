@@ -1,8 +1,7 @@
 name: ternarytreap
 description: Self balancing ternary tree. Optimised for autocompletion tasks. A generic Map with fast prefix searching on keys.
-version: 1.0.2
+version: 1.0.3
 homepage: https://github.com/derbec/ternarytreap
-author: Derek Becker <derekwbecker@gmail.com>
 
 environment:
   sdk: '>=2.5.0 <3.0.0'
