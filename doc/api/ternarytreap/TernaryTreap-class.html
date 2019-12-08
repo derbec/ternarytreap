@@ -169,7 +169,7 @@ is maintained.</li>
           <span class="signature">&#8594; <a href="ternarytreap/KeyMapping.html">KeyMapping</a></span>         
         </dt>
         <dd>
-          The <a href="ternarytreap/KeyMapping.html">KeyMapping</a> is use by this <a href="ternarytreap/TernaryTreap-class.html">TernaryTreap</a>
+          The <a href="ternarytreap/KeyMapping.html">KeyMapping</a> in use by this <a href="ternarytreap/TernaryTreap-class.html">TernaryTreap</a> <a href="ternarytreap/TernaryTreap/keyMapping.html">[...]</a>
                   <div class="features">final</div>
 </dd>
         <dt id="keys" class="property">
@@ -469,7 +469,17 @@ the given <code>f</code> function.
           </span>
                   </dt>
         <dd>
-          Transform a key such that: <a href="ternarytreap/TernaryTreap/collapseWhitespace.html">[...]</a>
+          Transform <code>str</code> such that: <a href="ternarytreap/TernaryTreap/collapseWhitespace.html">[...]</a>
+                  
+</dd>
+        <dt id="joinSingleLetters" class="callable">
+          <span class="name"><a href="ternarytreap/TernaryTreap/joinSingleLetters.html">joinSingleLetters</a></span><span class="signature">(<wbr><span class="parameter" id="joinSingleLetters-param-str"><span class="type-annotation">String</span> <span class="parameter-name">str</span></span>)
+            <span class="returntype parameter">&#8594; String</span>
+          </span>
+                  </dt>
+        <dd>
+          Transform <code>str</code> such that adjacent single Letters separated by
+whitespace are joined together. For example: <a href="ternarytreap/TernaryTreap/joinSingleLetters.html">[...]</a>
                   
 </dd>
         <dt id="lowercase" class="callable">
@@ -478,7 +488,7 @@ the given <code>f</code> function.
           </span>
                   </dt>
         <dd>
-          Transform key to all lowercase. <a href="ternarytreap/TernaryTreap/lowercase.html">[...]</a>
+          Transform <code>str</code> such that all characters are lowercase. <a href="ternarytreap/TernaryTreap/lowercase.html">[...]</a>
                   
 </dd>
         <dt id="lowerCollapse" class="callable">
@@ -487,7 +497,17 @@ the given <code>f</code> function.
           </span>
                   </dt>
         <dd>
-          Transform a key with both <a href="ternarytreap/TernaryTreap/lowercase.html">lowercase</a> and <a href="ternarytreap/TernaryTreap/collapseWhitespace.html">collapseWhitespace</a>. <a href="ternarytreap/TernaryTreap/lowerCollapse.html">[...]</a>
+          Transform <code>str</code> with both <a href="ternarytreap/TernaryTreap/lowercase.html">lowercase</a> and <a href="ternarytreap/TernaryTreap/collapseWhitespace.html">collapseWhitespace</a>. <a href="ternarytreap/TernaryTreap/lowerCollapse.html">[...]</a>
+                  
+</dd>
+        <dt id="nonLetterToSpace" class="callable">
+          <span class="name"><a href="ternarytreap/TernaryTreap/nonLetterToSpace.html">nonLetterToSpace</a></span><span class="signature">(<wbr><span class="parameter" id="nonLetterToSpace-param-str"><span class="type-annotation">String</span> <span class="parameter-name">str</span></span>)
+            <span class="returntype parameter">&#8594; String</span>
+          </span>
+                  </dt>
+        <dd>
+          Transform <code>str</code> such that each non letter character is
+replaced by a space character. <a href="ternarytreap/TernaryTreap/nonLetterToSpace.html">[...]</a>
                   
 </dd>
       </dl>
@@ -546,8 +566,10 @@ the given <code>f</code> function.
     
       <li class="section-title"><a href="ternarytreap/TernaryTreap-class.html#static-methods">Static methods</a></li>
       <li><a href="ternarytreap/TernaryTreap/collapseWhitespace.html">collapseWhitespace</a></li>
+      <li><a href="ternarytreap/TernaryTreap/joinSingleLetters.html">joinSingleLetters</a></li>
       <li><a href="ternarytreap/TernaryTreap/lowercase.html">lowercase</a></li>
       <li><a href="ternarytreap/TernaryTreap/lowerCollapse.html">lowerCollapse</a></li>
+      <li><a href="ternarytreap/TernaryTreap/nonLetterToSpace.html">nonLetterToSpace</a></li>
     
     
     </ol>
@@ -558,7 +580,7 @@ the given <code>f</code> function.
 <footer>
   <span class="no-break">
     ternarytreap
-      1.0.3
+      1.0.4
   </span>
 
   <!-- footer-text placeholder -->

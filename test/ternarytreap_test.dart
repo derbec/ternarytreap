@@ -189,11 +189,28 @@ void main() {
 
       tree = TernaryTreap<int>(keyMapping: TernaryTreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);
-      expect(json.encode(tree['t es ti ng']), equals(json.encode(<int>[1])));
+      expect(
+          json.encode(tree['t             '
+              'es ti ng     ']),
+          equals(json.encode(<int>[1])));
 
       tree = TernaryTreap<int>(keyMapping: TernaryTreap.lowerCollapse)
         ..add(' T eS   KK     Bg  ', 1);
-      expect(json.encode(tree['t es kk bg']), equals(json.encode(<int>[1])));
+      expect(
+          json.encode(tree['       t es'
+              ' kk bg']),
+          equals(json.encode(<int>[1])));
+
+      tree = TernaryTreap<int>(keyMapping: TernaryTreap.nonLetterToSpace)
+        ..add('*T_eS  -KK  ,  Bg )\n\t', 1);
+      expect(json.encode(tree[' T eS  ^KK %* ^Bg ;  ']),
+          equals(json.encode(<int>[1])));
+
+      tree = TernaryTreap<int>(keyMapping: TernaryTreap.joinSingleLetters)
+        ..add('    a b .  ab.cd a b abcd a        b', 1);
+
+      expect(json.encode(tree['ab .  ab.cd ab abcd ab']),
+          equals(json.encode(<int>[1])));
     });
 
     test('Remove', () {

@@ -5,11 +5,25 @@ import 'package:meta/meta.dart';
 // 2^53-1
 const int _maxSafeInteger = 9007199254740991;
 
+// Unicode categories rock!
+final RegExp _matchLetter = RegExp(r'\p{L}', unicode: true);
+final RegExp _matchNonLetter = RegExp(r'\P{L}', unicode: true);
+final RegExp _matchSeperators = RegExp(r'\p{Z}+', unicode: true);
+
 /// A function mapping a string to a key.
 ///
 /// This is applied before all operations.
-/// For example a mapping may be defined between the set of strings
-/// and their lowercase equivilents see: [TernaryTreap.lowercase]
+/// 
+/// Predefined mappings include:
+///
+/// * [TernaryTreap.lowercase]
+/// * [TernaryTreap.collapseWhitespace]
+/// * [TernaryTreap.nonLetterToSpace]
+/// * [TernaryTreap.lowerCollapse]
+/// * [TernaryTreap.joinSingleLetters]
+/// 
+/// See [TernaryTreap.lowerCollapse] for example of combining multiple
+/// [KeyMapping] functions.
 typedef KeyMapping = String Function(String str);
 
 abstract class _TernaryTreeIterableBase<V, I> extends IterableMixin<I> {
@@ -302,36 +316,85 @@ class TernaryTreap<V> with MapMixin<String, List<V>> {
   ///
   /// The [keyMapping] argument supplies an ptional instance of
   /// [KeyMapping] to be applied to all keys processed by this [TernaryTreap].
+  ///
   /// If [treatKeyAsStringValue] is 'true' then keys are included as value when
   /// value type is [String].
   TernaryTreap({this.keyMapping, this.treatKeyAsStringValue = true});
 
-  /// Transform key to all lowercase.
+  /// Transform [str] such that all characters are lowercase.
   ///
-  /// When passed to [TernaryTreap()] this transform will be applied
+  /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
   /// to all key arguments passed by client
   static String lowercase(String str) => str.toLowerCase();
 
-  /// Transform a key such that:
+  /// Transform [str] such that each non letter character is
+  /// replaced by a space character.
+  ///
+  /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
+  /// to all key arguments passed by client
+  static String nonLetterToSpace(String str) =>
+      str.replaceAll(_matchNonLetter, ' ');
+
+  /// Transform [str] such that adjacent single Letters separated by
+  /// whitespace are joined together. For example:
+  ///
+  /// '    a b   a   b  abcd a b' -> 'ab   ab  abcd ab'
+  ///
+  /// When used after [nonLetterToSpace] this ensures that 'U.S.A' and 'USA'
+  /// are equivilent after [KeyMapping] applied.
+  ///
+  /// Note: This transform trims and collapses whitespace during operation
+  /// and is thus equivilent also to performing [collapseWhitespace].
+  ///
+  /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
+  /// to all key arguments passed by client
+  static String joinSingleLetters(String str) {
+    final List<String> chunks = str.trim().split(_matchSeperators);
+
+    final List<String> res = <String>[];
+    //join all adjacent chunks with size 1
+    final StringBuffer newChunk = StringBuffer();
+
+    for (final String chunk in chunks) {
+      // if chuck is single Letter
+      if (chunk.length == 1 && _matchLetter.matchAsPrefix(chunk) != null) {
+        newChunk.write(chunk);
+      } else {
+        if (newChunk.isNotEmpty) {
+          res.add(newChunk.toString());
+          newChunk.clear();
+        }
+        res.add(chunk);
+      }
+    }
+    if (newChunk.isNotEmpty) {
+      res.add(newChunk.toString());
+    }
+    return res.join(' ');
+  }
+
+  /// Transform [str] such that:
   ///
   /// * Whitespace is trimmed from start and end
   /// * Runs of multiple whitespace characters are collapsed into a single ' '.
   ///
-  /// When passed to [TernaryTreap()] this transform will be applied
+  /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
   /// to all key arguments passed by client.
   static String collapseWhitespace(String str) =>
-      str.replaceAll(RegExp(r'^\s+|\s+$'), '').replaceAll(RegExp(r'\s+'), ' ');
+      str.trim().replaceAll(_matchSeperators, ' ');
 
-  /// Transform a key with both [lowercase] and [collapseWhitespace].
+  /// Transform [str] with both [lowercase] and [collapseWhitespace].
   ///
-  /// When passed to [TernaryTreap()] this transform will be applied
+  /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
   /// to all key arguments passed by client
   static String lowerCollapse(String str) =>
       collapseWhitespace(str).toLowerCase();
 
   final Random _random = Random();
 
-  /// The [KeyMapping] is use by this [TernaryTreap]
+  /// The [KeyMapping] in use by this [TernaryTreap]
+  ///
+  /// See: [KeyMapping].
   final KeyMapping keyMapping;
 
   /// If true then keys will be included as values during processing

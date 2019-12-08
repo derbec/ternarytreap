@@ -14,3 +14,7 @@
 
 - Updated doc links
 
+## 1.0.4
+
+- Added new KeyMappings
+
