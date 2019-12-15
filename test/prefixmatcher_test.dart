@@ -1,8 +1,7 @@
-import 'dart:convert';
+
 
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:test/test.dart';
-
 import 'words.dart';
 
 void main() {
@@ -33,8 +32,8 @@ void main() {
             for (String word in sortedKeys) if (word.startsWith(prefix)) word
           ];
 
-          expect(json.encode(matcher.match(prefix).toList()),
-              equals(json.encode(expectedOutput)));
+          expect(matcher.match(prefix).toList(),
+              equals(expectedOutput));
         }
       }
     });
@@ -46,12 +45,12 @@ void main() {
         expectedOutput.addAll(collator[word]);
       }
       expect(
-          json.encode(matcher.toList()), equals(json.encode(expectedOutput)));
+          matcher.toList(), equals(expectedOutput));
     });
 
     test('[]', () {
       for (final String word in sortedKeys) {
-        expect(json.encode(matcher[word]), equals(json.encode(collator[word])));
+        expect(matcher[word], equals(collator[word]));
       }
     });
 
@@ -60,19 +59,21 @@ void main() {
         ..add('at');
 
       expect(
-          json.encode(tree.remove('at')), equals(json.encode(<String>['at'])));
+          tree.remove('at'), equals(<String>['at']));
 
       tree.add('be');
 
-      expect(json.encode(tree.remove('CAT')), equals(json.encode(null)));
+      expect(
+          tree.remove('CAT'),
+          equals(const Iterable<String>.empty()));
 
       expect(
-          json.encode(tree.remove('BE')), equals(json.encode(<String>['be'])));
+          tree.remove('BE'), equals(<String>['be']));
 
       collator.keys.toList().forEach(tree.remove);
 
       expect(tree.length, equals(0));
       expect(tree.isEmpty, equals(true));
-    });
+    });    
   });
 }

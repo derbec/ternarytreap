@@ -80,7 +80,7 @@ class InputActivity extends Activity {
   InputActivity({KeyMapping keyMapping, List<String> preload})
       : _ternaryTreap = keyMapping == null
             ? TernaryTreap<DictEntry>()
-            : TernaryTreap<DictEntry>(keyMapping: keyMapping) {
+            : TernaryTreap<DictEntry>(keyMapping) {
     if (preload.isNotEmpty) {
       for (final String word in preload) {
         // fabricate dict entry

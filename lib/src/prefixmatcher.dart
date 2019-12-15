@@ -13,7 +13,7 @@ class PrefixMatcher with IterableMixin<String> {
   /// applied to all keys processed by this [PrefixMatcher].
   /// see [TernaryTreap()].
   PrefixMatcher([KeyMapping keyMapping])
-      : ternaryTreap = TernaryTreap<String>(keyMapping: keyMapping);
+      : ternaryTreap = TernaryTreap<String>(keyMapping);
 
   /// Underlying [TernaryTreap]
   final TernaryTreap<String> ternaryTreap;
@@ -35,18 +35,18 @@ class PrefixMatcher with IterableMixin<String> {
   /// Returned strings are ordered by key (i.e. grouped by [KeyMapping]),
   /// and then by order of insertion.
   Iterable<String> match(String prefix) =>
-      ternaryTreap.valuesByKeyPrefix(prefix).flatten;
+      ternaryTreap.valuesByKeyPrefix(prefix);
 
-  /// @returns List of [String] objects corresponding to [key].
+  /// @returns [Iterable] of [String] objects corresponding to [key].
   ///
   /// If no data associated with key then return empty [List].
   /// If key found then return null.
-  List<String> operator [](String key) => ternaryTreap[key];
+  Iterable<String> operator [](String key) => ternaryTreap[key];
 
   /// Remove specified string [key] and return list of strings that
   /// were associated with [key]
   /// See [TernaryTreap.remove]
-  List<String> remove(String key) => ternaryTreap.remove(key);
+  Iterable<String> remove(String key) => ternaryTreap.removeKey(key);
 
   /// Does specified [key] exist?.
   ///
@@ -56,7 +56,7 @@ class PrefixMatcher with IterableMixin<String> {
   bool contains(Object key) => ternaryTreap.containsKey(key);
 
   @override
-  Iterator<String> get iterator => ternaryTreap.values.flatten.iterator;
+  Iterator<String> get iterator => ternaryTreap.values.iterator;
 
   @override
   int get length => ternaryTreap.length;
