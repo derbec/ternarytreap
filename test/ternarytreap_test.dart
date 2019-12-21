@@ -61,7 +61,7 @@ void main() {
 
     sortedKeys = collator.keys.toList()..sort();
 
-    tst = TernaryTreap<int>();
+    tst = TernaryTreapSet<int>();
     for (final int x in testKeys) {
       // Special keys are added with no data
       if (x > (numUniqueKeys * 3 + startVal)) {
@@ -137,7 +137,7 @@ void main() {
     });
 
     test('one key', () {
-      final TernaryTreap<int> oneKey = TernaryTreap<int>()..add('a');
+      final TernaryTreap<int> oneKey = TernaryTreapSet<int>()..add('a');
       expect(oneKey.length, equals(1));
       expect(oneKey.entries.length, equals(1));
       expect(oneKey.entriesByKeyPrefix('a').length, equals(1));
@@ -262,7 +262,7 @@ void main() {
 
     test('[]=', () {
       final TernaryTreap<int> tree =
-          TernaryTreap<int>( TernaryTreap.lowercase);
+          TernaryTreapSet<int>(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -306,9 +306,8 @@ void main() {
     });
 
     test('KeyMapping', () {
-      TernaryTreap<int> tree =
-          TernaryTreap<int>( TernaryTreap.lowercase)
-            ..add('TeStInG', 1);
+      TernaryTreap<int> tree = TernaryTreapSet<int>(TernaryTreap.lowercase)
+        ..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
 
@@ -320,8 +319,7 @@ void main() {
 
       testIdempotence(tree, 'DSAF DF SD FSDRTE ');
 
-      tree = TernaryTreap<int>( TernaryTreap.uppercase)
-        ..add('TeStInG', 1);
+      tree = TernaryTreapSet<int>(TernaryTreap.uppercase)..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
 
@@ -333,7 +331,7 @@ void main() {
 
       testIdempotence(tree, 'asdas KJHGJGH fsdfsdf ');
 
-      tree = TernaryTreap<int>( TernaryTreap.collapseWhitespace)
+      tree = TernaryTreapSet<int>(TernaryTreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);
       expect(
           tree['t             '
@@ -344,7 +342,7 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = TernaryTreap<int>( TernaryTreap.lowerCollapse)
+      tree = TernaryTreapSet<int>(TernaryTreap.lowerCollapse)
         ..add(' T eS   KK     Bg  ', 1);
       expect(
           tree['       t es'
@@ -355,7 +353,7 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = TernaryTreap<int>( TernaryTreap.nonLetterToSpace)
+      tree = TernaryTreapSet<int>(TernaryTreap.nonLetterToSpace)
         ..add('*T_eS  -KK  ,  Bg )\n\t', 1);
       expect(tree[' T eS  ^KK %* ^Bg ;  '], <int>[1]);
 
@@ -363,7 +361,7 @@ void main() {
 
       testIdempotence(tree, ' %  asd+=as   & & ^J%@HG  J(GH f`sdf  s*df   )!');
 
-      tree = TernaryTreap<int>( TernaryTreap.joinSingleLetters)
+      tree = TernaryTreapSet<int>(TernaryTreap.joinSingleLetters)
         ..add('    a     b .  ab.cd a  b abcd a        b', 1);
 
       expect(tree['ab .  ab.cd ab abcd ab'], equals(<int>[1]));
@@ -386,7 +384,7 @@ void main() {
 
     test('removeValues', () {
       final TernaryTreap<int> tree =
-          TernaryTreap<int>( TernaryTreap.lowercase);
+          TernaryTreapSet<int>(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -400,12 +398,11 @@ void main() {
 
       expect(tree.removeValues('BE'), equals(<int>[2, 3]));
       expect(tree['Be'], equals(<int>[]));
-
     });
 
     test('removeKey', () {
       final TernaryTreap<int> tree =
-          TernaryTreap<int>( TernaryTreap.lowercase);
+          TernaryTreapSet<int>(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -425,7 +422,7 @@ void main() {
     });
 
     test('addAll', () {
-      final TernaryTreap<int> tree = TernaryTreap<int>();
+      final TernaryTreap<int> tree = TernaryTreapSet<int>();
 
       tree['At'] = <int>[1];
 
@@ -453,7 +450,7 @@ void main() {
     });
 
     test('addValues', () {
-      final TernaryTreap<int> tree = TernaryTreap<int>();
+      final TernaryTreap<int> tree = TernaryTreapSet<int>();
 
       tree['At'] = <int>[1];
 
@@ -488,6 +485,5 @@ void main() {
     test('asMap', () {
       expect(tst.asMap(), equals(collator));
     });
-
   });
 }

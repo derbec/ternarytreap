@@ -18,3 +18,6 @@
 
 - Added new KeyMappings
 
+## 1.0.5
+
+- Changed to multimap style interface

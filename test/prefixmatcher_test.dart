@@ -1,5 +1,3 @@
-
-
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:test/test.dart';
 import 'words.dart';
@@ -32,8 +30,7 @@ void main() {
             for (String word in sortedKeys) if (word.startsWith(prefix)) word
           ];
 
-          expect(matcher.match(prefix).toList(),
-              equals(expectedOutput));
+          expect(matcher.match(prefix).toList(), equals(expectedOutput));
         }
       }
     });
@@ -44,8 +41,7 @@ void main() {
       for (final String word in sortedKeys) {
         expectedOutput.addAll(collator[word]);
       }
-      expect(
-          matcher.toList(), equals(expectedOutput));
+      expect(matcher.toList(), equals(expectedOutput));
     });
 
     test('[]', () {
@@ -58,22 +54,18 @@ void main() {
       final PrefixMatcher tree = PrefixMatcher(TernaryTreap.lowercase)
         ..add('at');
 
-      expect(
-          tree.remove('at'), equals(<String>['at']));
+      expect(tree.remove('at'), equals(<String>['at']));
 
       tree.add('be');
 
-      expect(
-          tree.remove('CAT'),
-          equals(const Iterable<String>.empty()));
+      expect(tree.remove('CAT'), equals(const Iterable<String>.empty()));
 
-      expect(
-          tree.remove('BE'), equals(<String>['be']));
+      expect(tree.remove('BE'), equals(<String>['be']));
 
       collator.keys.toList().forEach(tree.remove);
 
       expect(tree.length, equals(0));
       expect(tree.isEmpty, equals(true));
-    });    
+    });
   });
 }

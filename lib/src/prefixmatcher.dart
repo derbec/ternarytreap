@@ -2,10 +2,46 @@ import 'dart:collection';
 
 import 'package:ternarytreap/src/ternarytreap_base.dart';
 
-/// Defines a 1 to n relation between Prefixes and Input strings
+/// A [TernaryTreap] specialised for [String] values.
+///
 /// Use for prefix matching in autocompletion tasks etc.
+///
+/// A single Key can map to multiple Input strings.
+/// This relationship is formed by specified [KeyMapping].
+///
 /// Iterating [PrefixMatcher] will return all input strings ordered
-/// first by [KeyMapping] result then by insertion order.
+/// first by Key then by insertion order.
+///
+///
+/// [PrefixMatcher] is the function:
+///
+/// * <i>f</i> : <i>K</i> &mapsto; &weierp; (<i>I</i>) &setminus; &emptyset;
+///
+/// such that:
+///
+/// * K is the set of all Key strings
+/// * I is the set of all Input strings
+/// * &weierp; (<i>I</i>) &setminus; &emptyset; is the powerset of I exluding the empty set
+///
+/// ```dart
+///
+/// final  PrefixMatcher matcher = PrefixMatcher(TernaryTreap.lowerCollapse)
+///
+/// ..addAll(['cat', 'Cat', 'CAT', 'CanaRy', 'CANARY']);
+///
+/// ```
+///
+/// ```dart
+///
+/// print(matcher.match('can'));
+///
+/// ```
+///
+/// ```shell
+///
+/// (CanaRy, CANARY)
+///
+/// ```
 class PrefixMatcher with IterableMixin<String> {
   /// Constructs a new [PrefixMatcher].
   ///
@@ -13,7 +49,7 @@ class PrefixMatcher with IterableMixin<String> {
   /// applied to all keys processed by this [PrefixMatcher].
   /// see [TernaryTreap()].
   PrefixMatcher([KeyMapping keyMapping])
-      : ternaryTreap = TernaryTreap<String>(keyMapping);
+      : ternaryTreap = TernaryTreapSet<String>(keyMapping);
 
   /// Underlying [TernaryTreap]
   final TernaryTreap<String> ternaryTreap;
