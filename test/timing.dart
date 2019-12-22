@@ -7,7 +7,7 @@ import 'words.dart';
 const int numRepeats = 1000;
 
 void main(List<String> args) {
-  final List<String> keys = <String>[
+  final keys = <String>[
     ...words,
     ...words
         .map((String word) => String.fromCharCodes(word.codeUnits.reversed)),
@@ -18,13 +18,13 @@ void main(List<String> args) {
 
   stdout.writeln('Number of keys = ${keys.length}');
 
-  final Map<String, List<String>> map = <String, List<String>>{};
+  final map = <String, List<String>>{};
   final TernaryTreap<String> tt = TernaryTreapList<String>();
 
-  final Stopwatch timer = Stopwatch()..start();
+  final timer = Stopwatch()..start();
 
-  for (int i = 0; i < numRepeats; i++) {
-    for (final String key in keys) {
+  for (var i = 0; i < numRepeats; i++) {
+    for (final key in keys) {
       map[key] = <String>[key];
     }
   }
@@ -35,8 +35,8 @@ void main(List<String> args) {
     ..reset()
     ..start();
 
-  for (int i = 0; i < numRepeats; i++) {
-    for (final String key in keys) {
+  for (var i = 0; i < numRepeats; i++) {
+    for (final key in keys) {
       tt[key] = <String>[key];
     }
   }
@@ -48,8 +48,8 @@ void main(List<String> args) {
     ..reset()
     ..start();
 
-  for (int i = 0; i < numRepeats; i++) {
-    for (final String key in keys) {
+  for (var i = 0; i < numRepeats; i++) {
+    for (final key in keys) {
       if (!map.containsKey(key)) {
         throw Error();
       }
@@ -62,8 +62,8 @@ void main(List<String> args) {
     ..reset()
     ..start();
 
-  for (int i = 0; i < numRepeats; i++) {
-    for (final String key in keys) {
+  for (var i = 0; i < numRepeats; i++) {
+    for (final key in keys) {
       if (!tt.containsKey(key)) {
         throw Error();
       }

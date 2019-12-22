@@ -413,13 +413,13 @@ abstract class TernaryTreap<V> {
   /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
   /// to all key arguments passed by client
   static String joinSingleLetters(String str) {
-    final List<String> chunks = str.trim().split(_matchSeperators);
+    final chunks = str.trim().split(_matchSeperators);
 
-    final List<String> res = <String>[];
+    final res = <String>[];
     //join all adjacent chunks with size 1
-    final StringBuffer newChunk = StringBuffer();
+    final newChunk = StringBuffer();
 
-    for (final String chunk in chunks) {
+    for (final chunk in chunks) {
       // if chuck is single Letter
       if (chunk.length == 1 && _matchLetter.matchAsPrefix(chunk) != null) {
         newChunk.write(chunk);
@@ -720,9 +720,9 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
   @override
   int get depth {
     final _MapEntryIterator<V> itr = entries.iterator;
-    int maxDepth = 0;
+    var maxDepth = 0;
     while (itr.moveNext()) {
-      final int currentDepth = itr.stack.length;
+      final currentDepth = itr.stack.length;
 
       if (currentDepth > maxDepth) {
         maxDepth = currentDepth;
@@ -750,42 +750,42 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
   @override
   Iterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix) {
-    final String prefixMapped = mapKey(prefix);
+    final prefixMapped = mapKey(prefix);
 
     if (prefixMapped.isEmpty) {
       return entries;
     }
 
     //Traverse from last node of prefix
-    final _Node<V> lastPrefixNode = _getPrefixNode(_root, prefixMapped);
+    final lastPrefixNode = _getPrefixNode(_root, prefixMapped);
 
     return _MapEntryIterable<V>(this, lastPrefixNode, prefixMapped);
   }
 
   @override
   Iterable<String> keysByPrefix(String prefix) {
-    final String prefixMapped = mapKey(prefix);
+    final prefixMapped = mapKey(prefix);
 
     if (prefixMapped.isEmpty) {
       return keys;
     }
 
     //Traverse from last node of prefix
-    final _Node<V> lastPrefixNode = _getPrefixNode(_root, prefixMapped);
+    final lastPrefixNode = _getPrefixNode(_root, prefixMapped);
 
     return _KeyIterable<V>(this, lastPrefixNode, prefixMapped);
   }
 
   @override
   Iterable<V> valuesByKeyPrefix(String prefix) {
-    final String prefixMapped = mapKey(prefix);
+    final prefixMapped = mapKey(prefix);
 
     if (prefixMapped.isEmpty) {
       return values;
     }
 
     //Traverse from last node of prefix
-    final _Node<V> lastPrefixNode = _getPrefixNode(_root, prefixMapped);
+    final lastPrefixNode = _getPrefixNode(_root, prefixMapped);
 
     return _ValuesIterable<V>(this, lastPrefixNode, prefixMapped)
         .expand((Iterable<V> values) => values);
@@ -802,12 +802,12 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
   void addAll(TernaryTreap<V> other) {
     final _MapEntryIterator<V> entryItr = other.entries.iterator;
     while (entryItr.moveNext()) {
-      final String mappedKey = _mapKeyErrorOnEmpty(entryItr.currentKey);
+      final mappedKey = _mapKeyErrorOnEmpty(entryItr.currentKey);
 
       // map key alone for case where no data is associated with key
       _root = _add(_root, mappedKey, null);
 
-      for (final V value in entryItr.currentValue) {
+      for (final value in entryItr.currentValue) {
         _root = _add(_root, mappedKey, value);
       }
     }
@@ -817,12 +817,12 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
   @override
   void addValues(String key, Iterable<V> values) {
-    final String mappedKey = _mapKeyErrorOnEmpty(key);
+    final mappedKey = _mapKeyErrorOnEmpty(key);
 
     // map key alone for case where no data is associated with key
     _root = _add(_root, mappedKey, null);
 
-    for (final V value in values) {
+    for (final value in values) {
       _root = _add(_root, mappedKey, value);
     }
 
@@ -834,7 +834,7 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
     final _MapEntryIterator<V> entryItr = entries.iterator;
 
     while (entryItr.moveNext()) {
-      for (final V value in entryItr.currentValue) {
+      for (final value in entryItr.currentValue) {
         f(entryItr.currentKey, value);
       }
     }
@@ -864,13 +864,13 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
       throw ArgumentError();
     }
 
-    final String keyMapped = mapKey(key as String);
+    final keyMapped = mapKey(key as String);
 
     if (keyMapped.isEmpty) {
       return null;
     }
 
-    final _Node<V> keyNode = _getKeyNode(keyMapped);
+    final keyNode = _getKeyNode(keyMapped);
 
     if (keyNode == null) {
       return null;
@@ -881,8 +881,8 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
   @override
   void operator []=(String key, Iterable<V> values) {
-    final String keyMapped = _mapKeyErrorOnEmpty(key);
-    _Node<V> keyNode = _getKeyNode(keyMapped);
+    final keyMapped = _mapKeyErrorOnEmpty(key);
+    var keyNode = _getKeyNode(keyMapped);
 
     if (keyNode == null) {
       // Node does not exist so insert a new one
@@ -913,13 +913,13 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
       throw ArgumentError();
     }
 
-    final String transformedKey = mapKey(key);
+    final transformedKey = mapKey(key);
 
     if (transformedKey.isEmpty) {
       return false;
     }
 
-    final _Node<V> keyNode = _getKeyNode(transformedKey);
+    final keyNode = _getKeyNode(transformedKey);
 
     // Does the key map to anything?
     if (keyNode == null) {
@@ -941,7 +941,7 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
       throw ArgumentError();
     }
 
-    final _Node<V> keyNode = _getKeyNode(mapKey(key));
+    final keyNode = _getKeyNode(mapKey(key));
 
     // Does the key map to anything?
     if (keyNode == null) {
@@ -962,7 +962,7 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
       throw ArgumentError();
     }
 
-    final _Node<V> keyNode = _getKeyNode(mapKey(key));
+    final keyNode = _getKeyNode(mapKey(key));
 
     // Return empty Iterable when unmapped
     if (keyNode == null) {
@@ -980,9 +980,8 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
       throw ArgumentError();
     }
     _incVersion();
-    final String transformedKey = mapKey(key);
-    final Iterable<V> values =
-        _remove(_root, null, transformedKey.codeUnits, 0);
+    final transformedKey = mapKey(key);
+    final values = _remove(_root, null, transformedKey.codeUnits, 0);
     if (_root != null && _root.numDFSDescendants == 0) {
       /// There are no end nodes left in tree so delete root
       _root = null;
@@ -997,21 +996,21 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
   @override
   String toString([String paddingChar = '-']) {
-    final StringBuffer lines = StringBuffer();
+    final lines = StringBuffer();
     final _MapEntryIterator<V> itr = entries.iterator;
 
     // We can avoid an object creation per key by not accessing the
     // 'current' getter of itr.
     while (itr.moveNext()) {
-      final int currentDepth = itr.stack.length;
+      final currentDepth = itr.stack.length;
 
-      final String keyPadding =
+      final keyPadding =
           ''.padLeft(currentDepth + 1 - itr.currentKey.length, paddingChar);
 
-      final String valuePadding = ''.padLeft(keyPadding.length, ' ');
+      final valuePadding = ''.padLeft(keyPadding.length, ' ');
       lines.writeln(keyPadding + itr.currentKey);
       // There is not always a value associated with a key
-      for (final V datum in itr.currentValue) {
+      for (final datum in itr.currentValue) {
         lines.writeln(valuePadding + datum.toString());
       }
     }
@@ -1033,7 +1032,7 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
   /// Map key and throw error if result is empty
   String _mapKeyErrorOnEmpty(String key) {
-    final String mappedKey = mapKey(key);
+    final mappedKey = mapKey(key);
     if (mappedKey.isEmpty) {
       throw ArgumentError('key $key is empty after KeyMapping applied');
     }
@@ -1090,11 +1089,11 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
   /// Iterative version: More complicated than recursive
   /// but 4 times as fast.
   _Node<V> _add(_Node<V> rootNode, String key, V value) {
-    final List<int> keyCodeUnits = key.codeUnits;
+    final keyCodeUnits = key.codeUnits;
 
-    int currentIdx = 0;
-    _Node<V> _rootNode = rootNode;
-    _Node<V> currentNode = _rootNode ??=
+    var currentIdx = 0;
+    var _rootNode = rootNode;
+    var currentNode = _rootNode ??=
         _nodeFactory(keyCodeUnits[currentIdx], _random.nextInt(1 << 32), null)
 
           // stop marker for reverse iteration
@@ -1102,7 +1101,7 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
     // Create a path down to key node
     while (currentIdx < keyCodeUnits.length) {
-      final int keyCodeUnit = keyCodeUnits[currentIdx];
+      final keyCodeUnit = keyCodeUnits[currentIdx];
       if (keyCodeUnit < currentNode.codeUnit) {
         // create left path if needed
         currentNode.left ??=
@@ -1110,8 +1109,8 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
         // rotate node and update parent if needed
         if (currentNode.left.priority > currentNode.priority) {
-          final _Node<V> currentParent = currentNode.parent;
-          final _Node<V> rotatedNode = _rotateRight(currentNode);
+          final currentParent = currentNode.parent;
+          final rotatedNode = _rotateRight(currentNode);
           if (currentParent == null) {
             _rootNode = rotatedNode;
           } else {
@@ -1133,8 +1132,8 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
             _nodeFactory(keyCodeUnit, _random.nextInt(1 << 32), currentNode);
 
         if (currentNode.right.priority > currentNode.priority) {
-          final _Node<V> currentParent = currentNode.parent;
-          final _Node<V> rotatedNode = _rotateLeft(currentNode);
+          final currentParent = currentNode.parent;
+          final rotatedNode = _rotateLeft(currentNode);
           if (currentParent == null) {
             _rootNode = rotatedNode;
           } else {
@@ -1165,7 +1164,7 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
     if (currentNode.setAsKeyEnd()) {
       // If new node was inserted reverse back up to root node
       // to update node counts
-      _Node<V> reverseNode = currentNode;
+      var reverseNode = currentNode;
       while (reverseNode != null) {
         reverseNode.numDFSDescendants =
             (reverseNode.left == null ? 0 : reverseNode.left.sizeDFSTree) +
@@ -1203,16 +1202,14 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
     }
 
     if (codeUnits[idx] < thisNode.codeUnit) {
-      final Iterable<V> values =
-          _remove(thisNode.left, thisNode, codeUnits, idx);
+      final values = _remove(thisNode.left, thisNode, codeUnits, idx);
       if (values != null) {
         _updateDescendantCounts(thisNode);
       }
       return values;
     } else {
       if (codeUnits[idx] > thisNode.codeUnit) {
-        final Iterable<V> values =
-            _remove(thisNode.right, thisNode, codeUnits, idx);
+        final values = _remove(thisNode.right, thisNode, codeUnits, idx);
         if (values != null) {
           _updateDescendantCounts(thisNode);
         }
@@ -1233,12 +1230,11 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
             }
           }
           // Remove end node status
-          final Iterable<V> values = thisNode.values;
+          final values = thisNode.values;
           thisNode.values = null;
           return values;
         } else {
-          final Iterable<V> values =
-              _remove(thisNode.mid, thisNode, codeUnits, idx + 1);
+          final values = _remove(thisNode.mid, thisNode, codeUnits, idx + 1);
           if (values != null) {
             _updateDescendantCounts(thisNode);
           }
@@ -1256,7 +1252,7 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
       return null;
     }
 
-    final _Node<V> lastPrefixNode = _getPrefixNode(_root, transformedKey);
+    final lastPrefixNode = _getPrefixNode(_root, transformedKey);
 
     if (lastPrefixNode == null || !lastPrefixNode.isKeyEnd) {
       return null;
@@ -1266,9 +1262,9 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
 
   /// Return the node that is parent to all keys starting with [prefix]
   _Node<V> _getPrefixNode(_Node<V> thisNode, String prefix) {
-    final List<int> prefixCodeUnits = prefix.codeUnits;
+    final prefixCodeUnits = prefix.codeUnits;
     _Node<V> currentNode, nextNode = thisNode;
-    int currentIdx = 0;
+    var currentIdx = 0;
 
     while (currentIdx < (prefixCodeUnits.length)) {
       if (nextNode == null) {
@@ -1295,8 +1291,8 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
   ///   / \              / \
   ///  c   d            d   e ```
   _Node<V> _rotateRight(_Node<V> a) {
-    final _Node<V> b = a.left;
-    final _Node<V> d = b.right;
+    final b = a.left;
+    final d = b.right;
 
     // Rotate
     b
@@ -1325,8 +1321,8 @@ class _TernaryTreap<V> implements TernaryTreap<V> {
   ///      / \        / \
   ///     d   e      c   d ```
   _Node<V> _rotateLeft(_Node<V> b) {
-    final _Node<V> a = b.right;
-    final _Node<V> d = a.left;
+    final a = b.right;
+    final d = a.left;
 
     // Rotate
     a
@@ -1391,7 +1387,7 @@ abstract class _Node<V> {
 
   /// return number of end nodes in subtree with this node as prefix root
   int get _sizePrefixTree {
-    int size = values == null ? 0 : 1;
+    var size = values == null ? 0 : 1;
     if (mid != null) {
       size += mid.sizeDFSTree;
     }
@@ -1414,7 +1410,7 @@ class _NodeSet<V> extends _Node<V> {
 
   @override
   Iterable<V> removeValues() {
-    final Iterable<V> ret = values;
+    final ret = values;
     values = <V>{};
     return ret;
   }
@@ -1450,7 +1446,7 @@ class _NodeList<V> extends _Node<V> {
 
   @override
   Iterable<V> removeValues() {
-    final Iterable<V> ret = values;
+    final ret = values;
     values = <V>[];
     return ret;
   }
@@ -1481,9 +1477,8 @@ class _FastStack<E> {
   bool get isNotEmpty => ptrTop > -1;
   void push(E value) {
     if (++ptrTop >= stack.length) {
-      final List<E> newStack =
-          List<E>(stack.length * 2); //simplest growth strategy
-      for (int i = 0; i < stack.length; i++) {
+      final newStack = List<E>(stack.length * 2); //simplest growth strategy
+      for (var i = 0; i < stack.length; i++) {
         newStack[i] = stack[i];
       }
       stack = newStack;
@@ -1619,7 +1614,7 @@ abstract class _IteratorBase<V> {
     }
 
     while (stack.isNotEmpty) {
-      final _StackFrame<V> context = stack.pop();
+      final context = stack.pop();
 
       // push right and mid for later consumption
       if (context.node.right != null) {
@@ -1644,7 +1639,7 @@ abstract class _IteratorBase<V> {
   }
 
   void pushAllLeft(_StackFrame<V> context) {
-    _StackFrame<V> _context = context;
+    var _context = context;
     // add frame to stack and drill down the left
     stack.push(_context);
     while (_context.node.left != null) {
@@ -1673,7 +1668,7 @@ class _ValuesIterator<V> extends _IteratorBase<V>
 
   @override
   bool moveNext() {
-    bool next = super.moveNext();
+    var next = super.moveNext();
     // skip empty value lists
     while (next && currentValue.isEmpty) {
       next = super.moveNext();

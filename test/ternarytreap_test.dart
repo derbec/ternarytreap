@@ -7,7 +7,7 @@ import 'helper.dart';
 void testIdempotence(TernaryTreap<int> tree, String key) {
   // map key and then ensure that subsequent mappings do not change
   // mapped value
-  String mappedKey = tree.mapKey(key);
+  var mappedKey = tree.mapKey(key);
 
   expect(mappedKey, equals(tree.mapKey(mappedKey)));
 
@@ -21,10 +21,10 @@ void testIdempotence(TernaryTreap<int> tree, String key) {
 }
 
 void main() {
-  const int numUniqueKeys = 10;
+  const numUniqueKeys = 10;
   // Total number of keys taking into account overlap and special keys
-  final int numKeys = (numUniqueKeys * 1.5).round() + 3;
-  const int startVal = 17;
+  final numKeys = (numUniqueKeys * 1.5).round() + 3;
+  const startVal = 17;
   List<String> sortedKeys;
   Map<String, List<int>> collator;
   TernaryTreap<int> tst;
@@ -44,7 +44,7 @@ void main() {
 
     //Test output
     collator = <String, List<int>>{};
-    for (final int x in testKeys) {
+    for (final x in testKeys) {
       if (collator.containsKey(x.toString())) {
         if (!collator[x.toString()].contains(x)) {
           collator[x.toString()].add(x);
@@ -62,7 +62,7 @@ void main() {
     sortedKeys = collator.keys.toList()..sort();
 
     tst = TernaryTreapSet<int>();
-    for (final int x in testKeys) {
+    for (final x in testKeys) {
       // Special keys are added with no data
       if (x > (numUniqueKeys * 3 + startVal)) {
         tst.add(x.toString());
@@ -73,13 +73,12 @@ void main() {
   });
   group('TernaryTreap', () {
     test('forEach', () {
-      final List<MapEntry<String, int>> expectedOutput =
-          <MapEntry<String, int>>[
+      final expectedOutput = <MapEntry<String, int>>[
         for (String word in sortedKeys)
           for (int x in collator[word]) MapEntry<String, int>(word, x)
       ];
 
-      final List<MapEntry<String, int>> result = <MapEntry<String, int>>[];
+      final result = <MapEntry<String, int>>[];
       tst.forEach((String key, int data) {
         result.add(MapEntry<String, int>(key, data));
       });
@@ -89,14 +88,12 @@ void main() {
     });
 
     test('forEachKey', () {
-      final List<MapEntry<String, Iterable<int>>> expectedOutput =
-          <MapEntry<String, Iterable<int>>>[
+      final expectedOutput = <MapEntry<String, Iterable<int>>>[
         for (String word in sortedKeys)
           MapEntry<String, Iterable<int>>(word, collator[word])
       ];
 
-      final List<MapEntry<String, Iterable<int>>> result =
-          <MapEntry<String, Iterable<int>>>[];
+      final result = <MapEntry<String, Iterable<int>>>[];
       tst.forEachKey((String key, Iterable<int> data) {
         result.add(MapEntry<String, Iterable<int>>(key, data));
       });
@@ -107,21 +104,19 @@ void main() {
 
     test('forEachKeyPrefixedBy', () {
       //Use key from middle of range
-      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
+      final key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       //for each character in prefix compare prefix return to ternarytreap
-      for (int i = 0; i < key.length; i++) {
-        final String prefix = key.substring(0, i + 1);
+      for (var i = 0; i < key.length; i++) {
+        final prefix = key.substring(0, i + 1);
 
-        final List<MapEntry<String, List<int>>> expectedOutput =
-            <MapEntry<String, List<int>>>[
+        final expectedOutput = <MapEntry<String, List<int>>>[
           for (String word in sortedKeys)
             if (word.startsWith(prefix))
               MapEntry<String, List<int>>(word, collator[word])
         ];
 
-        final List<MapEntry<String, Iterable<int>>> result =
-            <MapEntry<String, Iterable<int>>>[];
+        final result = <MapEntry<String, Iterable<int>>>[];
         tst.forEachKeyPrefixedBy(prefix, (String key, Iterable<int> data) {
           result.add(MapEntry<String, Iterable<int>>(key, data));
         });
@@ -130,7 +125,7 @@ void main() {
             equals(json.encode(expectedOutput, toEncodable: toEncodable)));
 
         // Check that subtree length is maintained correctly while here
-        final int subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
@@ -163,15 +158,14 @@ void main() {
 
     test('values', () {
       //Filter out empty lists
-      final List<int> expectedOutput = <int>[
+      final expectedOutput = <int>[
         for (String word in sortedKeys)
           if (collator[word].isNotEmpty) ...collator[word]
       ];
       expect(tst.values.toList(), equals(expectedOutput));
     });
     test('entries', () {
-      final List<MapEntry<String, Iterable<int>>> expectedOutput =
-          <MapEntry<String, Iterable<int>>>[
+      final expectedOutput = <MapEntry<String, Iterable<int>>>[
         for (String word in sortedKeys)
           MapEntry<String, Iterable<int>>(word, collator[word])
       ];
@@ -181,14 +175,13 @@ void main() {
 
     test('entriesByKeyPrefix', () {
       //Use key from middle of range
-      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
+      final key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       //for each character in prefix compare prefix return to ternarytreap
-      for (int i = 0; i < key.length; i++) {
-        final String prefix = key.substring(0, i + 1);
+      for (var i = 0; i < key.length; i++) {
+        final prefix = key.substring(0, i + 1);
 
-        final List<MapEntry<String, List<int>>> expectedOutput =
-            <MapEntry<String, List<int>>>[
+        final expectedOutput = <MapEntry<String, List<int>>>[
           for (String word in sortedKeys)
             if (word.startsWith(prefix))
               MapEntry<String, List<int>>(word, collator[word])
@@ -200,7 +193,7 @@ void main() {
             equals(json.encode(expectedOutput, toEncodable: toEncodable)));
 
         // Check that subtree length is maintained correctly while here
-        final int subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
@@ -208,20 +201,20 @@ void main() {
 
     test('keysByPrefix', () {
       //Use key from middle of range
-      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
+      final key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       //for each character in prefix compare prefix return to ternarytreap
-      for (int i = 0; i < key.length; i++) {
-        final String prefix = key.substring(0, i + 1);
+      for (var i = 0; i < key.length; i++) {
+        final prefix = key.substring(0, i + 1);
 
-        final List<String> expectedOutput = <String>[
+        final expectedOutput = <String>[
           for (String word in sortedKeys) if (word.startsWith(prefix)) word
         ];
 
         expect(tst.keysByPrefix(prefix).toList(), equals(expectedOutput));
 
         // Check that subtree length is maintained correctly while here
-        final int subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
@@ -229,13 +222,13 @@ void main() {
 
     test('valuesByKeyPrefix', () {
       //Use key from middle of range
-      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
+      final key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       //for each character in prefix compare prefix return to ternarytreap
-      for (int i = 0; i < key.length; i++) {
-        final String prefix = key.substring(0, i + 1);
+      for (var i = 0; i < key.length; i++) {
+        final prefix = key.substring(0, i + 1);
 
-        final List<int> expectedOutput = <int>[
+        final expectedOutput = <int>[
           for (String word in sortedKeys)
             if (word.startsWith(prefix)) ...collator[word]
         ];
@@ -243,7 +236,7 @@ void main() {
         expect(tst.valuesByKeyPrefix(prefix).toList(), equals(expectedOutput));
 
         // Check that subtree length is maintained correctly while here
-        final int subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
@@ -251,7 +244,7 @@ void main() {
 
     test('[]', () {
       //Use key from middle of range
-      final String key = (startVal + (numUniqueKeys / 2).round()).toString();
+      final key = (startVal + (numUniqueKeys / 2).round()).toString();
 
       expect(tst[key], equals(collator[key]));
 
@@ -274,8 +267,8 @@ void main() {
     });
 
     test('contains', () {
-      for (final String key in sortedKeys) {
-        for (final int val in collator[key]) {
+      for (final key in sortedKeys) {
+        for (final val in collator[key]) {
           expect(tst.contains(key, val), equals(true));
           expect(tst.contains(key, -val), equals(false));
         }
@@ -285,7 +278,7 @@ void main() {
     });
 
     test('containsKey', () {
-      for (final String key in sortedKeys) {
+      for (final key in sortedKeys) {
         expect(tst.containsKey(key), equals(true));
       }
 
@@ -293,8 +286,8 @@ void main() {
     });
 
     test('containsValue', () {
-      for (final String key in sortedKeys) {
-        for (final int val in collator[key]) {
+      for (final key in sortedKeys) {
+        for (final val in collator[key]) {
           expect(tst.containsValue(val), equals(true));
           expect(tst.containsValue(-val), equals(false));
         }
@@ -372,8 +365,8 @@ void main() {
     });
 
     test('remove', () {
-      for (final String key in sortedKeys) {
-        for (final int val in collator[key]) {
+      for (final key in sortedKeys) {
+        for (final val in collator[key]) {
           expect(tst.remove(key, val), equals(true));
           expect(tst.remove(key, -val), equals(false));
         }
@@ -437,14 +430,14 @@ void main() {
       expect(tree['be'], equals(<int>[2, 3]));
 
       // All mappings from tst should be there as well
-      for (final String key in tst.keys) {
+      for (final key in tst.keys) {
         expect(tree[key], equals(tst[key]));
       }
 
       // Check set behaviour by adding again
       tree.addAll(tst);
       // All mappings from tst should be the same
-      for (final String key in tst.keys) {
+      for (final key in tst.keys) {
         expect(tree[key], equals(tst[key]));
       }
     });
@@ -456,7 +449,7 @@ void main() {
 
       tree['be'] = <int>[2, 3];
 
-      for (final String key in tst.keys) {
+      for (final key in tst.keys) {
         tree.addValues(key, tst[key]);
       }
 
@@ -467,17 +460,17 @@ void main() {
       expect(tree['be'], equals(<int>[2, 3]));
 
       // All mappings from tst should be there as well
-      for (final String key in tst.keys) {
+      for (final key in tst.keys) {
         expect(tree[key], equals(tst[key]));
       }
 
       // Check set behaviour by adding again
-      for (final String key in tst.keys) {
+      for (final key in tst.keys) {
         tree.addValues(key, tst[key]);
       }
 
       // All mappings from tst should be the same
-      for (final String key in tst.keys) {
+      for (final key in tst.keys) {
         expect(tree[key], equals(tst[key]));
       }
     });

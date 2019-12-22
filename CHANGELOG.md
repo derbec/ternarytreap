@@ -21,3 +21,8 @@
 ## 1.0.5
 
 - Changed to multimap style interface
+
+## 1.0.6
+
+- Fixed lint errors
+

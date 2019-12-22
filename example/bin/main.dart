@@ -16,7 +16,7 @@ void main(List<String> args) {
   }
   _displayHeader();
 
-  List<String> _words = <String>[];
+  var _words = <String>[];
 
   if (args.length > 1) {
     if (args[1] == 'preload') {

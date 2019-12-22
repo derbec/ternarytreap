@@ -57,7 +57,7 @@ abstract class Activity {
 
   /// Return string representing current [TernaryTreap] state
   String treeString() {
-    final StringBuffer result = StringBuffer();
+    final result = StringBuffer();
 
     if (ternaryTreap.isEmpty) {
       result..writeln()..writeln('*** TernaryTreap is empty')..writeln();
@@ -82,7 +82,7 @@ class InputActivity extends Activity {
             ? TernaryTreapSet<DictEntry>()
             : TernaryTreapSet<DictEntry>(keyMapping) {
     if (preload.isNotEmpty) {
-      for (final String word in preload) {
+      for (final  word in preload) {
         // fabricate dict entry
         _ternaryTreap.add(word, DictEntry(word, 'meaning of $word'));
       }
@@ -126,7 +126,7 @@ class InputActivity extends Activity {
 
   @override
   String get prompt {
-    final String prefix = 'Entry # ${ternaryTreap.length.toString()}';
+    final prefix = 'Entry # ${ternaryTreap.length.toString()}';
     if (word == null) {
       return '${treeString()}'
           '$prefix Enter word for insertion (or Enter to quit)';
@@ -165,7 +165,7 @@ class QueryActivity extends Activity {
 
   @override
   String get prompt {
-    final StringBuffer result = StringBuffer();
+    final result = StringBuffer();
     if (_query != null) {
       result.writeln(ternaryTreap.valuesByKeyPrefix(_query));
     }
