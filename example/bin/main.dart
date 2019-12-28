@@ -71,7 +71,7 @@ void processLine(String line) {
       stdout..writeln('Finished')..writeln(_session.treeString());
       return;
     }
-    _session = QueryActivity(_session);
+    _session = QueryActivity(_session as InputActivity);
   }
   stdout.writeln(_session.prompt);
 }

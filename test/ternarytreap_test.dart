@@ -181,10 +181,10 @@ void main() {
       for (var i = 0; i < key.length; i++) {
         final prefix = key.substring(0, i + 1);
 
-        final expectedOutput = <MapEntry<String, List<int>>>[
+        final expectedOutput = <MapEntry<String, Iterable<int>>>[
           for (String word in sortedKeys)
             if (word.startsWith(prefix))
-              MapEntry<String, List<int>>(word, collator[word])
+              MapEntry<String, Iterable<int>>(word, collator[word])
         ];
 
         expect(
@@ -193,10 +193,10 @@ void main() {
             equals(json.encode(expectedOutput, toEncodable: toEncodable)));
 
         // Check that subtree length is maintained correctly while here
-        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
-
-        expect(subTreeLength, equals(expectedOutput.length));
+        expect(tst.entriesByKeyPrefix(prefix).length, equals(expectedOutput.length));
       }
+
+      expect(tst.entriesByKeyPrefix('NOT PRESENT').isEmpty,equals(true));
     });
 
     test('keysByPrefix', () {
@@ -218,6 +218,7 @@ void main() {
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
+      expect(tst.keysByPrefix('NOT PRESENT').isEmpty,equals(true));
     });
 
     test('valuesByKeyPrefix', () {
@@ -240,6 +241,7 @@ void main() {
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
+      expect(tst.valuesByKeyPrefix('NOT PRESENT').isEmpty,equals(true));
     });
 
     test('[]', () {
@@ -477,6 +479,10 @@ void main() {
 
     test('asMap', () {
       expect(tst.asMap(), equals(collator));
+    });
+
+    test('asImmutable', () {
+      expect(tst.asImmutable().asMap(), equals(collator));
     });
   });
 }
