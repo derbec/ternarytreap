@@ -12,3 +12,4 @@ linter:
   rules:
     - camel_case_types
     - prefer_expression_function_bodies
+    - avoid_print

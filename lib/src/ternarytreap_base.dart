@@ -370,12 +370,14 @@ typedef KeyMapping = String Function(String str);
 /// ```
 /// Each Node stores:
 ///
-/// * A character `Node.codeUnit` such that Ternary Tree invarient
-/// is maintained.
+/// * A list of characters `Node.codeUnits` such that Ternary Tree invarient
+/// is maintained:
+/// `Node.codeUnits.left.first < Node.codeUnits.last` &
+/// `Node.codeUnits.right.first > Node.codeUnits.last`
 /// * An integer priority value `Node.priority` such that Treap invarient:
 /// ```
-/// (Node.left.priority > Node.priority) &&
-/// (Node.right.priority > Node.priority)
+/// (Node.left.priority < Node.priority) &&
+/// (Node.right.priority < Node.priority)
 /// ```
 /// is maintained.
 abstract class TernaryTreap<V> extends ImmutableTernaryTreap<V> {
@@ -671,7 +673,7 @@ class TernaryTreapSet<V> extends _TernaryTreap<V> {
   /// Construct new [TernaryTreapSet]
   TernaryTreapSet([KeyMapping keyMapping])
       : super(
-            (int codeUnit, int priority, _Node<V> parent) =>
+            (List<int> codeUnit, int priority, _Node<V> parent) =>
                 _NodeSet<V>(codeUnit, priority, parent),
             keyMapping);
 }
@@ -700,7 +702,7 @@ class TernaryTreapList<V> extends _TernaryTreap<V> {
   /// Construct new [TernaryTreapList]
   TernaryTreapList([KeyMapping keyMapping])
       : super(
-            (int codeUnit, int priority, _Node<V> parent) =>
+            (List<int> codeUnit, int priority, _Node<V> parent) =>
                 _NodeList<V>(codeUnit, priority, parent),
             keyMapping);
 }
@@ -737,7 +739,7 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
       return null;
     }
 
-    final keyNode = _root._getKeyNode(keyMapped);
+    final keyNode = _root.getKeyNode(keyMapped);
 
     if (keyNode == null) {
       return null;
@@ -771,7 +773,7 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
       return false;
     }
 
-    final keyNode = _root._getKeyNode(transformedKey);
+    final keyNode = _root.getKeyNode(transformedKey);
 
     // Does the key map to anything?
     if (keyNode == null) {
@@ -805,7 +807,8 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   Iterable<MapEntry<String, Iterable<V>>> get entries =>
       _MapEntryIterable<V>(this, _root);
   @override
-  Iterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix) => _MapEntryIterable<V>(this, _root, mapKey(prefix));
+  Iterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix) =>
+      _MapEntryIterable<V>(this, _root, mapKey(prefix));
 
   @override
   bool get isEmpty => _root == null;
@@ -817,7 +820,8 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   Iterable<String> get keys => _KeyIterable<V>(this, _root);
 
   @override
-  Iterable<String> keysByPrefix(String prefix) => _KeyIterable<V>(this, _root, mapKey(prefix));
+  Iterable<String> keysByPrefix(String prefix) =>
+      _KeyIterable<V>(this, _root, mapKey(prefix));
 
   @override
   int get length => _root == null ? 0 : _root.sizeDFSTree;
@@ -840,13 +844,14 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
     }
 
     //Traverse from last node of prefix
-    var suffixRoot = _root._getPrefixDescendant(prefixMapped);
+    var prefixDescendant = _root.getPrefixDescendant(prefixMapped);
 
-    if (suffixRoot != null) {
-      suffixRoot = suffixRoot.mid;
+    if (prefixDescendant == null) {
+      return _ImmutableTernaryTreap<V>(null, _version, _keyMapping);
+    } else {
+      return _ImmutableTernaryTreap<V>(
+          prefixDescendant.node.mid, _version, _keyMapping);
     }
-
-    return _ImmutableTernaryTreap<V>(suffixRoot, _version, _keyMapping);
   }
 
   @override
@@ -854,8 +859,9 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
       _ValuesIterable<V>(this, _root).expand((Iterable<V> values) => values);
 
   @override
-  Iterable<V> valuesByKeyPrefix(String prefix) => _ValuesIterable<V>(this, _root, mapKey(prefix))
-        .expand((Iterable<V> values) => values);
+  Iterable<V> valuesByKeyPrefix(String prefix) =>
+      _ValuesIterable<V>(this, _root, mapKey(prefix))
+          .expand((Iterable<V> values) => values);
 
   @override
   String toString([String paddingChar = '-']) {
@@ -893,27 +899,28 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
   final Random _random = Random();
 
   /// Factory used to create new nodes
-  final _Node<V> Function(int codeUnit, int priority, _Node<V> parent)
+  final _Node<V> Function(List<int> codeUnit, int priority, _Node<V> parent)
       _nodeFactory;
 
   @override
   void add(String key, [V value]) {
-    _root = _add(_root, _mapKeyErrorOnEmpty(key), value);
+    _root = _add(_root, _mapKeyErrorOnEmpty(key), value).a;
 
     _incVersion();
   }
 
   @override
   void addAll(TernaryTreap<V> other) {
-    final  entryItr = other.entries.iterator as _MapEntryIterator<V>;
+    final entryItr = other.entries.iterator as _MapEntryIterator<V>;
     while (entryItr.moveNext()) {
       final mappedKey = _mapKeyErrorOnEmpty(entryItr.currentKey);
 
       // map key alone for case where no data is associated with key
-      _root = _add(_root, mappedKey, null);
+      final tuple = _add(_root, mappedKey, null);
+      _root = tuple.a;
 
       for (final value in entryItr.currentValue) {
-        _root = _add(_root, mappedKey, value);
+        tuple.b.addValue(value);
       }
     }
 
@@ -925,21 +932,23 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
     final mappedKey = _mapKeyErrorOnEmpty(key);
 
     // map key alone for case where no data is associated with key
-    _root = _add(_root, mappedKey, null);
+    final tuple = _add(_root, mappedKey, null);
+    _root = tuple.a;
 
     for (final value in values) {
-      _root = _add(_root, mappedKey, value);
+      tuple.b.addValue(value);
     }
 
     _incVersion();
   }
 
   @override
-  ImmutableTernaryTreap<V> asImmutable() => _ImmutableTernaryTreap(_root, _version, _keyMapping);
+  ImmutableTernaryTreap<V> asImmutable() =>
+      _ImmutableTernaryTreap(_root, _version, _keyMapping);
 
   @override
   void forEach(void Function(String key, V value) f) {
-    final  entryItr = entries.iterator as _MapEntryIterator<V>;
+    final entryItr = entries.iterator as _MapEntryIterator<V>;
 
     while (entryItr.moveNext()) {
       for (final value in entryItr.currentValue) {
@@ -969,13 +978,13 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
   @override
   void operator []=(String key, Iterable<V> values) {
     final keyMapped = _mapKeyErrorOnEmpty(key);
-    var keyNode = _root?._getKeyNode(keyMapped);
+    var keyNode = _root?.getKeyNode(keyMapped);
 
     if (keyNode == null) {
       // Node does not exist so insert a new one
       add(key);
       // Get newly added now
-      keyNode = _root._getKeyNode(keyMapped);
+      keyNode = _root.getKeyNode(keyMapped);
 
       if (keyNode == null) {
         throw Error();
@@ -1000,7 +1009,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
       throw ArgumentError();
     }
 
-    final keyNode = _root?._getKeyNode(mapKey(key as String));
+    final keyNode = _root?.getKeyNode(mapKey(key as String));
 
     // Does the key map to anything?
     if (keyNode == null) {
@@ -1021,7 +1030,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
       throw ArgumentError();
     }
 
-    final keyNode = _root?._getKeyNode(mapKey(key as String));
+    final keyNode = _root?.getKeyNode(mapKey(key as String));
 
     // Return empty Iterable when unmapped
     if (keyNode == null) {
@@ -1038,18 +1047,22 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
     if (!(key is String)) {
       throw ArgumentError();
     }
-    _incVersion();
-    final transformedKey = mapKey(key as String);
-    final values = _remove(_root, null, transformedKey.codeUnits, 0);
-    if (_root != null && _root.numDFSDescendants == 0) {
-      /// There are no end nodes left in tree so delete root
-      _root = null;
-    }
 
+    final transformedKey = mapKey(key as String);
+
+    Iterable<V> values;
+    if (_root != null) {
+      values = _remove2(_root, transformedKey);
+      if (_root.sizeDFSTree == 0) {
+        /// There are no end nodes left in tree so delete root
+        _root = null;
+      }
+    }
     // Return empty Iterable when unmapped
     if (values == null) {
       return Iterable<V>.empty();
     }
+    _incVersion();
     return values;
   }
 
@@ -1058,123 +1071,125 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
   void _incVersion() => _version.value =
       (_version.value >= _MAX_SAFE_INTEGER) ? 0 : _version.value + 1;
 
-/*
-  /// Add node if necessary and attach [value]
-  /// Recursive version
-  _Node<V> _add(_Node<V> thisNode, String key, int idx, V value) {
-    final List<int> keyCodeUnits = key.codeUnits;
-    _Node<V> _thisNode;
-    if (thisNode == null) {
-      _thisNode = _NodeSet<V>(keyCodeUnits[idx], _random.nextInt(1 << 32));
-    } else {
-      _thisNode = thisNode;
-    }
-
-    if (key[idx] < _thisNode.codeUnit) {
-      _thisNode.left = _add(_thisNode.left, key, idx, value);
-      if (_thisNode.left.priority > _thisNode.priority) {
-        _thisNode = _rotateRight(_thisNode);
-      }
-    } else if (key[idx] > _thisNode.codeUnit) {
-      _thisNode.right = _add(_thisNode.right, key, idx, value);
-      if (_thisNode.right.priority > _thisNode.priority) {
-        _thisNode = _rotateLeft(_thisNode);
-      }
-    } else {
-      if (idx + 1 < key.length) {
-        _thisNode.mid = _add(_thisNode.mid, key, idx + 1, value);
-      } else {
-        // Terminal node for this key
-        //This is a new key
-        _thisNode.setAsKeyEnd();
-
-        // If a value has been specified then consider adding it to list
-        if (value != null) {
-          _thisNode.addValue(value);
-        }
-      }
-    }
-
-    return _updateDescendantCounts(_thisNode);
-  }
-*/
-
-  /// Add node if necessary and attach [value].
+  /// Add or update node for [key] starting from [root] and attach [value].
+  ///
+  /// Return a [_Tuple2] containing:
+  /// * a: New root node which may not be the same as [root] due
+  /// to possible rotation.
+  /// * b: The new or existing end node corresponding to [key]
+  ///
   /// Iterative version: More complicated than recursive
   /// but 4 times as fast.
-  _Node<V> _add(_Node<V> rootNode, String key, V value) {
+  _Tuple2<_Node<V>, _Node<V>> _add(_Node<V> rootNode, String key, V value) {
     final keyCodeUnits = key.codeUnits;
 
-    var currentIdx = 0;
+    var keyCodeIdx = 0;
     var _rootNode = rootNode;
 
     // Create new root node if needed
-    var currentNode = _rootNode ??=
-        _nodeFactory(keyCodeUnits[currentIdx], _random.nextInt(1 << 32), null)
+    if (_rootNode == null) {
+      _rootNode = _nodeFactory(keyCodeUnits, _random.nextInt(1 << 32), null);
+      keyCodeIdx = keyCodeUnits.length;
+    }
 
-          // stop marker for reverse iteration
-          ..parent = null;
+    var currentNode = _rootNode;
 
     // Create a path down to key node
-    while (currentIdx < keyCodeUnits.length) {
-      final keyCodeUnit = keyCodeUnits[currentIdx];
-      if (keyCodeUnit < currentNode.codeUnit) {
-        // create left path if needed
-        currentNode.left ??=
-            _nodeFactory(keyCodeUnit, _random.nextInt(1 << 32), currentNode);
+    while (keyCodeIdx < keyCodeUnits.length) {
+      final keyCodeUnit = keyCodeUnits[keyCodeIdx];
+      if (keyCodeUnit < currentNode.codeUnits[0]) {
+        // create left path as end node if able
+        if (currentNode.left == null) {
+          currentNode.left = _nodeFactory(keyCodeUnits.sublist(keyCodeIdx),
+              _random.nextInt(1 << 32), currentNode);
+
+          keyCodeIdx = keyCodeUnits.length;
+        }
 
         // rotate node and update parent if needed
         if (currentNode.left.priority > currentNode.priority) {
+          // Save parent before rotating
           final currentParent = currentNode.parent;
           final rotatedNode = _rotateRight(currentNode);
-          if (currentParent == null) {
+          if (currentNode == _rootNode) {
             _rootNode = rotatedNode;
           } else {
             // Update parent with new child
-            if (currentNode == currentParent.left) {
-              currentParent.left = rotatedNode;
-            } else if (currentNode == currentParent.right) {
-              currentParent.right = rotatedNode;
-            } else {
-              currentParent.mid = rotatedNode;
-            }
+            currentParent.updateChild(currentNode, rotatedNode);
           }
           currentNode = rotatedNode;
         } else {
           currentNode = currentNode.left;
         }
-      } else if (keyCodeUnit > currentNode.codeUnit) {
-        currentNode.right ??=
-            _nodeFactory(keyCodeUnit, _random.nextInt(1 << 32), currentNode);
+      } else if (keyCodeUnit > currentNode.codeUnits[0]) {
+        // Create right path if needed
+        if (currentNode.right == null) {
+          currentNode.right = _nodeFactory(keyCodeUnits.sublist(keyCodeIdx),
+              _random.nextInt(1 << 32), currentNode);
+          keyCodeIdx = keyCodeUnits.length;
+        }
 
         if (currentNode.right.priority > currentNode.priority) {
+          // Save parent before rotating
           final currentParent = currentNode.parent;
           final rotatedNode = _rotateLeft(currentNode);
-          if (currentParent == null) {
+          if (currentNode == _rootNode) {
             // Set new root
             _rootNode = rotatedNode;
           } else {
             // Update parent with new child
-            if (currentNode == currentParent.left) {
-              currentParent.left = rotatedNode;
-            } else if (currentNode == currentParent.right) {
-              currentParent.right = rotatedNode;
-            } else {
-              currentParent.mid = rotatedNode;
-            }
+            currentParent.updateChild(currentNode, rotatedNode);
           }
           currentNode = rotatedNode;
         } else {
           currentNode = currentNode.right;
         }
       } else {
-        currentIdx++;
-        if (currentIdx < keyCodeUnits.length) {
-          currentNode.mid ??= _nodeFactory(
-              keyCodeUnits[currentIdx], _random.nextInt(1 << 32), currentNode);
+        // Move onto next key code unit
+        keyCodeIdx++;
 
-          currentNode = currentNode.mid;
+        // We know that the first code unit matches now try and match
+        // the rest
+        var nodeCodeIdx = 1;
+
+        // Match node code units as far as possible
+        while (keyCodeIdx < keyCodeUnits.length &&
+            nodeCodeIdx < currentNode.codeUnits.length &&
+            currentNode.codeUnits[nodeCodeIdx] == keyCodeUnits[keyCodeIdx]) {
+          nodeCodeIdx++;
+          keyCodeIdx++;
         }
+
+        // If key was not consumed entirely
+        if (keyCodeIdx < keyCodeUnits.length) {
+          if (nodeCodeIdx < currentNode.codeUnits.length) {
+            // if neither node or key were consumed then split and
+            // continue on from new child
+            _split(currentNode, nodeCodeIdx);
+          } else {
+            // If key was not consumed but node was then grow down
+            // and continue from new child
+            if (currentNode.mid == null) {
+              currentNode.mid = _nodeFactory(keyCodeUnits.sublist(keyCodeIdx),
+                  _random.nextInt(1 << 32), currentNode);
+              keyCodeIdx = keyCodeUnits.length;
+            }
+          }
+        } else {
+          // Key was consumed entirely
+          // if both key and node were consumed this is the target
+          if (nodeCodeIdx == currentNode.codeUnits.length) {
+            break;
+          }
+          // if key was consumed but node was not then split and
+          // return current as target
+          if (nodeCodeIdx < currentNode.codeUnits.length) {
+            _split(currentNode, nodeCodeIdx);
+            break;
+          }
+        }
+
+        currentNode = currentNode.mid;
       }
     }
 
@@ -1182,11 +1197,12 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
       // If new node was inserted reverse back up to root node
       // to update node counts
       var reverseNode = currentNode;
-      while (reverseNode != null) {
-        reverseNode.numDFSDescendants =
-            (reverseNode.left == null ? 0 : reverseNode.left.sizeDFSTree) +
-                (reverseNode.mid == null ? 0 : reverseNode.mid.sizeDFSTree) +
-                (reverseNode.right == null ? 0 : reverseNode.right.sizeDFSTree);
+      while (reverseNode != _rootNode.parent) {
+        // Merge any ophaned mid children on our way back
+        // Probably only useful after multiple add and delete cycles
+        _mergeMid(reverseNode);
+
+        reverseNode.updateDescendantCounts();
 
         reverseNode = reverseNode.parent;
       }
@@ -1196,68 +1212,96 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
       currentNode.addValue(value);
     }
 
-    return _rootNode;
+    return _Tuple2<_Node<V>, _Node<V>>(_rootNode, currentNode);
   }
 
-  /// Accumulate prefix descendant counts and update own count
-  _Node<V> _updateDescendantCounts(_Node<V> _thisNode) {
-    if (_thisNode != null) {
-      _thisNode.numDFSDescendants =
-          (_thisNode.left == null ? 0 : _thisNode.left.sizeDFSTree) +
-              (_thisNode.mid == null ? 0 : _thisNode.mid.sizeDFSTree) +
-              (_thisNode.right == null ? 0 : _thisNode.right.sizeDFSTree);
-    }
-    return _thisNode;
-  }
+  /// Delete node for [transformedKey] starting from [rootNode] and return values
+  /// of null if key does not exist.
+  ///
+  /// Assumes [transformedKey] has been transformed
+  Iterable<V> _remove2(_Node<V> rootNode, String transformedKey) {
+    final keyCodeUnits = transformedKey.codeUnits;
 
-  /// Remove node corresponding to key for codeunits and return values
-  /// or null if it doesn't exist.
-  Iterable<V> _remove(
-      _Node<V> thisNode, _Node<V> parentNode, List<int> codeUnits, int idx) {
-    if (thisNode == null) {
-      return null;
+    var keyCodeIdx = 0;
+    var _rootNode = rootNode;
+
+    if (_rootNode == null) {
+      throw ArgumentError();
     }
 
-    if (codeUnits[idx] < thisNode.codeUnit) {
-      final values = _remove(thisNode.left, thisNode, codeUnits, idx);
-      if (values != null) {
-        _updateDescendantCounts(thisNode);
+    var currentNode = _rootNode;
+
+    // Explore path down to key node
+    while (keyCodeIdx < keyCodeUnits.length) {
+      if (currentNode == null) {
+        // Key doesnt exist
+        return null;
+      }
+
+      final keyCodeUnit = keyCodeUnits[keyCodeIdx];
+      if (keyCodeUnit < currentNode.codeUnits[0]) {
+        currentNode = currentNode.left;
+      } else if (keyCodeUnit > currentNode.codeUnits[0]) {
+        currentNode = currentNode.right;
+      } else {
+        // Move onto next key code unit
+        keyCodeIdx++;
+
+        // We know that the first code unit matches now try and match
+        // the rest
+        var nodeCodeIdx = 1;
+
+        // Match node code units as far as possible
+        while (keyCodeIdx < keyCodeUnits.length &&
+            nodeCodeIdx < currentNode.codeUnits.length) {
+          if (currentNode.codeUnits[nodeCodeIdx] != keyCodeUnits[keyCodeIdx]) {
+            return null;
+          }
+          nodeCodeIdx++;
+          keyCodeIdx++;
+        }
+
+        // If both key and node are exhausted then this is a potential winner
+        if (keyCodeIdx == keyCodeUnits.length &&
+            nodeCodeIdx == currentNode.codeUnits.length) {
+          break;
+        }
+
+        // If node is exhausted but key still has code units then explore mid
+        if (keyCodeIdx < keyCodeUnits.length &&
+            nodeCodeIdx == currentNode.codeUnits.length) {
+          currentNode = currentNode.mid;
+          continue;
+        }
+
+        return null;
+      }
+    }
+
+    if (currentNode.isKeyEnd) {
+      var values = currentNode.values;
+
+      // If node has no key descendants we can eliminate it and all its children!
+      if (currentNode.parent != null && currentNode.numDFSDescendants == 0) {
+        // Delete from parent
+        currentNode.parent.updateChild(currentNode, null);
+      } else {
+        // Otherwise sinply remove its key end status
+        currentNode.values = null;
+      }
+
+      // reverse back up to root node to update node counts
+      while (currentNode != _root.parent) {
+        // Merge any ophaned mid children on our way back
+        _mergeMid(currentNode);
+
+        currentNode.updateDescendantCounts();
+
+        currentNode = currentNode.parent;
       }
       return values;
     } else {
-      if (codeUnits[idx] > thisNode.codeUnit) {
-        final values = _remove(thisNode.right, thisNode, codeUnits, idx);
-        if (values != null) {
-          _updateDescendantCounts(thisNode);
-        }
-        return values;
-      } else {
-        // This node represents word end for key
-        if (idx == (codeUnits.length - 1)) {
-          // First check if key exists
-          if (!thisNode.isKeyEnd) {
-            // Key doesnt exist
-            return null;
-          }
-          // Node has no key descendants
-          if (thisNode.numDFSDescendants == 0) {
-            // Delete from parent and return
-            if (parentNode != null) {
-              parentNode.mid = null;
-            }
-          }
-          // Remove end node status
-          final values = thisNode.values;
-          thisNode.values = null;
-          return values;
-        } else {
-          final values = _remove(thisNode.mid, thisNode, codeUnits, idx + 1);
-          if (values != null) {
-            _updateDescendantCounts(thisNode);
-          }
-          return values;
-        }
-      }
+      return null;
     }
   }
 
@@ -1285,8 +1329,8 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
     }
 
     // Adjust descendant counts from bottom up
-    _updateDescendantCounts(a);
-    _updateDescendantCounts(b);
+    a.updateDescendantCounts();
+    b.updateDescendantCounts();
 
     return b;
   }
@@ -1315,18 +1359,115 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
     }
 
     // Adjust descendant counts from bottom up
-    _updateDescendantCounts(b);
-    _updateDescendantCounts(a);
+    b.updateDescendantCounts();
+    a.updateDescendantCounts();
 
     return a;
+  }
+
+  /// Inserts new split child under [node].mid.
+  ///
+  /// Split node at [codeUnitIdx] such that:
+  /// * node.codeUnits becomes node.codeUnits[0...codeUnitIdx-1]
+  /// * Created child [_Node] has remainder codeUnits
+  /// * Created child inherits node mid child.
+  /// * If node is an end node then child is instead.
+  /// * Created child [_Node] is attached to node.mid.
+  void _split(_Node<V> node, int codeUnitIdx) {
+    if (node.codeUnits.length < 2) {
+      // Nothing to split
+      throw ArgumentError();
+    }
+
+    if (codeUnitIdx >= node.codeUnits.length) {
+      // Both parent and child must have at least 1 codeunit
+      throw ArgumentError(codeUnitIdx);
+    }
+
+    final child = _nodeFactory(
+        node.codeUnits.sublist(codeUnitIdx), _random.nextInt(1 << 32), node);
+
+    child.mid = node.mid;
+
+    // Update child counts and grandchildren if any
+    if (child.mid != null) {
+      child.numDFSDescendants = child.mid.sizeDFSTree;
+      child.mid.parent = child;
+    }
+
+    node.setCodeUnits(node.codeUnits.sublist(0, codeUnitIdx));
+
+    // Insert child under node
+    node.mid = child;
+
+    // If node was a keyend then it transfers this to child
+    if (node.isKeyEnd) {
+      // Child inherits values and keyend status
+      child.values = node.values;
+      node.values = null;
+      // and thus gains a key descendant
+      node.numDFSDescendants++;
+    }
+  }
+
+  /// Merge node and mid child such that:
+  /// * codeUnits becomes codeUnits + mid.codeUnits.
+  /// * node takes on all children of mid.
+  /// * node takes on values children of mid.
+  ///
+  /// Operation only performed if:
+  /// * mid is not null.
+  /// * is not an end node.
+  /// * child has no Left or Right children.
+  void _mergeMid(_Node<V> node) {
+    if (node.mid == null) {
+      // No child to merge
+      return;
+    }
+
+    if (node.isKeyEnd) {
+      // Would result in lost key/values for node.
+      // Node and child need to be kept separated.
+      return;
+    }
+
+    final child = node.mid;
+
+    if (child.left != null || child.right != null) {
+      // Would disrupt tree ordering
+      return;
+    }
+
+    //print('Merging: '+String.fromCharCodes(node.codeUnits) + ' ' + String.fromCharCodes(child.codeUnits));
+
+    node.setCodeUnits(node.codeUnits + child.codeUnits);
+
+    // Take on mid grandchild
+    node.mid = child.mid;
+
+    // Node takes on child values/keyend status
+    // If child was a key node then node has 1 less descendant
+    if (child.isKeyEnd) {
+      node.values = child.values;
+      // Child has been absorbed so 1 less descendant
+      node.numDFSDescendants--;
+    }
+
+    if (node.mid != null) {
+      node.mid.parent = node;
+    }
   }
 }
 
 /// Base for all node types
 abstract class _Node<V> {
-  _Node(this.codeUnit, this.priority, this.parent);
+  _Node(Iterable<int> codeUnits, this.priority, this.parent)
+      : codeUnits = List<int>.unmodifiable(codeUnits);
 
-  final int codeUnit;
+  /// Fixed size array of unicode code units
+  List<int> codeUnits;
+
+  /// Randomly generated value for balancing
   final int priority;
 
   /// Number of end nodes below this node if a DFS was performed.
@@ -1342,10 +1483,11 @@ abstract class _Node<V> {
   _Node<V> mid;
   _Node<V> right;
 
-  // Used for backtracking info during iterative add.
-  // Costs space but much faster than maintaining explicit stack.
+  /// Costs space but much faster than maintaining explicit stack.
+  /// during add operation. Maybe can use for near neighbour or something.
   _Node<V> parent;
 
+  /// Remove all values from this node and return said values.
   Iterable<V> removeValues();
 
   /// If node is not already key End then set as key end
@@ -1365,7 +1507,7 @@ abstract class _Node<V> {
       values == null ? numDFSDescendants : numDFSDescendants + 1;
 
   /// return number of end nodes in subtree with this node as prefix root
-  int get _sizePrefixTree {
+  int get sizePrefixTree {
     var size = values == null ? 0 : 1;
     if (mid != null) {
       size += mid.sizeDFSTree;
@@ -1373,51 +1515,108 @@ abstract class _Node<V> {
     return size;
   }
 
+  /// Set codeunits to fixed size array
+  /// Faster and less memory than growable
+  void setCodeUnits(Iterable<int> codeUnits) {
+    this.codeUnits = List<int>.unmodifiable(codeUnits);
+  }
+
   /// Return _Node descendant corresponding to a transformed key.
   /// Returns null if key does not map to a node.
   /// Assumes key has already been transformed by KeyMapping
-  _Node<V> _getKeyNode(String transformedKey) {
+  _Node<V> getKeyNode(String transformedKey) {
     if (transformedKey.isEmpty) {
       return null;
     }
 
-    final lastPrefixNode = _getPrefixDescendant(transformedKey);
+    final prefixDescendant = getPrefixDescendant(transformedKey);
 
-    if (lastPrefixNode == null || !lastPrefixNode.isKeyEnd) {
+    // The node must represent only this key
+    if (prefixDescendant == null ||
+        prefixDescendant.codeunitIdx !=
+            prefixDescendant.node.codeUnits.length - 1 ||
+        !prefixDescendant.node.isKeyEnd) {
       return null;
     }
-    return lastPrefixNode;
+    return prefixDescendant.node;
   }
 
-  /// Return the node descendant that is parent to all keys starting with [prefix]
-  _Node<V> _getPrefixDescendant(String prefix) {
+  /// Find the node descendant that is parent to all keys starting with [prefix]
+  ///
+  /// Return [_NodeCodeunitIdx] where:
+  ///
+  /// * [_NodeCodeunitIdx.node] = Node containing end of prefix.
+  /// * [_NodeCodeunitIdx.codeunitIdx] = The index of prefix final codeunit.
+  _NodeCodeunitIdx<V> getPrefixDescendant(String prefix) {
     final prefixCodeUnits = prefix.codeUnits;
-    _Node<V> currentNode, nextNode = this;
-    var currentIdx = 0;
+    var currentNode = this;
+    var prefixIdx = 0;
 
-    while (currentIdx < (prefixCodeUnits.length)) {
-      if (nextNode == null) {
+    while (true) {
+      if (currentNode == null) {
         return null;
       }
-      currentNode = nextNode;
 
-      if (prefixCodeUnits[currentIdx] < currentNode.codeUnit) {
-        nextNode = currentNode.left;
-      } else if (prefixCodeUnits[currentIdx] > currentNode.codeUnit) {
-        nextNode = currentNode.right;
+      final currentCodeUnits = currentNode.codeUnits;
+
+      if (prefixCodeUnits[prefixIdx] < currentCodeUnits[0]) {
+        currentNode = currentNode.left;
+      } else if (prefixCodeUnits[prefixIdx] > currentCodeUnits[0]) {
+        currentNode = currentNode.right;
       } else {
-        currentIdx++;
-        nextNode = currentNode.mid;
+        // The prefix lives in this node or its mid descendants
+        // Match with this nodes code units
+
+        var codeUnitIdx = 0;
+
+        while (prefixIdx < prefixCodeUnits.length &&
+            codeUnitIdx < currentCodeUnits.length) {
+          if (currentCodeUnits[codeUnitIdx] == prefixCodeUnits[prefixIdx]) {
+            prefixIdx++;
+            if (prefixIdx == prefixCodeUnits.length) {
+              return _NodeCodeunitIdx<V>(currentNode, codeUnitIdx);
+            }
+            codeUnitIdx++;
+          } else {
+            // Prefix does not exist
+            return null;
+          }
+        }
+
+        // Hunt for rest of prefix
+        currentNode = currentNode.mid;
       }
     }
-    return currentNode;
   }
+
+  /// Accumulate prefix descendant counts and update own count
+  void updateDescendantCounts() {
+    numDFSDescendants = (left == null ? 0 : left.sizeDFSTree) +
+        (mid == null ? 0 : mid.sizeDFSTree) +
+        (right == null ? 0 : right.sizeDFSTree);
+  }
+
+  /// Update [oldChild] with [newChild]
+  void updateChild(_Node<V> oldChild, _Node<V> newChild) {
+    if (left == oldChild) {
+      left = newChild;
+    } else if (mid == oldChild) {
+      mid = newChild;
+    } else if (right == oldChild) {
+      right = newChild;
+    } else {
+      throw Error();
+    }
+  }
+
+  @override
+  String toString() => '${String.fromCharCodes(codeUnits)}';
 }
 
 /// A Node that stores values in [Set].
 class _NodeSet<V> extends _Node<V> {
-  _NodeSet(int codeUnit, int priority, _Node<V> parent)
-      : super(codeUnit, priority, parent);
+  _NodeSet(Iterable<int> codeUnits, int priority, _Node<V> parent)
+      : super(codeUnits, priority, parent);
 
   @override
   void setValues(Iterable<V> values) {
@@ -1452,7 +1651,7 @@ class _NodeSet<V> extends _Node<V> {
 
 /// A Node that stores values in [List].
 class _NodeList<V> extends _Node<V> {
-  _NodeList(int codeUnit, int priority, _Node<V> parent)
+  _NodeList(Iterable<int> codeUnit, int priority, _Node<V> parent)
       : super(codeUnit, priority, parent);
 
   @override
@@ -1492,6 +1691,18 @@ class _ByRef<T> {
   _ByRef(this.value);
 }
 
+class _Tuple2<A, B> {
+  A a;
+  B b;
+  _Tuple2(this.a, this.b);
+}
+
+class _NodeCodeunitIdx<V> {
+  _Node<V> node;
+  int codeunitIdx;
+  _NodeCodeunitIdx(this.node, this.codeunitIdx);
+}
+
 /// Simple stack implementation
 class _Stack<E> {
   _Stack(int initialSize) : stack = List<E>(initialSize);
@@ -1514,12 +1725,24 @@ class _Stack<E> {
   }
 
   E pop() => stack[ptrTop--];
+
+  @override
+  String toString() {
+    var buffer = StringBuffer();
+    //show top down
+    for (var entry in stack.reversed) {
+      if (entry != null) {
+        buffer.writeln(entry);
+      }
+    }
+    return buffer.toString();
+  }
 }
 
 /// Base class for in order iterables
 abstract class _IterableBase<V, I> extends IterableMixin<I> {
-  _IterableBase(this.owner, _Node<V>root, this.prefix)
-      : root = prefix.isEmpty ? root : root?._getPrefixDescendant(prefix);
+  _IterableBase(this.owner, _Node<V> root, this.prefix)
+      : root = prefix.isEmpty ? root : root?.getPrefixDescendant(prefix)?.node;
 
   final _ImmutableTernaryTreap<V> owner;
   final _Node<V> root;
@@ -1531,7 +1754,7 @@ abstract class _IterableBase<V, I> extends IterableMixin<I> {
       return 0;
     }
 
-    return prefix.isEmpty ? root.sizeDFSTree : root._sizePrefixTree;
+    return prefix.isEmpty ? root.sizeDFSTree : root.sizePrefixTree;
   }
 
   @override
@@ -1583,6 +1806,9 @@ class _StackFrame<V> {
   const _StackFrame(this.node, this.prefix);
   final _Node<V> node;
   final String prefix;
+
+  @override
+  String toString() => '$prefix : $node';
 }
 
 /// Base class for in order [TernaryTreap] iterators.
@@ -1603,15 +1829,13 @@ abstract class _InOrderIteratorBase<V> {
       // from _root.mid however current value must reflect _root
       // after first call of moveNext()
       if (prefix.isNotEmpty) {
-        if (root != null) {
-          if (root.isKeyEnd) {
-            // If root represents a key end then ensure it is
-            // returned ater first call.
-            prefixFrame = _StackFrame<V>(root, prefix);
-          }
-          if (root.mid != null) {
-            pushAllLeft(_StackFrame<V>(root.mid, prefix));
-          }
+        if (root.isKeyEnd) {
+          // If root represents a key end then ensure it is
+          // returned ater first call.
+          prefixFrame = _StackFrame<V>(root, prefix);
+        }
+        if (root.mid != null) {
+          pushAllLeft(_StackFrame<V>(root.mid, prefix));
         }
       } else {
         pushAllLeft(_StackFrame<V>(root, ''));
@@ -1663,12 +1887,12 @@ abstract class _InOrderIteratorBase<V> {
 
       if (context.node.mid != null) {
         pushAllLeft(_StackFrame<V>(context.node.mid,
-            context.prefix + String.fromCharCode(context.node.codeUnit)));
+            context.prefix + String.fromCharCodes(context.node.codeUnits)));
       }
 
       if (context.node.isKeyEnd) {
         currentKey =
-            context.prefix + String.fromCharCode(context.node.codeUnit);
+            context.prefix + String.fromCharCodes(context.node.codeUnits);
 
         currentValue = context.node.values;
 
@@ -1680,10 +1904,12 @@ abstract class _InOrderIteratorBase<V> {
 
   void pushAllLeft(_StackFrame<V> context) {
     var _context = context;
+
     // add frame to stack and drill down the left
     stack.push(_context);
     while (_context.node.left != null) {
       _context = _StackFrame<V>(_context.node.left, _context.prefix);
+
       stack.push(_context);
     }
   }

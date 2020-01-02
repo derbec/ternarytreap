@@ -193,10 +193,11 @@ void main() {
             equals(json.encode(expectedOutput, toEncodable: toEncodable)));
 
         // Check that subtree length is maintained correctly while here
-        expect(tst.entriesByKeyPrefix(prefix).length, equals(expectedOutput.length));
+        expect(tst.entriesByKeyPrefix(prefix).length,
+            equals(expectedOutput.length));
       }
 
-      expect(tst.entriesByKeyPrefix('NOT PRESENT').isEmpty,equals(true));
+      expect(tst.entriesByKeyPrefix('NOT PRESENT').isEmpty, equals(true));
     });
 
     test('keysByPrefix', () {
@@ -218,7 +219,7 @@ void main() {
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
-      expect(tst.keysByPrefix('NOT PRESENT').isEmpty,equals(true));
+      expect(tst.keysByPrefix('NOT PRESENT').isEmpty, equals(true));
     });
 
     test('valuesByKeyPrefix', () {
@@ -241,7 +242,7 @@ void main() {
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
-      expect(tst.valuesByKeyPrefix('NOT PRESENT').isEmpty,equals(true));
+      expect(tst.valuesByKeyPrefix('NOT PRESENT').isEmpty, equals(true));
     });
 
     test('[]', () {
@@ -405,7 +406,11 @@ void main() {
 
       tree['be'] = <int>[2, 3];
 
+      expect(tree.length, equals(1));
+
       expect(tree.removeKey('CAT'), equals(<int>[]));
+
+      expect(tree.length, equals(1));
 
       expect(tree.removeKey('BE'), equals(<int>[2, 3]));
 
