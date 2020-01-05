@@ -12,16 +12,7 @@ import 'package:ternarytreap/src/ternarytreap_base.dart';
 /// Iterating [PrefixMatcher] will return all input strings ordered
 /// first by Key then by insertion order.
 ///
-///
-/// [PrefixMatcher] is the function:
-///
-/// * <i>f</i> : <i>K</i> &mapsto; &weierp; (<i>I</i>) &setminus; &emptyset;
-///
-/// such that:
-///
-/// * K is the set of all Key strings
-/// * I is the set of all Input strings
-/// * &weierp; (<i>I</i>) &setminus; &emptyset; is the powerset of I exluding the empty set
+/// Usage
 ///
 /// ```dart
 ///
@@ -42,6 +33,19 @@ import 'package:ternarytreap/src/ternarytreap_base.dart';
 /// (CanaRy, CANARY)
 ///
 /// ```
+///
+/// #Specification
+///
+/// [PrefixMatcher] is the function:
+///
+/// * <i>f</i> : <i>K</i> &mapsto; &weierp; (<i>I</i>) &setminus; &emptyset;
+///
+/// such that:
+///
+/// * K is the set of all Key strings
+/// * I is the set of all Input strings
+/// * &weierp; (<i>I</i>) &setminus; &emptyset; is the powerset of I exluding the empty set
+///
 class PrefixMatcher with IterableMixin<String> {
   /// Constructs a new [PrefixMatcher].
   ///
@@ -49,7 +53,7 @@ class PrefixMatcher with IterableMixin<String> {
   /// applied to all keys processed by this [PrefixMatcher].
   /// see [TernaryTreap()].
   PrefixMatcher([KeyMapping keyMapping])
-      : ternaryTreap = TernaryTreapSet<String>(keyMapping);
+      : ternaryTreap = TernaryTreap<String>.Set(keyMapping);
 
   /// Underlying [TernaryTreap]
   final TernaryTreap<String> ternaryTreap;

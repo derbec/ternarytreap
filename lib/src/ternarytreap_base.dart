@@ -49,49 +49,6 @@ typedef KeyMapping = String Function(String str);
 
 /// A self balancing Ternary search tree.
 ///
-/// # Specification
-///
-/// [TernaryTreapSet] and [TernaryTreapList] are multimaps:
-///
-/// * <i>f</i> :  <i>K</i> &mapsto; &weierp; (<i>V</i>)
-/// * <i>g</i> :  <i>K</i> &mapsto; <i>V</i><sup>&#8469;</sup> &cup; V<sup>&emptyset;</sup>
-///
-/// such that
-///
-/// * K is the set of all Keys
-/// * V is the set of all Values
-/// * &#8469; is the set of Natural numbers
-/// * &weierp; (<i>V</i>) is the powerset of V
-/// * <i>V</i><sup>&#8469;</sup> is the set of all functions &#8469; &mapsto; <i>V</i>
-/// * <i>V</i><sup>&emptyset;</sup> contains the empty function &emptyset; &mapsto; <i>V</i>
-///
-/// The codomain of <i>f</i> and <i>g</i> include the empty set and empty sequence respectively.
-/// This allows Keys to be stored without Values, useful when
-/// you require only a set of Keys for prefix searching purposes.
-///
-/// Often it is desirable to define equivalences between Key strings,
-/// for example case insensitivity.
-///
-/// For example the key 'it' may map to 'IT', 'It' or 'it'.
-///
-/// This is achieved via a [KeyMapping](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html), defined as the surjection:
-///
-///* <i>m</i> : <i>K</i>&twoheadrightarrow; <i>L  &sube; K</i>
-///
-/// such that:
-///
-/// * <i>m</i>(<i>m</i>(x)) = <i>m</i>(x), i.e. <i>m</i> must be [idempotent](https://en.wikipedia.org/wiki/Idempotence), repeated applications do not change the result.
-///
-/// For example:
-///
-/// * <i>m</i>(x) = x : Default identity function, preserve all input keys.
-/// * <i>m</i>(x) = lowercase(x) : Convert keys to lowercase.
-///
-/// TernaryTreap Multimaps are composite functions with KeyMapping parameter <i>m</i>.
-///
-/// * TernaryTreapSet<sub><i>m</i></sub>(x) = <i>f</i> &#8728; <i>m</i>(x)
-/// * TernaryTreapList<sub><i>m</i></sub>(x) = <i>g</i> &#8728; <i>m</i>(x)
-///
 /// # Usage
 ///
 /// ## Most basic case
@@ -341,6 +298,49 @@ typedef KeyMapping = String Function(String str);
 /// {name: Zebra, description: Stripes, timestamp: 1574730578754}
 /// ```
 ///
+/// # Specification
+///
+/// [TernaryTreap.Set] and [TernaryTreap.List] are multimaps:
+///
+/// * <i>f</i> :  <i>K</i> &mapsto; &weierp; (<i>V</i>)
+/// * <i>g</i> :  <i>K</i> &mapsto; <i>V</i><sup>&#8469;</sup> &cup; V<sup>&emptyset;</sup>
+///
+/// such that
+///
+/// * K is the set of all Keys
+/// * V is the set of all Values
+/// * &#8469; is the set of Natural numbers
+/// * &weierp; (<i>V</i>) is the powerset of V
+/// * <i>V</i><sup>&#8469;</sup> is the set of all functions &#8469; &mapsto; <i>V</i>
+/// * <i>V</i><sup>&emptyset;</sup> contains the empty function &emptyset; &mapsto; <i>V</i>
+///
+/// The codomain of <i>f</i> and <i>g</i> include the empty set and empty sequence respectively.
+/// This allows Keys to be stored without Values, useful when
+/// you require only a set of Keys for prefix searching purposes.
+///
+/// Often it is desirable to define equivalences between Key strings,
+/// for example case insensitivity.
+///
+/// For example the key 'it' may map to 'IT', 'It' or 'it'.
+///
+/// This is achieved via a [KeyMapping](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html), defined as the surjection:
+///
+///* <i>m</i> : <i>K</i>&twoheadrightarrow; <i>L  &sube; K</i>
+///
+/// such that:
+///
+/// * <i>m</i>(<i>m</i>(x)) = <i>m</i>(x), i.e. <i>m</i> must be [idempotent](https://en.wikipedia.org/wiki/Idempotence), repeated applications do not change the result.
+///
+/// For example:
+///
+/// * <i>m</i>(x) = x : Default identity function, preserve all input keys.
+/// * <i>m</i>(x) = lowercase(x) : Convert keys to lowercase.
+///
+/// TernaryTreap Multimaps are composite functions with KeyMapping parameter <i>m</i>.
+///
+/// * TernaryTreapSet<sub><i>m</i></sub>(x) = <i>f</i> &#8728; <i>m</i>(x)
+/// * TernaryTreapList<sub><i>m</i></sub>(x) = <i>g</i> &#8728; <i>m</i>(x)
+///
 /// # Structure
 ///
 /// A [TernaryTreap] is a tree of Nodes.
@@ -372,15 +372,62 @@ typedef KeyMapping = String Function(String str);
 ///
 /// * A list of characters `Node.codeUnits` such that Ternary Tree invarient
 /// is maintained:
-/// `Node.codeUnits.left.first < Node.codeUnits.last` &
-/// `Node.codeUnits.right.first > Node.codeUnits.last`
+/// `Node.codeUnits.left.first < Node.codeUnits.first` &
+/// `Node.codeUnits.right.first > Node.codeUnits.first`
 /// * An integer priority value `Node.priority` such that Treap invarient:
 /// ```
 /// (Node.left.priority < Node.priority) &&
 /// (Node.right.priority < Node.priority)
 /// ```
 /// is maintained.
-abstract class TernaryTreap<V> extends ImmutableTernaryTreap<V> {
+abstract class TernaryTreap<V> extends _CommonInterface<V> {
+  /// Return a [TernaryTreap] that stores values in a [Set]
+  ///
+  /// Returned [TernaryTreap] is a function:
+  ///
+  /// * <i>f</i> :  <i>K</i> &mapsto; &weierp; (<i>V</i>)
+  ///
+  /// such that:
+  ///
+  /// * K is the set of all Keys
+  /// * V is the set of all Values
+  /// * &weierp; (<i>V</i>) is the powerset of V
+  ///
+  /// By definition the Values set may feature the same Value only once.
+  ///
+  /// The codomain of <i>f</i> includes the empty set.
+  /// This allows Keys to be stored without Values, useful when
+  /// you require only a set of Keys for searching purposes.
+  factory TernaryTreap.Set([KeyMapping keyMapping]) => _MutableTernaryTreap(
+      (List<int> codeUnit, int priority, _Node<V> parent) =>
+          _NodeSet<V>(codeUnit, priority, parent),
+      keyMapping);
+
+  /// Return a [TernaryTreap] that stores values in a [List]
+  ///
+  /// Returned [TernaryTreap] is a function:
+  ///
+  /// * <i>f</i> :  <i>K</i> &mapsto; <i>V</i><sup>&#8469;</sup> &cup; V<sup>&emptyset;</sup>
+  ///
+  /// such that
+  ///
+  /// * K is the set of all Keys
+  /// * V is the set of all Values
+  /// * &#8469; is the set of Natural numbers
+  /// * <i>V</i><sup>&#8469;</sup> is the set of all functions &#8469; &mapsto; <i>V</i>
+  /// * <i>V</i><sup>&emptyset;</sup> contains the empty function &emptyset; &mapsto; <i>V</i>
+  ///
+  /// By definition the Values sequence may feature the same Value multiple times.
+  /// It is ordered by insertion.
+  ///
+  /// The codomain of <i>f</i> includes the empty sequence.
+  /// This allows Keys to be stored without Values, useful when
+  /// you require only a set of Keys for searching purposes.
+  factory TernaryTreap.List([KeyMapping keyMapping]) => _MutableTernaryTreap(
+      (List<int> codeUnit, int priority, _Node<V> parent) =>
+          _NodeList<V>(codeUnit, priority, parent),
+      keyMapping);
+
   /// Transform [str] such that all characters are lowercase.
   ///
   /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
@@ -503,6 +550,76 @@ abstract class TernaryTreap<V> extends ImmutableTernaryTreap<V> {
   /// Removes all data from the [TernaryTreap].
   void clear();
 
+  /// Removes the association between the given [key] and [value].
+  ///
+  /// Returns `true` if the association existed, `false` otherwise
+  bool remove(Object key, V value);
+
+  /// Removes [key] and all associated values.
+  ///
+  /// Returns the collection of values associated with key,
+  /// or an empty iterable if key was unmapped.
+  Iterable<V> removeKey(Object key);
+
+  /// Removes all values associated with [key].
+  ///
+  /// Returns the collection of values associated with key,
+  /// or an empty iterable if key was unmapped.
+  Iterable<V> removeValues(Object key);
+}
+
+/// A view of a [TernaryTreap] without mutators.
+/// Will throw error if access attempted after underlying [TernaryTreap] changes
+abstract class ImmutableTernaryTreap<V> extends _CommonInterface<V> {}
+
+/// Exists so that [ImmutableTernaryTreap] and [TernaryTreap] may share interface spec  but
+/// also avoid inheritence issue discussed at:
+/// https://blog.codefx.org/java/immutable-collections-in-java/#What8217s-An-Immutable-Collection
+abstract class _CommonInterface<V> {
+  /// Return [Iterable] of values for specified [key].
+  ///
+  /// If no value associated with key then returns empty [Iterable].
+  /// If key not found then returns null.
+  ///
+  /// Throws [ArgumentError] if [key] is empty.
+  Iterable<V> operator [](Object key);
+
+  /// Return a view of this [TernaryTreap] as a [Map]
+  Map<String, Iterable<V>> asMap();
+
+  /// Returns whether this [TernaryTreap] contains an
+  /// association between [key[] and [value].
+  bool contains(Object key, Object value);
+
+  /// Returns whether this [TernaryTreap] contains [key].
+  bool containsKey(Object key);
+
+  /// Returns whether this [TernaryTreap] contains [value]
+  /// at least once.
+  bool containsValue(Object value);
+
+  /// The maximum node depth of the [TernaryTreap].
+  ///
+  /// Returns *estimate* of maximum depth of key node.
+  /// Used for diagnostic/testing purposes.
+  int get depth;
+
+  /// Iterates through [TernaryTreap] as [MapEntry] objects.
+  ///
+  /// Each [MapEntry] contains a key (after [KeyMapping] applied)
+  /// and its associated values.
+  Iterable<MapEntry<String, Iterable<V>>> get entries;
+
+  /// Iterates through [TernaryTreap] as [MapEntry] objects such
+  /// that only keys prefixed by [mapKey]`(`[prefix]`)` are included.
+  ///
+  /// Each [MapEntry] contains a key and its associated values.
+  ///
+  /// If [mapKey]`(`[prefix]`)` is empty then returns empty [Iterable].
+  ///
+  /// Throws [ArgumentError] if [prefix] is empty.
+  Iterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix);
+
   /// Applies [f] to each key/value pair of the [TernaryTreap]
   ///
   /// Calling [f] must not add or remove keys from the [TernaryTreap].
@@ -523,78 +640,6 @@ abstract class TernaryTreap<V> extends ImmutableTernaryTreap<V> {
   void forEachKeyPrefixedBy(
       String prefix, void Function(String key, Iterable<V> values) f);
 
-  /// Removes the association between the given [key] and [value].
-  ///
-  /// Returns `true` if the association existed, `false` otherwise
-  bool remove(Object key, V value);
-
-  /// Removes [key] and all associated values.
-  ///
-  /// Returns the collection of values associated with key,
-  /// or an empty iterable if key was unmapped.
-  Iterable<V> removeKey(Object key);
-
-  /// Removes all values associated with [key].
-  ///
-  /// Returns the collection of values associated with key,
-  /// or an empty iterable if key was unmapped.
-  Iterable<V> removeValues(Object key);
-}
-
-/// A view of a [TernaryTreap] with no mutators
-abstract class ImmutableTernaryTreap<V> {
-  /// Return [Iterable] of values for specified [key].
-  ///
-  /// If no value associated with key then returns empty [Iterable].
-  /// If key not found then returns null.
-  ///
-  /// Throws [ArgumentError] if [key] is empty.
-  Iterable<V> operator [](Object key);
-
-  /// Return a view of this [TernaryTreap] as a [Map]
-  Map<String, Iterable<V>> asMap();
-
-  /// Return [ImmutableTernaryTreap] view of sub tree
-  /// underneath final node of prefix [mapKey]`(`[prefix]`)`.
-  ///
-  /// If [mapKey]`(`[prefix]`)` is empty or no suffices exist then returns
-  /// empty [ImmutableTernaryTreap]
-  ///
-  /// Throws ArgumentError if [prefix] is empty.
-  ImmutableTernaryTreap<V> suffixTree(String prefix);
-
-  /// Returns whether this [TernaryTreap] contains an
-  /// association between [key[] and [value].
-  bool contains(Object key, Object value);
-
-  /// Returns whether this [TernaryTreap] contains [key].
-  bool containsKey(Object key);
-
-  /// Returns whether this [TernaryTreap] contains [value]
-  /// at least once.
-  bool containsValue(Object value);
-
-  /// The maximum node depth of the [TernaryTreap].
-  ///
-  /// Returns
-  int get depth;
-
-  /// Iterates through [TernaryTreap] as [MapEntry] objects.
-  ///
-  /// Each [MapEntry] contains a key (after [KeyMapping] applied)
-  /// and its associated values.
-  Iterable<MapEntry<String, Iterable<V>>> get entries;
-
-  /// Iterates through [TernaryTreap] as [MapEntry] objects such
-  /// that only keys prefixed by [mapKey]`(`[prefix]`)` are included.
-  ///
-  /// Each [MapEntry] contains a key and its associated values.
-  ///
-  /// If [mapKey]`(`[prefix]`)` is empty then returns [Iterable.empty].
-  ///
-  /// Throws [ArgumentError] if [prefix] is empty.
-  Iterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix);
-
   /// Returns true if there are no keys in the [TernaryTreap].
   bool get isEmpty;
 
@@ -607,7 +652,7 @@ abstract class ImmutableTernaryTreap<V> {
   /// Returns [Iterable] collection of each key of the [TernaryTreap]
   /// where key is prefixed by [mapKey]`(`[prefix]`)`.
   ///
-  /// If [mapKey]`(`[prefix]`)` is empty then returns [Iterable.empty].
+  /// If [mapKey]`(`[prefix]`)` is empty then returns empty [Iterable].
   ///
   /// Throws [ArgumentError] if [prefix] is empty.
   Iterable<String> keysByPrefix(String prefix);
@@ -620,6 +665,15 @@ abstract class ImmutableTernaryTreap<V> {
   ///
   /// Throws [ArgumentError] if [key] is empty.
   String mapKey(String key);
+
+  /// Return [ImmutableTernaryTreap] view of sub tree
+  /// underneath final node of prefix [mapKey]`(`[prefix]`)`.
+  ///
+  /// If [mapKey]`(`[prefix]`)` is empty or no suffices exist then returns
+  /// empty [ImmutableTernaryTreap]
+  ///
+  /// Throws ArgumentError if [prefix] is empty.
+  ImmutableTernaryTreap<V> suffixTree(String prefix);
 
   /// Generate a string representation of this [TernaryTreap].
   /// Requires that values be json encodable.
@@ -645,90 +699,40 @@ abstract class ImmutableTernaryTreap<V> {
   /// Return [Iterable] view of values where key
   /// is prefixed by [mapKey]`(`[prefix]`)`.
   ///
-  /// If [mapKey]`(`[prefix]`)` is empty then returns [Iterable.empty].
+  /// If [mapKey]`(`[prefix]`)` is empty then returns empty [Iterable].
   ///
   /// Throws ArgumentError if [prefix] is empty.
   Iterable<V> valuesByKeyPrefix(String prefix);
 }
 
-/// A [TernaryTreap] that stores values in a [Set]
-///
-/// [TernaryTreapSet] is a function a Key to a set of Values:
-///
-/// * <i>f</i> :  <i>K</i> &mapsto; &weierp; (<i>V</i>)
-///
-/// such that
-///
-/// * K is the set of all Keys
-/// * V is the set of all Values
-/// * &weierp; (<i>V</i>) is the powerset of V
-///
-/// By definition the Values sequence may feature the same Value only once.
-///
-/// The codomain of <i>f</i> includes the empty set.
-/// This allows Keys to be stored without Values, useful when
-/// you require only a set of Keys for prefix searching purposes.
-
-class TernaryTreapSet<V> extends _TernaryTreap<V> {
-  /// Construct new [TernaryTreapSet]
-  TernaryTreapSet([KeyMapping keyMapping])
-      : super(
-            (List<int> codeUnit, int priority, _Node<V> parent) =>
-                _NodeSet<V>(codeUnit, priority, parent),
-            keyMapping);
-}
-
-/// A [TernaryTreap] that stores values in a [List]
-///
-/// [TernaryTreapList] is a function from a Key to a sequence of Values:
-///
-/// * <i>f</i> :  <i>K</i> &mapsto; <i>V</i><sup>&#8469;</sup> &cup; V<sup>&emptyset;</sup>
-///
-/// such that
-///
-/// * K is the set of all Keys
-/// * V is the set of all Values
-/// * &#8469; is the set of Natural numbers
-/// * <i>V</i><sup>&#8469;</sup> is the set of all functions &#8469; &mapsto; <i>V</i>
-/// * <i>V</i><sup>&emptyset;</sup> contains the empty function &emptyset; &mapsto; <i>V</i>
-///
-/// By definition the Values sequence may feature the same Value multiple times
-/// and is ordered by insertion.
-///
-/// The codomain of <i>f</i> includes the empty sequence.
-/// This allows Keys to be stored without Values, useful when
-/// you require only a set of Keys for prefix searching purposes.
-class TernaryTreapList<V> extends _TernaryTreap<V> {
-  /// Construct new [TernaryTreapList]
-  TernaryTreapList([KeyMapping keyMapping])
-      : super(
-            (List<int> codeUnit, int priority, _Node<V> parent) =>
-                _NodeList<V>(codeUnit, priority, parent),
-            keyMapping);
-}
-
+/// Non mutating portion of [TernaryTreap]
 class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
-  /// Constructs a new [TernaryTreap].
+  /// Constructs a new [_ImmutableTernaryTreap].
   ///
   /// The [_keyMapping] argument supplies an optional instance of
   /// [KeyMapping] to be applied to all keys processed by this [TernaryTreap].
   _ImmutableTernaryTreap([this._root, _ByRef<int> _version, this._keyMapping])
-      : _version = _version ?? _ByRef<int>(0);
+      : _version = _version ?? _ByRef<int>(0),
+        _validVersion = _version == null ? null : _version.value;
 
   /// The [KeyMapping] in use by this [TernaryTreap]
   ///
   /// See: [KeyMapping].
   final KeyMapping _keyMapping;
 
-  /// Entry point into [_Node] tree.
-  _Node<V> _root;
-
   /// Allows tracking of modifications
   /// ByRef so as to allow sharing with Immutable views
   final _ByRef<int> _version;
 
+  /// The version at which this [TernaryTreap] instance was last valid.
+  int _validVersion;
+
+  /// Entry point into [_Node] tree.
+  _Node<V> _root;
+
   @override
   Iterable<V> operator [](Object key) {
+    _checkUnmmodified();
     if (!(key is String)) {
       throw ArgumentError();
     }
@@ -749,8 +753,11 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   }
 
   @override
-  Map<String, Iterable<V>> asMap() =>
-      Map<String, Iterable<V>>.fromEntries(entries);
+  Map<String, Iterable<V>> asMap() {
+    _checkUnmmodified();
+
+    return Map<String, Iterable<V>>.fromEntries(entries);
+  }
 
   /// Map key and throw error if result is empty
   String _mapKeyErrorOnEmpty(String key) {
@@ -763,6 +770,8 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
 
   @override
   bool contains(Object key, Object value) {
+    _checkUnmmodified();
+
     if (!(key is String)) {
       throw ArgumentError();
     }
@@ -787,10 +796,16 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   bool containsKey(Object key) => this[key] != null;
 
   @override
-  bool containsValue(Object value) => values.contains(value);
+  bool containsValue(Object value) {
+    _checkUnmmodified();
+
+    return values.contains(value);
+  }
 
   @override
   int get depth {
+    _checkUnmmodified();
+
     final itr = entries.iterator as _MapEntryIterator<V>;
     var maxDepth = 0;
     while (itr.moveNext()) {
@@ -804,27 +819,83 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   }
 
   @override
-  Iterable<MapEntry<String, Iterable<V>>> get entries =>
-      _MapEntryIterable<V>(this, _root);
-  @override
-  Iterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix) =>
-      _MapEntryIterable<V>(this, _root, mapKey(prefix));
+  Iterable<MapEntry<String, Iterable<V>>> get entries {
+    _checkUnmmodified();
+
+    return _MapEntryIterable<V>(this, _root);
+  }
 
   @override
-  bool get isEmpty => _root == null;
+  Iterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix) {
+    _checkUnmmodified();
+
+    return _MapEntryIterable<V>(this, _root, mapKey(prefix));
+  }
 
   @override
-  bool get isNotEmpty => _root != null;
+  void forEach(void Function(String key, V value) f) {
+    _checkUnmmodified();
+
+    final entryItr = entries.iterator as _MapEntryIterator<V>;
+
+    while (entryItr.moveNext()) {
+      for (final value in entryItr.currentValue) {
+        f(entryItr.currentKey, value);
+      }
+    }
+  }
 
   @override
-  Iterable<String> get keys => _KeyIterable<V>(this, _root);
+  void forEachKey(void Function(String key, Iterable<V> values) f) {
+    _checkUnmmodified();
+
+    final entryItr = entries.iterator as _MapEntryIterator<V>;
+    while (entryItr.moveNext()) {
+      f(entryItr.currentKey, entryItr.currentValue);
+    }
+  }
 
   @override
-  Iterable<String> keysByPrefix(String prefix) =>
-      _KeyIterable<V>(this, _root, mapKey(prefix));
+  void forEachKeyPrefixedBy(
+      String prefix, void Function(String key, Iterable<V> values) f) {
+    _checkUnmmodified();
+
+    final itr = entriesByKeyPrefix(prefix).iterator as _MapEntryIterator<V>;
+
+    while (itr.moveNext()) {
+      f(itr.currentKey, itr.currentValue);
+    }
+  }
 
   @override
-  int get length => _root == null ? 0 : _root.sizeDFSTree;
+  bool get isEmpty {
+    _checkUnmmodified();
+    return _root == null;
+  }
+
+  @override
+  bool get isNotEmpty {
+    _checkUnmmodified();
+    return _root != null;
+  }
+
+  @override
+  Iterable<String> get keys {
+    _checkUnmmodified();
+    return _KeyIterable<V>(this, _root);
+  }
+
+  @override
+  Iterable<String> keysByPrefix(String prefix) {
+    _checkUnmmodified();
+    return _KeyIterable<V>(this, _root, mapKey(prefix));
+  }
+
+  @override
+  int get length {
+    _checkUnmmodified();
+    return _root == null ? 0 : _root.sizeDFSTree;
+  }
 
   @override
   String mapKey(String key) {
@@ -837,6 +908,7 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
 
   @override
   ImmutableTernaryTreap<V> suffixTree(String prefix) {
+    _checkUnmmodified();
     final prefixMapped = mapKey(prefix);
 
     if (_root == null || prefixMapped.isEmpty) {
@@ -855,16 +927,22 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   }
 
   @override
-  Iterable<V> get values =>
-      _ValuesIterable<V>(this, _root).expand((Iterable<V> values) => values);
+  Iterable<V> get values {
+    _checkUnmmodified();
+    return _ValuesIterable<V>(this, _root)
+        .expand((Iterable<V> values) => values);
+  }
 
   @override
-  Iterable<V> valuesByKeyPrefix(String prefix) =>
-      _ValuesIterable<V>(this, _root, mapKey(prefix))
-          .expand((Iterable<V> values) => values);
+  Iterable<V> valuesByKeyPrefix(String prefix) {
+    _checkUnmmodified();
+    return _ValuesIterable<V>(this, _root, mapKey(prefix))
+        .expand((Iterable<V> values) => values);
+  }
 
   @override
   String toString([String paddingChar = '-']) {
+    _checkUnmmodified();
     final lines = StringBuffer();
     final itr = entries.iterator as _MapEntryIterator<V>;
 
@@ -885,15 +963,23 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
     }
     return lines.toString();
   }
+
+  /// Throw exception if this collection has been modified
+  void _checkUnmmodified() {
+    if (_version.value != _validVersion) {
+      throw _ImmutableModificationError(this);
+    }
+  }
 }
 
-class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
+/// TernaryTreap mutators
+class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
     implements TernaryTreap<V> {
   /// Constructs a new [TernaryTreap].
   ///
   /// The [_keyMapping] argument supplies an optional instance of
   /// [KeyMapping] to be applied to all keys processed by this [TernaryTreap].
-  _TernaryTreap(this._nodeFactory, KeyMapping keyMapping)
+  _MutableTernaryTreap(this._nodeFactory, KeyMapping keyMapping)
       : super(null, _ByRef<int>(0), keyMapping);
 
   final Random _random = Random();
@@ -944,36 +1030,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
 
   @override
   ImmutableTernaryTreap<V> asImmutable() =>
-      _ImmutableTernaryTreap(_root, _version, _keyMapping);
-
-  @override
-  void forEach(void Function(String key, V value) f) {
-    final entryItr = entries.iterator as _MapEntryIterator<V>;
-
-    while (entryItr.moveNext()) {
-      for (final value in entryItr.currentValue) {
-        f(entryItr.currentKey, value);
-      }
-    }
-  }
-
-  @override
-  void forEachKey(void Function(String key, Iterable<V> values) f) {
-    final entryItr = entries.iterator as _MapEntryIterator<V>;
-    while (entryItr.moveNext()) {
-      f(entryItr.currentKey, entryItr.currentValue);
-    }
-  }
-
-  @override
-  void forEachKeyPrefixedBy(
-      String prefix, void Function(String key, Iterable<V> values) f) {
-    final itr = entriesByKeyPrefix(prefix).iterator as _MapEntryIterator<V>;
-
-    while (itr.moveNext()) {
-      f(itr.currentKey, itr.currentValue);
-    }
-  }
+      _ImmutableTernaryTreap<V>(_root, _version, _keyMapping);
 
   @override
   void operator []=(String key, Iterable<V> values) {
@@ -1052,7 +1109,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
 
     Iterable<V> values;
     if (_root != null) {
-      values = _remove2(_root, transformedKey);
+      values = _remove(_root, transformedKey);
       if (_root.sizeDFSTree == 0) {
         /// There are no end nodes left in tree so delete root
         _root = null;
@@ -1068,8 +1125,11 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
 
   /// Increment modification version.
   /// Wrap backto 0 when [_MAX_SAFE_INTEGER] exceeded
-  void _incVersion() => _version.value =
-      (_version.value >= _MAX_SAFE_INTEGER) ? 0 : _version.value + 1;
+  void _incVersion() {
+    _version.value =
+        (_version.value >= _MAX_SAFE_INTEGER) ? 0 : _version.value + 1;
+    _validVersion = _version.value;
+  }
 
   /// Add or update node for [key] starting from [root] and attach [value].
   ///
@@ -1094,7 +1154,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
 
     var currentNode = _rootNode;
 
-    // Create a path down to key node
+    // Create a path down to key node, rotating as we go.
     while (keyCodeIdx < keyCodeUnits.length) {
       final keyCodeUnit = keyCodeUnits[keyCodeIdx];
       if (keyCodeUnit < currentNode.codeUnits[0]) {
@@ -1105,22 +1165,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
 
           keyCodeIdx = keyCodeUnits.length;
         }
-
-        // rotate node and update parent if needed
-        if (currentNode.left.priority > currentNode.priority) {
-          // Save parent before rotating
-          final currentParent = currentNode.parent;
-          final rotatedNode = _rotateRight(currentNode);
-          if (currentNode == _rootNode) {
-            _rootNode = rotatedNode;
-          } else {
-            // Update parent with new child
-            currentParent.updateChild(currentNode, rotatedNode);
-          }
-          currentNode = rotatedNode;
-        } else {
-          currentNode = currentNode.left;
-        }
+        currentNode = currentNode.left;
       } else if (keyCodeUnit > currentNode.codeUnits[0]) {
         // Create right path if needed
         if (currentNode.right == null) {
@@ -1128,22 +1173,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
               _random.nextInt(1 << 32), currentNode);
           keyCodeIdx = keyCodeUnits.length;
         }
-
-        if (currentNode.right.priority > currentNode.priority) {
-          // Save parent before rotating
-          final currentParent = currentNode.parent;
-          final rotatedNode = _rotateLeft(currentNode);
-          if (currentNode == _rootNode) {
-            // Set new root
-            _rootNode = rotatedNode;
-          } else {
-            // Update parent with new child
-            currentParent.updateChild(currentNode, rotatedNode);
-          }
-          currentNode = rotatedNode;
-        } else {
-          currentNode = currentNode.right;
-        }
+        currentNode = currentNode.right;
       } else {
         // Move onto next key code unit
         keyCodeIdx++;
@@ -1202,6 +1232,9 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
         // Probably only useful after multiple add and delete cycles
         _mergeMid(reverseNode);
 
+        // Rebalance
+        _balanceNodeChildren(reverseNode);
+
         reverseNode.updateDescendantCounts();
 
         reverseNode = reverseNode.parent;
@@ -1219,7 +1252,7 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
   /// of null if key does not exist.
   ///
   /// Assumes [transformedKey] has been transformed
-  Iterable<V> _remove2(_Node<V> rootNode, String transformedKey) {
+  Iterable<V> _remove(_Node<V> rootNode, String transformedKey) {
     final keyCodeUnits = transformedKey.codeUnits;
 
     var keyCodeIdx = 0;
@@ -1305,6 +1338,38 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
     }
   }
 
+  /// If [node] children exist then rotate if needed.
+  void _balanceNodeChildren(_Node<V> node) {
+    if (node.left != null) {
+      node.left = _rotateNodeIfNeeded(node.left);
+    }
+    if (node.right != null) {
+      node.right = _rotateNodeIfNeeded(node.right);
+    }
+  }
+
+  /// Swap [node] priority with parent and
+  /// *** REMEMBER: COMPARE PARENT TO ROOT AND NOT NULL SO
+  /// AS NOT TO PROMOTE OUT OF TREE
+  void _promoteNode(_Node<V> node) {}
+
+  /// Rotate node tree from  [node] id needed to maintain
+  /// heap invarient:
+  ///
+  /// ([node.left.priority] < [node.priority]) &&
+  /// ([node.right.priority] <[node.priority])
+  ///
+  /// Return possibly changed [node] of rotated node tree
+  _Node<V> _rotateNodeIfNeeded(_Node<V> node) {
+    if (node.left != null && node.left.priority > node.priority) {
+      return _rotateRight(node);
+    } else if (node.right != null && node.right.priority > node.priority) {
+      return _rotateLeft(node);
+    } else {
+      return node;
+    }
+  }
+
   /// ```
   ///      a            b
   ///     / \          / \
@@ -1313,6 +1378,12 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
   ///  c   d            d   e ```
   _Node<V> _rotateRight(_Node<V> a) {
     final b = a.left;
+
+    if (b == null) {
+      // Nothing to rotate to.
+      return a;
+    }
+
     final d = b.right;
 
     // Rotate
@@ -1343,6 +1414,11 @@ class _TernaryTreap<V> extends _ImmutableTernaryTreap<V>
   ///     d   e      c   d ```
   _Node<V> _rotateLeft(_Node<V> b) {
     final a = b.right;
+
+    if (a == null) {
+      return b;
+    }
+
     final d = a.left;
 
     // Rotate
@@ -1685,22 +1761,36 @@ class _NodeList<V> extends _Node<V> {
   }
 }
 
+/// Underlying data model of Immutable object has changed.
+class _ImmutableModificationError extends Error {
+  _ImmutableModificationError([this.modifiedObject]);
+  final Object modifiedObject;
+  @override
+  String toString() {
+    if (modifiedObject == null) {
+      return 'Immutable object modified and no longer valid.';
+    }
+    return 'Immutable object modified and no longer valid. '
+        '${Error.safeToString(modifiedObject)}.';
+  }
+}
+
 /// No way to pass primitives by ref in Dart so need to wrap in object
 class _ByRef<T> {
-  T value;
   _ByRef(this.value);
+  T value;
 }
 
 class _Tuple2<A, B> {
+  _Tuple2(this.a, this.b);
   A a;
   B b;
-  _Tuple2(this.a, this.b);
 }
 
 class _NodeCodeunitIdx<V> {
+  _NodeCodeunitIdx(this.node, this.codeunitIdx);
   _Node<V> node;
   int codeunitIdx;
-  _NodeCodeunitIdx(this.node, this.codeunitIdx);
 }
 
 /// Simple stack implementation
@@ -1818,7 +1908,7 @@ abstract class _InOrderIteratorBase<V> {
   /// Construct new [_InOrderIteratorBase] to start from
   /// [root] node which belongs to [owner].
   _InOrderIteratorBase(this.owner, _Node<V> root, [String prefix = ''])
-      : ownerStartingVersion = owner._version.value,
+      : ownerVersion = owner._version.value,
         stack = _Stack<_StackFrame<V>>(owner.length) {
     if (prefix == null) {
       throw ArgumentError.notNull('prefix');
@@ -1847,7 +1937,7 @@ abstract class _InOrderIteratorBase<V> {
 
   final _ImmutableTernaryTreap<V> owner;
 
-  final int ownerStartingVersion;
+  final int ownerVersion;
 
   _StackFrame<V> prefixFrame; // Handle prefix end node
   String currentKey;
@@ -1863,7 +1953,7 @@ abstract class _InOrderIteratorBase<V> {
   /// A call to moveNext may throw [ConcurrentModificationError] if
   /// iteration has been broken by changing the underlying collection.
   bool moveNext() {
-    if (owner._version.value != ownerStartingVersion) {
+    if (owner._version.value != ownerVersion) {
       throw ConcurrentModificationError(owner);
     }
 

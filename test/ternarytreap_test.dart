@@ -61,7 +61,7 @@ void main() {
 
     sortedKeys = collator.keys.toList()..sort();
 
-    tst = TernaryTreapSet<int>();
+    tst = TernaryTreap<int>.Set();
     for (final x in testKeys) {
       // Special keys are added with no data
       if (x > (numUniqueKeys * 3 + startVal)) {
@@ -132,7 +132,7 @@ void main() {
     });
 
     test('one key', () {
-      final TernaryTreap<int> oneKey = TernaryTreapSet<int>()..add('a');
+      final oneKey = TernaryTreap<int>.Set()..add('a');
       expect(oneKey.length, equals(1));
       expect(oneKey.entries.length, equals(1));
       expect(oneKey.entriesByKeyPrefix('a').length, equals(1));
@@ -257,8 +257,7 @@ void main() {
     });
 
     test('[]=', () {
-      final TernaryTreap<int> tree =
-          TernaryTreapSet<int>(TernaryTreap.lowercase);
+      final tree = TernaryTreap<int>.Set(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -302,7 +301,7 @@ void main() {
     });
 
     test('KeyMapping', () {
-      TernaryTreap<int> tree = TernaryTreapSet<int>(TernaryTreap.lowercase)
+      var tree = TernaryTreap<int>.Set(TernaryTreap.lowercase)
         ..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
@@ -315,7 +314,7 @@ void main() {
 
       testIdempotence(tree, 'DSAF DF SD FSDRTE ');
 
-      tree = TernaryTreapSet<int>(TernaryTreap.uppercase)..add('TeStInG', 1);
+      tree = TernaryTreap<int>.Set(TernaryTreap.uppercase)..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
 
@@ -327,7 +326,7 @@ void main() {
 
       testIdempotence(tree, 'asdas KJHGJGH fsdfsdf ');
 
-      tree = TernaryTreapSet<int>(TernaryTreap.collapseWhitespace)
+      tree = TernaryTreap<int>.Set(TernaryTreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);
       expect(
           tree['t             '
@@ -338,7 +337,7 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = TernaryTreapSet<int>(TernaryTreap.lowerCollapse)
+      tree = TernaryTreap<int>.Set(TernaryTreap.lowerCollapse)
         ..add(' T eS   KK     Bg  ', 1);
       expect(
           tree['       t es'
@@ -349,7 +348,7 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = TernaryTreapSet<int>(TernaryTreap.nonLetterToSpace)
+      tree = TernaryTreap<int>.Set(TernaryTreap.nonLetterToSpace)
         ..add('*T_eS  -KK  ,  Bg )\n\t', 1);
       expect(tree[' T eS  ^KK %* ^Bg ;  '], <int>[1]);
 
@@ -357,7 +356,7 @@ void main() {
 
       testIdempotence(tree, ' %  asd+=as   & & ^J%@HG  J(GH f`sdf  s*df   )!');
 
-      tree = TernaryTreapSet<int>(TernaryTreap.joinSingleLetters)
+      tree = TernaryTreap<int>.Set(TernaryTreap.joinSingleLetters)
         ..add('    a     b .  ab.cd a  b abcd a        b', 1);
 
       expect(tree['ab .  ab.cd ab abcd ab'], equals(<int>[1]));
@@ -379,8 +378,7 @@ void main() {
     });
 
     test('removeValues', () {
-      final TernaryTreap<int> tree =
-          TernaryTreapSet<int>(TernaryTreap.lowercase);
+      final tree = TernaryTreap<int>.Set(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -397,8 +395,7 @@ void main() {
     });
 
     test('removeKey', () {
-      final TernaryTreap<int> tree =
-          TernaryTreapSet<int>(TernaryTreap.lowercase);
+      final tree = TernaryTreap<int>.Set(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -422,7 +419,7 @@ void main() {
     });
 
     test('addAll', () {
-      final TernaryTreap<int> tree = TernaryTreapSet<int>();
+      final tree = TernaryTreap<int>.Set();
 
       tree['At'] = <int>[1];
 
@@ -450,7 +447,7 @@ void main() {
     });
 
     test('addValues', () {
-      final TernaryTreap<int> tree = TernaryTreapSet<int>();
+      final tree = TernaryTreap<int>.Set();
 
       tree['At'] = <int>[1];
 
@@ -488,6 +485,13 @@ void main() {
 
     test('asImmutable', () {
       expect(tst.asImmutable().asMap(), equals(collator));
+
+      var immutable = tst.asImmutable();
+
+      tst['should_throw_error'] = {6};
+
+      expect(
+          () => immutable['should_throw_error'], throwsA(TypeMatcher<Error>()));
     });
   });
 }

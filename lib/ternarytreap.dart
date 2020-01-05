@@ -2,8 +2,8 @@
 /// implemented as self balancing ternary trees allowing fast,
 /// memory efficient prefix searching over a set of String keys
 ///
-/// *  **TernaryTreapSet**  - Keys map to Set of Values.
-/// *  **TernaryTreapList** - Keys map to Sequence of Values.
+/// *  **TernaryTreap.Set**  - Keys map to Set of Values.
+/// *  **TernaryTreap.List** - Keys map to Sequence of Values.
 ///
 /// Balancing is achieved via  [Treap](https://en.wikipedia.org/wiki/Treap)
 /// algorithm where each node is assigned a random priority and

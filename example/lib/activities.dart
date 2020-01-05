@@ -79,8 +79,8 @@ class InputActivity extends Activity {
   /// Constructor for [InputActivity]
   InputActivity({KeyMapping keyMapping, List<String> preload})
       : _ternaryTreap = keyMapping == null
-            ? TernaryTreapSet<DictEntry>()
-            : TernaryTreapSet<DictEntry>(keyMapping) {
+            ? TernaryTreap<DictEntry>.Set()
+            : TernaryTreap<DictEntry>.Set(keyMapping) {
     if (preload.isNotEmpty) {
       for (final  word in preload) {
         // fabricate dict entry
