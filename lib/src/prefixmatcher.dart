@@ -74,8 +74,8 @@ class PrefixMatcher with IterableMixin<String> {
   ///
   /// Returned strings are ordered by key (i.e. grouped by [KeyMapping]),
   /// and then by order of insertion.
-  Iterable<String> match(String prefix) =>
-      ternaryTreap.valuesByKeyPrefix(prefix);
+  Iterable<String> match(String prefix, [bool fuzzy = false]) =>
+      ternaryTreap.valuesByKeyPrefix(prefix, fuzzy);
 
   /// @returns [Iterable] of [String] objects corresponding to [key].
   ///

@@ -8,6 +8,9 @@ dynamic toEncodable(dynamic obj) {
   if (obj is MapEntry<String, Iterable<int>>) {
     return <String, dynamic>{'key': obj.key, 'val': obj.value.toList()};
   }
+  if (obj is MapEntry<String, Iterable<String>>) {
+    return <String, dynamic>{'key': obj.key, 'val': obj.value.toList()};
+  }
   if (obj is MapEntry<String, int>) {
     return <String, dynamic>{'key': obj.key, 'val': obj.value};
   }

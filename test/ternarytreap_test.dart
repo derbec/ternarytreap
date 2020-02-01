@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:test/test.dart';
-
+import 'words.dart';
 import 'helper.dart';
 
 void testIdempotence(TernaryTreap<int> tree, String key) {
@@ -21,18 +21,21 @@ void testIdempotence(TernaryTreap<int> tree, String key) {
 }
 
 void main() {
-  const numUniqueKeys = 10;
+  const numUniqueKeys = 1000;
   // Total number of keys taking into account overlap and special keys
   final numKeys = (numUniqueKeys * 1.5).round() + 3;
   const startVal = 17;
-  List<String> sortedKeys;
-  Map<String, List<int>> collator;
-  TernaryTreap<int> tst;
+  List<String> sortedNumberKeys;
+  List<String> sortedWordKeys;
+  Map<String, List<int>> numberMap;
+  Map<String, List<String>> wordMap;
+  TernaryTreap<int> numberTST;
+  TernaryTreap<String> wordTST;
 
   setUp(() {
     //Test data
     //Create increasing keys with overlap - worst case scenario for tree
-    final Iterable<int> testKeys = <int>[
+    final Iterable<int> numberKeys = <int>[
       (numUniqueKeys * 3 + startVal + 1),
       for (int i = 0; i < numUniqueKeys; i++) startVal + i,
       for (int i = 0; i < numUniqueKeys; i++)
@@ -43,43 +46,64 @@ void main() {
     ];
 
     //Test output
-    collator = <String, List<int>>{};
-    for (final x in testKeys) {
-      if (collator.containsKey(x.toString())) {
-        if (!collator[x.toString()].contains(x)) {
-          collator[x.toString()].add(x);
+    numberMap = <String, List<int>>{};
+    for (final x in numberKeys) {
+      if (numberMap.containsKey(x.toString())) {
+        if (!numberMap[x.toString()].contains(x)) {
+          numberMap[x.toString()].add(x);
         }
       } else {
         // Map special keys to empty data
         if (x > (numUniqueKeys * 3 + startVal)) {
-          collator[x.toString()] = <int>[];
+          numberMap[x.toString()] = <int>[];
         } else {
-          collator[x.toString()] = <int>[x];
+          numberMap[x.toString()] = <int>[x];
         }
       }
     }
 
-    sortedKeys = collator.keys.toList()..sort();
+    //Test output
+    wordMap = <String, List<String>>{};
 
-    tst = TernaryTreap<int>.Set();
-    for (final x in testKeys) {
+    for (final x in words) {
+      // Add a few different variations of word
+
+      wordMap[x.toLowerCase()] = [x.toLowerCase()];
+      wordMap[x.toUpperCase()] = [x.toLowerCase()];
+      wordMap[
+          '*' + x + '-' + String.fromCharCodes(x.codeUnits.reversed) + '*'] = [
+        '*' + x + '-' + String.fromCharCodes(x.codeUnits.reversed) + '*'
+      ];
+    }
+
+    sortedNumberKeys = numberMap.keys.toList()..sort();
+    sortedWordKeys = wordMap.keys.toList()..sort();
+
+    numberTST = TernaryTreap<int>.Set();
+    for (final x in numberKeys) {
       // Special keys are added with no data
       if (x > (numUniqueKeys * 3 + startVal)) {
-        tst.add(x.toString());
+        numberTST.add(x.toString());
       } else {
-        tst.add(x.toString(), x);
+        numberTST.add(x.toString(), x);
       }
     }
+
+    wordTST = TernaryTreap<String>.Set();
+    for (final x in wordMap.keys) {
+      wordTST[x] = wordMap[x];
+    }
   });
+
   group('TernaryTreap', () {
     test('forEach', () {
       final expectedOutput = <MapEntry<String, int>>[
-        for (String word in sortedKeys)
-          for (int x in collator[word]) MapEntry<String, int>(word, x)
+        for (String word in sortedNumberKeys)
+          for (int x in numberMap[word]) MapEntry<String, int>(word, x)
       ];
 
       final result = <MapEntry<String, int>>[];
-      tst.forEach((String key, int data) {
+      numberTST.forEach((String key, int data) {
         result.add(MapEntry<String, int>(key, data));
       });
 
@@ -89,17 +113,25 @@ void main() {
 
     test('forEachKey', () {
       final expectedOutput = <MapEntry<String, Iterable<int>>>[
-        for (String word in sortedKeys)
-          MapEntry<String, Iterable<int>>(word, collator[word])
+        for (String word in sortedNumberKeys)
+          MapEntry<String, Iterable<int>>(word, numberMap[word])
       ];
 
       final result = <MapEntry<String, Iterable<int>>>[];
-      tst.forEachKey((String key, Iterable<int> data) {
+      numberTST.forEachKey((String key, Iterable<int> data) {
         result.add(MapEntry<String, Iterable<int>>(key, data));
       });
 
       expect(json.encode(result, toEncodable: toEncodable),
           equals(json.encode(expectedOutput, toEncodable: toEncodable)));
+    });
+
+    test('concurrentModificationError', () {
+      expect(() {
+        numberTST.forEachKey((String key, Iterable<int> data) {
+          numberTST.add('NOT ALLOWED', 9);
+        });
+      }, throwsA(TypeMatcher<ConcurrentModificationError>()));
     });
 
     test('forEachKeyPrefixedBy', () {
@@ -111,13 +143,14 @@ void main() {
         final prefix = key.substring(0, i + 1);
 
         final expectedOutput = <MapEntry<String, List<int>>>[
-          for (String word in sortedKeys)
+          for (String word in sortedNumberKeys)
             if (word.startsWith(prefix))
-              MapEntry<String, List<int>>(word, collator[word])
+              MapEntry<String, List<int>>(word, numberMap[word])
         ];
 
         final result = <MapEntry<String, Iterable<int>>>[];
-        tst.forEachKeyPrefixedBy(prefix, (String key, Iterable<int> data) {
+        numberTST.forEachKeyPrefixedBy(prefix,
+            (String key, Iterable<int> data) {
           result.add(MapEntry<String, Iterable<int>>(key, data));
         });
 
@@ -125,7 +158,7 @@ void main() {
             equals(json.encode(expectedOutput, toEncodable: toEncodable)));
 
         // Check that subtree length is maintained correctly while here
-        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+        final subTreeLength = numberTST.entriesByKeyPrefix(prefix).length;
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
@@ -153,23 +186,23 @@ void main() {
     });
 
     test('keys', () {
-      expect(tst.keys.toList(), equals(sortedKeys));
+      expect(numberTST.keys.toList(), equals(sortedNumberKeys));
     });
 
     test('values', () {
       //Filter out empty lists
       final expectedOutput = <int>[
-        for (String word in sortedKeys)
-          if (collator[word].isNotEmpty) ...collator[word]
+        for (String word in sortedNumberKeys)
+          if (numberMap[word].isNotEmpty) ...numberMap[word]
       ];
-      expect(tst.values.toList(), equals(expectedOutput));
+      expect(numberTST.values.toList(), equals(expectedOutput));
     });
     test('entries', () {
       final expectedOutput = <MapEntry<String, Iterable<int>>>[
-        for (String word in sortedKeys)
-          MapEntry<String, Iterable<int>>(word, collator[word])
+        for (String word in sortedNumberKeys)
+          MapEntry<String, Iterable<int>>(word, numberMap[word])
       ];
-      expect(json.encode(tst.entries.toList(), toEncodable: toEncodable),
+      expect(json.encode(numberTST.entries.toList(), toEncodable: toEncodable),
           equals(json.encode(expectedOutput, toEncodable: toEncodable)));
     });
 
@@ -182,22 +215,22 @@ void main() {
         final prefix = key.substring(0, i + 1);
 
         final expectedOutput = <MapEntry<String, Iterable<int>>>[
-          for (String word in sortedKeys)
+          for (String word in sortedNumberKeys)
             if (word.startsWith(prefix))
-              MapEntry<String, Iterable<int>>(word, collator[word])
+              MapEntry<String, Iterable<int>>(word, numberMap[word])
         ];
 
         expect(
-            json.encode(tst.entriesByKeyPrefix(prefix).toList(),
+            json.encode(numberTST.entriesByKeyPrefix(prefix).toList(),
                 toEncodable: toEncodable),
             equals(json.encode(expectedOutput, toEncodable: toEncodable)));
 
         // Check that subtree length is maintained correctly while here
-        expect(tst.entriesByKeyPrefix(prefix).length,
+        expect(numberTST.entriesByKeyPrefix(prefix).length,
             equals(expectedOutput.length));
       }
 
-      expect(tst.entriesByKeyPrefix('NOT PRESENT').isEmpty, equals(true));
+      expect(numberTST.entriesByKeyPrefix('NOT PRESENT').isEmpty, equals(true));
     });
 
     test('keysByPrefix', () {
@@ -209,17 +242,18 @@ void main() {
         final prefix = key.substring(0, i + 1);
 
         final expectedOutput = <String>[
-          for (String word in sortedKeys) if (word.startsWith(prefix)) word
+          for (String word in sortedNumberKeys)
+            if (word.startsWith(prefix)) word
         ];
 
-        expect(tst.keysByPrefix(prefix).toList(), equals(expectedOutput));
+        expect(numberTST.keysByPrefix(prefix).toList(), equals(expectedOutput));
 
         // Check that subtree length is maintained correctly while here
-        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+        final subTreeLength = numberTST.entriesByKeyPrefix(prefix).length;
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
-      expect(tst.keysByPrefix('NOT PRESENT').isEmpty, equals(true));
+      expect(numberTST.keysByPrefix('NOT PRESENT').isEmpty, equals(true));
     });
 
     test('valuesByKeyPrefix', () {
@@ -231,29 +265,30 @@ void main() {
         final prefix = key.substring(0, i + 1);
 
         final expectedOutput = <int>[
-          for (String word in sortedKeys)
-            if (word.startsWith(prefix)) ...collator[word]
+          for (String word in sortedNumberKeys)
+            if (word.startsWith(prefix)) ...numberMap[word]
         ];
 
-        expect(tst.valuesByKeyPrefix(prefix).toList(), equals(expectedOutput));
+        expect(numberTST.valuesByKeyPrefix(prefix).toList(),
+            equals(expectedOutput));
 
         // Check that subtree length is maintained correctly while here
-        final subTreeLength = tst.entriesByKeyPrefix(prefix).length;
+        final subTreeLength = numberTST.entriesByKeyPrefix(prefix).length;
 
         expect(subTreeLength, equals(expectedOutput.length));
       }
-      expect(tst.valuesByKeyPrefix('NOT PRESENT').isEmpty, equals(true));
+      expect(numberTST.valuesByKeyPrefix('NOT PRESENT').isEmpty, equals(true));
     });
 
     test('[]', () {
       //Use key from middle of range
       final key = (startVal + (numUniqueKeys / 2).round()).toString();
 
-      expect(tst[key], equals(collator[key]));
+      expect(numberTST[key], equals(numberMap[key]));
 
-      expect(tst['NOT FOUND'], equals(null));
+      expect(numberTST['NOT FOUND'], equals(null));
 
-      expect(tst['1'], equals(null));
+      expect(numberTST['1'], equals(null));
     });
 
     test('[]=', () {
@@ -269,35 +304,35 @@ void main() {
     });
 
     test('contains', () {
-      for (final key in sortedKeys) {
-        for (final val in collator[key]) {
-          expect(tst.contains(key, val), equals(true));
-          expect(tst.contains(key, -val), equals(false));
+      for (final key in sortedNumberKeys) {
+        for (final val in numberMap[key]) {
+          expect(numberTST.contains(key, val), equals(true));
+          expect(numberTST.contains(key, -val), equals(false));
         }
       }
 
-      expect(tst.contains('NOT FOUND', 5), equals(false));
+      expect(numberTST.contains('NOT FOUND', 5), equals(false));
     });
 
     test('containsKey', () {
-      for (final key in sortedKeys) {
-        expect(tst.containsKey(key), equals(true));
+      for (final key in sortedNumberKeys) {
+        expect(numberTST.containsKey(key), equals(true));
       }
 
-      expect(tst.containsKey('NOT FOUND'), equals(false));
+      expect(numberTST.containsKey('NOT FOUND'), equals(false));
     });
 
     test('containsValue', () {
-      for (final key in sortedKeys) {
-        for (final val in collator[key]) {
-          expect(tst.containsValue(val), equals(true));
-          expect(tst.containsValue(-val), equals(false));
+      for (final key in sortedNumberKeys) {
+        for (final val in numberMap[key]) {
+          expect(numberTST.containsValue(val), equals(true));
+          expect(numberTST.containsValue(-val), equals(false));
         }
       }
     });
 
     test('length', () {
-      expect(tst.length, equals(numKeys));
+      expect(numberTST.length, equals(numKeys));
     });
 
     test('KeyMapping', () {
@@ -367,14 +402,14 @@ void main() {
     });
 
     test('remove', () {
-      for (final key in sortedKeys) {
-        for (final val in collator[key]) {
-          expect(tst.remove(key, val), equals(true));
-          expect(tst.remove(key, -val), equals(false));
+      for (final key in sortedNumberKeys) {
+        for (final val in numberMap[key]) {
+          expect(numberTST.remove(key, val), equals(true));
+          expect(numberTST.remove(key, -val), equals(false));
         }
       }
 
-      expect(tst.remove('NOT FOUND', 5), equals(false));
+      expect(numberTST.remove('NOT FOUND', 5), equals(false));
     });
 
     test('removeValues', () {
@@ -411,11 +446,11 @@ void main() {
 
       expect(tree.removeKey('BE'), equals(<int>[2, 3]));
 
-      collator.keys.toList().forEach(tst.removeKey);
+      numberMap.keys.toList().forEach(numberTST.removeKey);
 
-      expect(tst.length, equals(0));
-      expect(tst.isEmpty, equals(true));
-      expect(tst.isNotEmpty, equals(false));
+      expect(numberTST.length, equals(0));
+      expect(numberTST.isEmpty, equals(true));
+      expect(numberTST.isNotEmpty, equals(false));
     });
 
     test('addAll', () {
@@ -425,24 +460,24 @@ void main() {
 
       tree['be'] = <int>[2, 3];
 
-      tree.addAll(tst);
+      tree.addAll(numberTST);
 
-      expect(tree.length, equals(tst.length + 2));
+      expect(tree.length, equals(numberTST.length + 2));
 
       // Original mappings should still be there
       expect(tree['At'], equals(<int>[1]));
       expect(tree['be'], equals(<int>[2, 3]));
 
       // All mappings from tst should be there as well
-      for (final key in tst.keys) {
-        expect(tree[key], equals(tst[key]));
+      for (final key in numberTST.keys) {
+        expect(tree[key], equals(numberTST[key]));
       }
 
       // Check set behaviour by adding again
-      tree.addAll(tst);
+      tree.addAll(numberTST);
       // All mappings from tst should be the same
-      for (final key in tst.keys) {
-        expect(tree[key], equals(tst[key]));
+      for (final key in numberTST.keys) {
+        expect(tree[key], equals(numberTST[key]));
       }
     });
 
@@ -453,45 +488,160 @@ void main() {
 
       tree['be'] = <int>[2, 3];
 
-      for (final key in tst.keys) {
-        tree.addValues(key, tst[key]);
+      for (final key in numberTST.keys) {
+        tree.addValues(key, numberTST[key]);
       }
 
-      expect(tree.length, equals(tst.length + 2));
+      expect(tree.length, equals(numberTST.length + 2));
 
       // Original mappings should still be there
       expect(tree['At'], equals(<int>[1]));
       expect(tree['be'], equals(<int>[2, 3]));
 
       // All mappings from tst should be there as well
-      for (final key in tst.keys) {
-        expect(tree[key], equals(tst[key]));
+      for (final key in numberTST.keys) {
+        expect(tree[key], equals(numberTST[key]));
       }
 
       // Check set behaviour by adding again
-      for (final key in tst.keys) {
-        tree.addValues(key, tst[key]);
+      for (final key in numberTST.keys) {
+        tree.addValues(key, numberTST[key]);
       }
 
       // All mappings from tst should be the same
-      for (final key in tst.keys) {
-        expect(tree[key], equals(tst[key]));
+      for (final key in numberTST.keys) {
+        expect(tree[key], equals(numberTST[key]));
       }
     });
 
     test('asMap', () {
-      expect(tst.asMap(), equals(collator));
+      expect(numberTST.asMap(), equals(numberMap));
     });
 
     test('asImmutable', () {
-      expect(tst.asImmutable().asMap(), equals(collator));
+      expect(numberTST.asImmutable().asMap(), equals(numberMap));
 
-      var immutable = tst.asImmutable();
+      var immutable = numberTST.asImmutable();
 
-      tst['should_throw_error'] = {6};
+      // Ensure that immutable view updates with original
+      numberTST['new element'] = {6};
 
-      expect(
-          () => immutable['should_throw_error'], throwsA(TypeMatcher<Error>()));
+      expect(immutable.asMap(), equals(numberTST.asMap()));
+      expect(immutable.length, equals(numberTST.length));
+
+      numberTST.clear();
+
+      expect(immutable.isEmpty, equals(numberTST.isEmpty));
+    });
+
+    test('valuesByKeyPrefixDistance', () {
+      for (final key in sortedWordKeys) {
+        // Reverse keys to mix it up
+        final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        var checker = <List<String>>[];
+        for (final key in sortedWordKeys) {
+          final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
+          if (distance > -1 && distance < prefix.length) {
+            checker.add(wordMap[key]);
+          }
+        }
+
+        var flatChecker =
+            checker.expand((Iterable<String> values) => values).toList();
+        flatChecker.sort();
+
+        var result = wordTST.valuesByKeyPrefix(prefix, true).toList();
+        result.sort();
+
+        expect(result, equals(flatChecker));
+      }
+    });
+
+    test('keysByPrefixDistance', () {
+      for (final key in sortedWordKeys) {
+        final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        var checker = <String>[];
+        for (final key in sortedWordKeys) {
+          final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
+          if (distance > -1 && distance < prefix.length) {
+            checker.add(key);
+          }
+        }
+
+        var result = wordTST.keysByPrefix(prefix, true).toList();
+
+        result.sort();
+        checker.sort();
+
+        expect(result, equals(checker));
+      }
+    });
+
+    test('entriesByPrefixDistance', () {
+      for (final key in sortedWordKeys) {
+        final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        var checker = <MapEntry<String, Iterable<String>>>[];
+        for (final key in sortedWordKeys) {
+          final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
+          if (distance > -1 && distance < prefix.length) {
+            checker.add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
+          }
+        }
+
+        var result = wordTST.entriesByKeyPrefix(prefix, true).toList();
+
+        result.sort((a, b) => a.key.compareTo(b.key));
+        checker.sort((a, b) => a.key.compareTo(b.key));
+
+        expect(json.encode(result, toEncodable: toEncodable),
+            equals(json.encode(checker, toEncodable: toEncodable)));
+      }
+    });
+
+    test('forEachKeyPrefixedByDistance', () {
+      for (final key in sortedWordKeys) {
+        final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        var checker = <MapEntry<String, Iterable<String>>>[];
+        for (final key in sortedWordKeys) {
+          final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
+          if (distance > -1 && distance  < prefix.length) {
+            checker.add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
+          }
+        }
+
+        var result = <MapEntry<String, Iterable<String>>>[];
+
+        wordTST.forEachKeyPrefixedBy(prefix,
+            (String key, Iterable<String> data) {
+          result.add(MapEntry<String, Iterable<String>>(key, data));
+        }, true);
+
+
+        result.sort((a, b) => a.key.compareTo(b.key));
+        checker.sort((a, b) => a.key.compareTo(b.key));
+
+        expect(json.encode(result, toEncodable: toEncodable),
+            equals(json.encode(checker, toEncodable: toEncodable)));
+      }
     });
   });
+}
+
+int prefixDistance(final List<int> prefix, final List<int> compare) {
+  if (compare.length < prefix.length) {
+    // cannot compute hamming distance here as
+    return -1;
+  }
+
+  // Assume worst case and improve if possible
+  var distance = prefix.length;
+
+  // Improve if possible
+  for (var i = 0; i < prefix.length; i++) {
+    if (prefix[i] == compare[i]) {
+      distance--;
+    }
+  }
+
+  return distance;
 }

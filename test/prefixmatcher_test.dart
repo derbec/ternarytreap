@@ -4,21 +4,26 @@ import 'words.dart';
 
 void main() {
   group('PrefixMatcher', () {
-    //Test output
-    final collator = <String, List<String>>{};
-    for (final x in words) {
-      if (collator.containsKey(x.toString())) {
-        if (!collator[x.toString()].contains(x)) {
-          collator[x.toString()].add(x);
+    List<String> sortedKeys;
+    PrefixMatcher matcher;
+    Map<String, List<String>> collator;
+    setUp(() {
+      //Test output
+      collator = <String, List<String>>{};
+      for (final x in words) {
+        if (collator.containsKey(x.toString())) {
+          if (!collator[x.toString()].contains(x)) {
+            collator[x.toString()].add(x);
+          }
+        } else {
+          collator[x.toString()] = <String>[x];
         }
-      } else {
-        collator[x.toString()] = <String>[x];
       }
-    }
 
-    final sortedKeys = collator.keys.toList()..sort();
+      sortedKeys = collator.keys.toList()..sort();
+      matcher = PrefixMatcher(TernaryTreap.lowerCollapse)..addAll(words);
+    });
 
-    final matcher = PrefixMatcher(TernaryTreap.lowerCollapse)..addAll(words);
     test('matchPrefix', () {
       for (final key in sortedKeys) {
         //for each character in prefix compare prefix return to ternarytreap
@@ -67,3 +72,22 @@ void main() {
     });
   });
 }
+
+int prefixDistance(final List<int> prefix, final List<int> compare) {
+    if (compare.length < prefix.length) {
+      // cannot compute hamming distance here as
+      return -1;
+    }
+
+    // Assume worst case and improve if possible
+    var distance = prefix.length;
+
+    // Improve if possible
+    for (var i = 0; i < prefix.length; i++) {
+      if (prefix[i] == compare[i]) {
+        distance--;
+      }
+    }
+
+    return distance;
+  }

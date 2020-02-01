@@ -1,4 +1,7 @@
-List<String> words = <String>[
+const List<String> words = <String>[
+  'efron',
+  'atrocious',
+  'syllables',
   'topic',
   'is',
   'thing',
