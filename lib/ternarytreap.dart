@@ -1,9 +1,9 @@
 /// This library defines 2 [Multimaps](https://en.wikipedia.org/wiki/Multimap)
 /// implemented as self balancing ternary trees allowing fast,
-/// memory efficient prefix searching over a set of String keys
+/// memory efficient prefix and near neighbour searching over a set of String keys.
 ///
-/// *  **TernaryTreap.Set**  - Keys map to Set of Values.
-/// *  **TernaryTreap.List** - Keys map to Sequence of Values.
+/// *  **TernaryTreapSet**  - Keys map to Set of Values.
+/// *  **TernaryTreapList** - Keys map to Sequence of Values.
 ///
 /// Balancing is achieved via  [Treap](https://en.wikipedia.org/wiki/Treap)
 /// algorithm where each node is assigned a random priority and

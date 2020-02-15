@@ -79,7 +79,7 @@ void main() {
     sortedNumberKeys = numberMap.keys.toList()..sort();
     sortedWordKeys = wordMap.keys.toList()..sort();
 
-    numberTST = TernaryTreap<int>.Set();
+    numberTST = TernaryTreapSet<int>();
     for (final x in numberKeys) {
       // Special keys are added with no data
       if (x > (numUniqueKeys * 3 + startVal)) {
@@ -89,7 +89,7 @@ void main() {
       }
     }
 
-    wordTST = TernaryTreap<String>.Set();
+    wordTST = TernaryTreapSet<String>();
     for (final x in wordMap.keys) {
       wordTST[x] = wordMap[x];
     }
@@ -165,7 +165,7 @@ void main() {
     });
 
     test('one key', () {
-      final oneKey = TernaryTreap<int>.Set()..add('a');
+      final oneKey = TernaryTreapSet<int>()..add('a');
       expect(oneKey.length, equals(1));
       expect(oneKey.entries.length, equals(1));
       expect(oneKey.entriesByKeyPrefix('a').length, equals(1));
@@ -187,15 +187,23 @@ void main() {
 
     test('keys', () {
       expect(numberTST.keys.toList(), equals(sortedNumberKeys));
+      expect(wordTST.keys.toList(), equals(sortedWordKeys));
     });
 
     test('values', () {
       //Filter out empty lists
-      final expectedOutput = <int>[
+      final expectedNumberOutput = <int>[
         for (String word in sortedNumberKeys)
           if (numberMap[word].isNotEmpty) ...numberMap[word]
       ];
-      expect(numberTST.values.toList(), equals(expectedOutput));
+
+      final expectedWordOutput = <String>[
+        for (String word in sortedWordKeys)
+          if (wordMap[word].isNotEmpty) ...wordMap[word]
+      ];
+
+      expect(numberTST.values.toList(), equals(expectedNumberOutput));
+      expect(wordTST.values.toList(), equals(expectedWordOutput));
     });
     test('entries', () {
       final expectedOutput = <MapEntry<String, Iterable<int>>>[
@@ -292,7 +300,7 @@ void main() {
     });
 
     test('[]=', () {
-      final tree = TernaryTreap<int>.Set(TernaryTreap.lowercase);
+      final tree = TernaryTreapSet<int>(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -336,7 +344,7 @@ void main() {
     });
 
     test('KeyMapping', () {
-      var tree = TernaryTreap<int>.Set(TernaryTreap.lowercase)
+      var tree = TernaryTreapSet<int>(TernaryTreap.lowercase)
         ..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
@@ -349,7 +357,7 @@ void main() {
 
       testIdempotence(tree, 'DSAF DF SD FSDRTE ');
 
-      tree = TernaryTreap<int>.Set(TernaryTreap.uppercase)..add('TeStInG', 1);
+      tree = TernaryTreapSet<int>(TernaryTreap.uppercase)..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
 
@@ -361,7 +369,7 @@ void main() {
 
       testIdempotence(tree, 'asdas KJHGJGH fsdfsdf ');
 
-      tree = TernaryTreap<int>.Set(TernaryTreap.collapseWhitespace)
+      tree = TernaryTreapSet<int>(TernaryTreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);
       expect(
           tree['t             '
@@ -372,7 +380,7 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = TernaryTreap<int>.Set(TernaryTreap.lowerCollapse)
+      tree = TernaryTreapSet<int>(TernaryTreap.lowerCollapse)
         ..add(' T eS   KK     Bg  ', 1);
       expect(
           tree['       t es'
@@ -383,7 +391,7 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = TernaryTreap<int>.Set(TernaryTreap.nonLetterToSpace)
+      tree = TernaryTreapSet<int>(TernaryTreap.nonLetterToSpace)
         ..add('*T_eS  -KK  ,  Bg )\n\t', 1);
       expect(tree[' T eS  ^KK %* ^Bg ;  '], <int>[1]);
 
@@ -391,7 +399,7 @@ void main() {
 
       testIdempotence(tree, ' %  asd+=as   & & ^J%@HG  J(GH f`sdf  s*df   )!');
 
-      tree = TernaryTreap<int>.Set(TernaryTreap.joinSingleLetters)
+      tree = TernaryTreapSet<int>(TernaryTreap.joinSingleLetters)
         ..add('    a     b .  ab.cd a  b abcd a        b', 1);
 
       expect(tree['ab .  ab.cd ab abcd ab'], equals(<int>[1]));
@@ -413,7 +421,7 @@ void main() {
     });
 
     test('removeValues', () {
-      final tree = TernaryTreap<int>.Set(TernaryTreap.lowercase);
+      final tree = TernaryTreapSet<int>(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -430,23 +438,23 @@ void main() {
     });
 
     test('removeKey', () {
-      final tree = TernaryTreap<int>.Set(TernaryTreap.lowercase);
+      final tree = TernaryTreapSet<int>(TernaryTreap.lowercase);
 
       tree['At'] = <int>[1];
 
-      expect(tree.removeKey('At'), equals(<int>[1]));
+      expect(tree.removeAll('At'), equals(<int>[1]));
 
       tree['be'] = <int>[2, 3];
 
       expect(tree.length, equals(1));
 
-      expect(tree.removeKey('CAT'), equals(<int>[]));
+      expect(tree.removeAll('CAT'), equals(<int>[]));
 
       expect(tree.length, equals(1));
 
-      expect(tree.removeKey('BE'), equals(<int>[2, 3]));
+      expect(tree.removeAll('BE'), equals(<int>[2, 3]));
 
-      numberMap.keys.toList().forEach(numberTST.removeKey);
+      numberMap.keys.toList().forEach(numberTST.removeAll);
 
       expect(numberTST.length, equals(0));
       expect(numberTST.isEmpty, equals(true));
@@ -454,7 +462,7 @@ void main() {
     });
 
     test('addAll', () {
-      final tree = TernaryTreap<int>.Set();
+      final tree = TernaryTreapSet<int>();
 
       tree['At'] = <int>[1];
 
@@ -482,7 +490,7 @@ void main() {
     });
 
     test('addValues', () {
-      final tree = TernaryTreap<int>.Set();
+      final tree = TernaryTreapSet<int>();
 
       tree['At'] = <int>[1];
 
@@ -577,6 +585,28 @@ void main() {
       }
     });
 
+    test('PrefixDistanceIterator', () {
+      for (final key in sortedWordKeys) {
+        final prefix = String.fromCharCodes(key.codeUnits.reversed);
+
+        var keyItr = wordTST.keysByPrefix(prefix, true).iterator;
+        while (keyItr.moveNext()) {
+          expect(
+              keyItr.keyDistance,
+              equals(
+                  prefixDistance(prefix.codeUnits, keyItr.current.codeUnits)));
+        }
+
+        var entryItr = wordTST.entriesByKeyPrefix(prefix, true).iterator;
+        while (entryItr.moveNext()) {
+          expect(
+              entryItr.keyDistance,
+              equals(prefixDistance(
+                  prefix.codeUnits, entryItr.current.key.codeUnits)));
+        }
+      }
+    });
+
     test('entriesByPrefixDistance', () {
       for (final key in sortedWordKeys) {
         final prefix = String.fromCharCodes(key.codeUnits.reversed);
@@ -604,7 +634,7 @@ void main() {
         var checker = <MapEntry<String, Iterable<String>>>[];
         for (final key in sortedWordKeys) {
           final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
-          if (distance > -1 && distance  < prefix.length) {
+          if (distance > -1 && distance < prefix.length) {
             checker.add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
           }
         }
@@ -616,13 +646,34 @@ void main() {
           result.add(MapEntry<String, Iterable<String>>(key, data));
         }, true);
 
-
         result.sort((a, b) => a.key.compareTo(b.key));
         checker.sort((a, b) => a.key.compareTo(b.key));
 
         expect(json.encode(result, toEncodable: toEncodable),
             equals(json.encode(checker, toEncodable: toEncodable)));
       }
+    });
+
+    test('suggestKey', () {
+      final anKeys = wordTST.keysByPrefix('an').toList();
+
+      // Prioritise the last key
+      wordTST.likeKey(anKeys.last);
+
+      // Now suggest should return prioritised key
+      expect(wordTST.suggestKey('an'), equals(anKeys.last));
+
+      //Repeat with another key
+      final cKeys = wordTST.keysByPrefix('c').toList();
+
+      // Prioritise the last key
+      wordTST.likeKey(cKeys.last);
+
+      // Now suggest should return prioritised key
+      expect(wordTST.suggestKey('c'), equals(cKeys.last));
+
+      // Check that tree remembers original like
+      expect(wordTST.suggestKey('an'), equals(anKeys.last));
     });
   });
 }

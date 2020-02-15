@@ -53,7 +53,7 @@ class PrefixMatcher with IterableMixin<String> {
   /// applied to all keys processed by this [PrefixMatcher].
   /// see [TernaryTreap()].
   PrefixMatcher([KeyMapping keyMapping])
-      : ternaryTreap = TernaryTreap<String>.Set(keyMapping);
+      : ternaryTreap = TernaryTreapSet<String>(keyMapping);
 
   /// Underlying [TernaryTreap]
   final TernaryTreap<String> ternaryTreap;
@@ -86,7 +86,7 @@ class PrefixMatcher with IterableMixin<String> {
   /// Remove specified string [key] and return list of strings that
   /// were associated with [key]
   /// See [TernaryTreap.remove]
-  Iterable<String> remove(String key) => ternaryTreap.removeKey(key);
+  Iterable<String> remove(String key) => ternaryTreap.removeAll(key);
 
   /// Does specified [key] exist?.
   ///

@@ -72,22 +72,3 @@ void main() {
     });
   });
 }
-
-int prefixDistance(final List<int> prefix, final List<int> compare) {
-    if (compare.length < prefix.length) {
-      // cannot compute hamming distance here as
-      return -1;
-    }
-
-    // Assume worst case and improve if possible
-    var distance = prefix.length;
-
-    // Improve if possible
-    for (var i = 0; i < prefix.length; i++) {
-      if (prefix[i] == compare[i]) {
-        distance--;
-      }
-    }
-
-    return distance;
-  }

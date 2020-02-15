@@ -19,7 +19,7 @@ void main(List<String> args) {
   stdout.writeln('Number of keys = ${keys.length}');
 
   final map = <String, List<String>>{};
-  final tt = TernaryTreap<String>.List();
+  final tt = TernaryTreapList<String>();
 
   final timer = Stopwatch()..start();
 
@@ -42,7 +42,7 @@ void main(List<String> args) {
   }
   timer.stop();
   stdout.writeln('TernaryTreap[key] = [key] for all keys: '
-      '${timer.elapsedMicroseconds} -- ${tt.depth}');
+      '${timer.elapsedMicroseconds} ');
 
   timer
     ..reset()

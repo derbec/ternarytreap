@@ -29,7 +29,7 @@ print(matcher.match('can'));
 
 # TernaryTreap
 
-This library defines 2 [Multimaps](https://en.wikipedia.org/wiki/Multimap) implemented as self balancing ternary trees allowing fast, memory efficient prefix searching over a set of String keys
+This library defines 2 [Multimaps](https://en.wikipedia.org/wiki/Multimap) implemented as self balancing ternary trees allowing fast, memory efficient prefix and near neighbour searching over a set of String keys
 
 *  **TernaryTreapSet**  - Keys map to Set of Values
 *  **TernaryTreapList** - Keys map to Sequence of Values
@@ -52,7 +52,7 @@ such that
 * <i>V</i><sup>&#8469;</sup> is the set of all functions &#8469; &mapsto; <i>V</i>
 * <i>V</i><sup>&emptyset;</sup> contains the empty function &emptyset; &mapsto; <i>V</i>
 
-The codomain of <i>f</i> and <i>g</i> include the empty set and empty sequence respectively. This allows Keys to be stored without Values, useful when you require only a set of Keys for prefix searching purposes.
+The codomain of <i>f</i> and <i>g</i> include the empty set and empty sequence respectively. This is useful when you require only a set of Keys searching purposes.
 
 Often it is desirable to define equivalences between Key strings, for example case insensitivity.
 
