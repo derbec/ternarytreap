@@ -1,10 +1,12 @@
 import 'dart:collection';
 import 'dart:math';
 import 'package:meta/meta.dart';
-import 'package:quiver/collection.dart';
 
-// 2^53-1
+/// 2^53 because javascript
 const int _MAX_SAFE_INTEGER = 9007199254740991;
+
+/// 2^32 specified because javascript
+const int _MAX_RANDOM = 4294967296;
 
 const int _INVALID_DISTANCE = -1;
 
@@ -386,7 +388,7 @@ typedef KeyMapping = String Function(String str);
 /// (Node.right.priority < Node.priority)
 /// ```
 /// is maintained.
-abstract class TernaryTreap<V> extends _CommonInterface<V> implements Multimap<String, V>{
+abstract class TernaryTreap<V> extends _CommonInterface<V> {
   /// Transform [str] such that all characters are lowercase.
   ///
   /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
@@ -476,22 +478,21 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> implements Multimap<S
   /// An optional [value] may be supplied to associate with this key.
   ///
   /// Throws [ArgumentError] if [mapKey]`(`[key]`)` is empty.
-  @override
   void add(String key, [V value]);
 
-  /// Adds all associations of other to this [TernaryTreap].
+  /// Adds all associations contained in [entries] to this [TernaryTreap].
   ///
-  /// Is equivilent to calling [addValues]`(key, other[key])`
-  /// for all `other.`[keys].
+  /// Is equivilent to calling [addValues] for each entry.
   ///
   /// [mapKey] is applied to all incoming keys so
-  /// keys may be altered during copying from [other] to `this`
-  /// if they are using different [KeyMapping] functions.
+  /// keys may be altered during copying from [entries].
   ///
   /// Throws [ArgumentError] if [mapKey]`(key)` is empty for any
-  /// incoming keys of [other].
-  @override
-  void addAll(Multimap<String, V> other);
+  /// incoming keys of [entries].
+  void addEntries(Iterable<MapEntry<String, Iterable<V>>> entries);
+
+  /// Call [add](key) for each key in [keys].
+  void addKeys(Iterable<String> keys);
 
   /// Add all [values] to specified key
   ///
@@ -503,15 +504,15 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> implements Multimap<S
   /// See [add].
   ///
   /// Throws [ArgumentError] if [mapKey]`(`[key]`)` is empty.
-  @override
   void addValues(String key, Iterable<V> values);
 
-  /// Return a view of this [TernaryTreap] as a [ImmutableTernaryTreap]
-  ImmutableTernaryTreap<V> asImmutable();
+  /// Return a view of this [TernaryTreap] as a [UnmodifiableTernaryTreap]
+  UnmodifiableTernaryTreap<V> asImmutable();
 
   /// Removes all data from the [TernaryTreap].
-  @override
   void clear();
+
+  static HashSet<_CodeUnitPoolEntry> get codeUnitPool => _Node._codeUnitPool;
 
   /// Prioritise [key] such that future prefix searches will return [key]
   /// closer to beginning of search result. Subsequent calls will increase this
@@ -521,15 +522,13 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> implements Multimap<S
   /// Removes the association between the given [key] and [value].
   ///
   /// Returns `true` if the association existed, `false` otherwise
-  @override
-  bool remove(Object key, V value);
+  bool remove(String key, V value);
 
   /// Removes [key] and all associated values.
   ///
   /// Returns the collection of values associated with key,
   /// or an empty iterable if key was unmapped.
-  @override
-  Iterable<V> removeAll(Object key);
+  Iterable<V> removeAll(String key);
 
   /// Removes all values associated with [key].
   /// The key remains present, mapped to an empty iterable.
@@ -563,9 +562,8 @@ class TernaryTreapList<V> extends _MutableTernaryTreap<V> {
   /// Construct a new [TernaryTreapList] with an optional [keyMapping]
   TernaryTreapList([KeyMapping keyMapping])
       : super(
-            (List<int> codeUnit, int priority, _Node<V> parent,
-                    Iterable<V> emptyValues) =>
-                _NodeList<V>(codeUnit, priority, parent, emptyValues),
+            (Iterable<int> codeUnit, int priority, _Node<V> parent) =>
+                _NodeList<V>(codeUnit, priority, parent),
             keyMapping);
 }
 
@@ -590,14 +588,13 @@ class TernaryTreapSet<V> extends _MutableTernaryTreap<V> {
   /// Construct a new [TernaryTreapSet] with an optional [keyMapping]
   TernaryTreapSet([KeyMapping keyMapping])
       : super(
-            (List<int> codeUnit, int priority, _Node<V> parent,
-                    Iterable<V> emptyValues) =>
-                _NodeSet<V>(codeUnit, priority, parent, emptyValues),
+            (Iterable<int> codeUnit, int priority, _Node<V> parent) =>
+                _NodeSet<V>(codeUnit, priority, parent),
             keyMapping);
 }
 
 /// A view of a [TernaryTreap] without mutators.
-abstract class ImmutableTernaryTreap<V> extends _CommonInterface<V> {}
+abstract class UnmodifiableTernaryTreap<V> extends _CommonInterface<V> {}
 
 /// An iterable over a [TernaryTreap] that returns
 /// [TernaryTreapIterator].
@@ -613,7 +610,7 @@ abstract class TernaryTreapIterator<V> implements Iterator<V> {
   int get keyDistance;
 }
 
-/// Exists so that [ImmutableTernaryTreap] and [TernaryTreap] may share interface spec but
+/// Exists so that [UnmodifiableTernaryTreap] and [TernaryTreap] may share interface spec but
 /// avoid inheritence issue discussed at:
 /// https://blog.codefx.org/java/immutable-collections-in-java/#What8217s-An-Immutable-Collection
 abstract class _CommonInterface<V> {
@@ -623,21 +620,21 @@ abstract class _CommonInterface<V> {
   /// If key not found then returns null.
   ///
   /// Throws [ArgumentError] if [key] is empty.
-  Iterable<V> operator [](Object key);
+  Iterable<V> operator [](String key);
 
   /// Return a view of this [TernaryTreap] as a [Map]
   Map<String, Iterable<V>> asMap();
 
   /// Returns whether this [TernaryTreap] contains an
   /// association between [key[] and [value].
-  bool contains(Object key, Object value);
+  bool contains(String key, V value);
 
   /// Returns whether this [TernaryTreap] contains [key].
-  bool containsKey(Object key);
+  bool containsKey(String key);
 
   /// Returns whether this [TernaryTreap] contains [value]
   /// at least once.
-  bool containsValue(Object value);
+  bool containsValue(V value);
 
   /// Iterates through [TernaryTreap] as [MapEntry] objects.
   ///
@@ -731,9 +728,6 @@ abstract class _CommonInterface<V> {
   /// Throws [ArgumentError] if [key] is empty.
   String mapKey(String key);
 
-  /// Return [ImmutableTernaryTreap] view of tree
-  ImmutableTernaryTreap<V> toImmutable();
-
   /// Generate a string representation of this [TernaryTreap].
   /// Requires that values be json encodable.
   ///
@@ -745,6 +739,9 @@ abstract class _CommonInterface<V> {
   /// value (value type must have valid [toString] method)
   @override
   String toString([String paddingChar = '-']);
+
+  /// Return [UnmodifiableTernaryTreap] view of tree
+  UnmodifiableTernaryTreap<V> unmodifiable();
 
   /// Return [Iterable] view of values
   ///
@@ -775,7 +772,7 @@ abstract class _CommonInterface<V> {
 }
 
 /// Non mutating portion of [TernaryTreap]
-class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
+class _ImmutableTernaryTreap<V> implements UnmodifiableTernaryTreap<V> {
   /// Constructs a new [_ImmutableTernaryTreap].
   ///
   /// The [_keyMapping] argument supplies an optional instance of
@@ -799,16 +796,9 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   /// a reference
   final _ByRef<_Node<V>> _root;
 
-  /// A placeholder for empty node values
-  final _emptyValues = Iterable<V>.empty();
-
   @override
-  Iterable<V> operator [](Object key) {
-    if (!(key is String)) {
-      throw ArgumentError();
-    }
-
-    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key as String));
+  Iterable<V> operator [](String key) {
+    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
     if (keyNode == null) {
       return null;
@@ -831,12 +821,8 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   }
 
   @override
-  bool contains(Object key, Object value) {
-    if (!(key is String)) {
-      throw ArgumentError();
-    }
-
-    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key as String));
+  bool contains(String key, V value) {
+    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
     // Does the key map to anything?
     if (keyNode == null) {
@@ -847,10 +833,10 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   }
 
   @override
-  bool containsKey(Object key) => this[key] != null;
+  bool containsKey(String key) => this[key] != null;
 
   @override
-  bool containsValue(Object value) => values.contains(value);
+  bool containsValue(V value) => values.contains(value);
 
   @override
   Iterable<MapEntry<String, Iterable<V>>> get entries =>
@@ -873,7 +859,11 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
     }
 
     // Can we find a suggestion by expanding the node itself
-    var expansion = searchResult.expandPrefix(prefix);
+    var expansion = [
+      ...prefix.getRange(0, searchResult.prefixCodeunitIdx),
+      ...searchResult.node.codeUnits.getRange(
+          searchResult.nodeCodeunitIdx, searchResult.node.codeUnits.length)
+    ];
 
     // Concatenate mid descendants until key is found
     var midNode = searchResult.node.mid;
@@ -928,10 +918,6 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
 
   @override
   int keyDepth(String key) {
-    if (!(key is String)) {
-      throw ArgumentError();
-    }
-
     if (_root.value == null) {
       return -1;
     }
@@ -971,7 +957,7 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
   }
 
   @override
-  ImmutableTernaryTreap<V> toImmutable() =>
+  UnmodifiableTernaryTreap<V> unmodifiable() =>
       _ImmutableTernaryTreap<V>(_root, _version, _keyMapping);
 
   @override
@@ -1009,8 +995,8 @@ class _ImmutableTernaryTreap<V> implements ImmutableTernaryTreap<V> {
 }
 
 /// TernaryTreap mutators
-class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V> 
-    implements TernaryTreap<V>, Multimap<String, V> {
+class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
+    implements TernaryTreap<V> {
   /// Constructs a new [TernaryTreap].
   ///
   /// The [_keyMapping] argument supplies an optional instance of
@@ -1021,8 +1007,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   final Random _random = Random();
 
   /// Factory used to create new nodes
-  final _Node<V> Function(List<int> codeUnit, int priority, _Node<V> parent,
-      Iterable<V> emptyValues) _nodeFactory;
+  final _Node<V> Function(Iterable<int> codeUnit, int priority, _Node<V> parent)
+      _nodeFactory;
 
   @override
   void add(String key, [V value]) {
@@ -1032,9 +1018,10 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   }
 
   @override
-  void addAll(Multimap<String, V> other) {
-    other.forEachKey((String key, Iterable<V> data) {
-      final mappedKey = _mapKeyErrorOnEmpty(key);
+  void addEntries(Iterable<MapEntry<String, Iterable<V>>> entries) {
+    entries.forEach((final entry) {
+      final mappedKey = _mapKeyErrorOnEmpty(entry.key);
+      final data = entry.value;
 
       // map key alone for case where no data is associated with key
       final tuple = _add(_root.value, mappedKey, null);
@@ -1047,6 +1034,13 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
     });
 
     _incVersion();
+  }
+
+  @override
+  void addKeys(Iterable<String> keys) {
+    keys.forEach((final key) {
+      add(key);
+    });
   }
 
   @override
@@ -1065,7 +1059,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   }
 
   @override
-  ImmutableTernaryTreap<V> asImmutable() =>
+  UnmodifiableTernaryTreap<V> asImmutable() =>
       _ImmutableTernaryTreap<V>(_root, _version, _keyMapping);
 
   @override
@@ -1158,12 +1152,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   }
 
   @override
-  bool remove(Object key, V value) {
-    if (!(key is String)) {
-      throw ArgumentError();
-    }
-
-    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key as String));
+  bool remove(String key, V value) {
+    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
     // Does the key map to anything?
     if (keyNode == null) {
@@ -1179,12 +1169,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   }
 
   @override
-  Iterable<V> removeValues(Object key) {
-    if (!(key is String)) {
-      throw ArgumentError();
-    }
-
-    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key as String));
+  Iterable<V> removeValues(String key) {
+    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
     // Return empty Iterable when unmapped
     if (keyNode == null) {
@@ -1197,12 +1183,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   }
 
   @override
-  Iterable<V> removeAll(Object key) {
-    if (!(key is String)) {
-      throw ArgumentError();
-    }
-
-    final transformedKey = _mapKeyErrorOnEmpty(key as String);
+  Iterable<V> removeAll(String key) {
+    final transformedKey = _mapKeyErrorOnEmpty(key);
 
     Iterable<V> values;
     if (_root.value != null) {
@@ -1244,8 +1226,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
 
     // Create new root node if needed
     if (_rootNode == null) {
-      _rootNode = _nodeFactory(
-          keyCodeUnits, _random.nextInt(1 << 32), null, _emptyValues);
+      _rootNode =
+          _nodeFactory(keyCodeUnits, _random.nextInt(_MAX_RANDOM), null);
       keyCodeIdx = keyCodeUnits.length;
     }
 
@@ -1257,8 +1239,10 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
       if (keyCodeUnit < currentNode.codeUnits[0]) {
         // create left path as end node if able
         if (currentNode.left == null) {
-          currentNode.left = _nodeFactory(keyCodeUnits.sublist(keyCodeIdx),
-              _random.nextInt(1 << 32), currentNode, _emptyValues);
+          currentNode.left = _nodeFactory(
+              keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
+              _random.nextInt(_MAX_RANDOM),
+              currentNode);
 
           keyCodeIdx = keyCodeUnits.length;
         }
@@ -1266,8 +1250,10 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
       } else if (keyCodeUnit > currentNode.codeUnits[0]) {
         // Create right path if needed
         if (currentNode.right == null) {
-          currentNode.right = _nodeFactory(keyCodeUnits.sublist(keyCodeIdx),
-              _random.nextInt(1 << 32), currentNode, _emptyValues);
+          currentNode.right = _nodeFactory(
+              keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
+              _random.nextInt(_MAX_RANDOM),
+              currentNode);
           keyCodeIdx = keyCodeUnits.length;
         }
         currentNode = currentNode.right;
@@ -1297,8 +1283,10 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
             // If key was not consumed but node was then grow down
             // and continue from new child
             if (currentNode.mid == null) {
-              currentNode.mid = _nodeFactory(keyCodeUnits.sublist(keyCodeIdx),
-                  _random.nextInt(1 << 32), currentNode, _emptyValues);
+              currentNode.mid = _nodeFactory(
+                  keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
+                  _random.nextInt(_MAX_RANDOM),
+                  currentNode);
               keyCodeIdx = keyCodeUnits.length;
             }
           }
@@ -1417,7 +1405,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
         currentNode.parent.updateChild(currentNode, null);
       } else {
         // Otherwise sinply remove its key end status
-        currentNode.values = null;
+        currentNode.clearKeyEnd();
       }
 
       // reverse back up to root node to update node counts
@@ -1457,8 +1445,10 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
       throw ArgumentError(codeUnitIdx);
     }
 
-    final child = _nodeFactory(node.codeUnits.sublist(codeUnitIdx),
-        _random.nextInt(1 << 32), node, _emptyValues);
+    final child = _nodeFactory(
+        node.codeUnits.getRange(codeUnitIdx, node.codeUnits.length),
+        _random.nextInt(_MAX_RANDOM),
+        node);
 
     child.mid = node.mid;
 
@@ -1468,7 +1458,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
       child.mid.parent = child;
     }
 
-    node.setCodeUnits(node.codeUnits.sublist(0, codeUnitIdx));
+    node.setCodeUnits(node.codeUnits.getRange(0, codeUnitIdx));
 
     // Insert child under node
     node.mid = child;
@@ -1476,18 +1466,98 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
     // If node was a keyend then it transfers this to child
     if (node.isKeyEnd) {
       // Child inherits values and keyend status
-      child.values = node.values;
-      node.values = null;
+      child.takeValues(node);
+
       // and thus gains a key descendant
       node.numDFSDescendants++;
     }
   }
 }
 
+class _CodeUnitPoolEntry {
+  _CodeUnitPoolEntry(this.codeUnits, this.count);
+  final Iterable<int> codeUnits;
+  int count;
+}
+
 /// Base for all node types
 abstract class _Node<V> {
-  _Node(Iterable<int> codeUnits, this.priority, this.parent, this._emptyValues)
-      : codeUnits = List<int>.unmodifiable(codeUnits);
+  _Node(Iterable<int> codeUnits, this.priority, this.parent)
+      : codeUnits = _allocateCodeUnits(codeUnits);
+
+  /// Release node resources
+  void destroy() {
+    _freeCodeUnits(codeUnits);
+  }
+
+  /// An empty values placeholder shared between all nodes of a
+  /// particular TernaryTreap. Avoids the need for an empty valued [_Node]
+  /// to incur space overhead of empty container which is presumably greater
+  /// in memory usage than a reference to this shared iterator.
+  static const Object _emptyValues = Object();
+
+  /// Pool codeUnits among nodes to reduce memory usage
+  static final _codeUnitPool = HashSet<_CodeUnitPoolEntry>(equals:
+      (final _CodeUnitPoolEntry codeUnitPoolEntry1,
+          final _CodeUnitPoolEntry codeUnitPoolEntry2) {
+    if (codeUnitPoolEntry1 == null || codeUnitPoolEntry2 == null) {
+      return false;
+    }
+
+    final codeUnits1 = codeUnitPoolEntry1.codeUnits;
+    final codeUnits2 = codeUnitPoolEntry2.codeUnits;
+
+    if (identical(codeUnits1, codeUnits2)) {
+      return true;
+    }
+
+    final length = codeUnits1.length;
+    if (length != codeUnits2.length) {
+      return false;
+    }
+
+    for (var i = 0; i < length; i++) {
+      if (codeUnits1.elementAt(i) != codeUnits2.elementAt(i)) {
+        return false;
+      }
+    }
+
+    return true;
+  }, hashCode: (final _CodeUnitPoolEntry codeUnitPoolEntry) {
+    // Stolen from Quiver: lib/src/core/hash.dart
+    var hash = 0;
+    final codeUnits = codeUnitPoolEntry.codeUnits;
+
+    final length = codeUnits.length;
+    for (var i = 0; i < length; i++) {
+      hash = 0x1fffffff & (hash + codeUnits.elementAt(i));
+      hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
+    }
+    return hash ^ (hash >> 6);
+  });
+
+  static List<int> _allocateCodeUnits(final Iterable<int> codeUnits) {
+    final key = _CodeUnitPoolEntry(codeUnits, 0);
+
+    var poolEntry = _codeUnitPool.lookup(key);
+    if (poolEntry == null) {
+      poolEntry = _CodeUnitPoolEntry(List<int>.unmodifiable(codeUnits), 0);
+      _codeUnitPool.add(poolEntry);
+    } else {
+      poolEntry.count++;
+    }
+    return poolEntry.codeUnits as List<int>;
+  }
+
+  static void _freeCodeUnits(final Iterable<int> codeUnits) {
+    final key = _CodeUnitPoolEntry(codeUnits, 0);
+    final poolEntry = _codeUnitPool.lookup(key);
+    // Avoid check for null because the getter will check anyways
+    poolEntry.count--;
+    if (poolEntry.count < 1) {
+      _codeUnitPool.remove(codeUnits);
+    }
+  }
 
   /// Fixed size array of unicode code units
   List<int> codeUnits;
@@ -1500,11 +1570,6 @@ abstract class _Node<V> {
   /// Allows fast calculation of subtree size
   int numDFSDescendants = 0;
 
-  /// A single node may map to multiple values.
-  /// How this is managed depends on Node sub class.
-  /// If null then is not end node
-  Iterable<V> values;
-
   _Node<V> left;
   _Node<V> mid;
   _Node<V> right;
@@ -1513,41 +1578,60 @@ abstract class _Node<V> {
   /// during add operation. Maybe can use for near neighbour or something.
   _Node<V> parent;
 
-  /// An empty values placeholder shared between all nodes of a
-  /// particular TernaryTreap. Avoids the need for an empty valued [_Node]
-  /// to incur space overhead of empty container which is presumably greater
-  /// in memory usage than a reference to this shared iterator.
-  final Iterable<V> _emptyValues;
-
-  /// Remove all values from this node and return said values.
-  Iterable<V> removeValues();
+  /// A single node may map to multiple values.
+  /// How this is managed depends on Node sub class.
+  /// If null then is not end node
+  Object _values;
 
   /// If node is not already key End then set as key end
   bool setAsKeyEnd() {
-    if (values == null) {
-      values = _emptyValues;
+    if (_values == null) {
+      _values = _emptyValues;
       return true;
     } else {
       return false;
     }
   }
 
+  /// Remove key end status from node
+  void clearKeyEnd() {
+    _values = null;
+  }
+
+  /// Take reference to values from other node removing
+  /// its keyend status in the process.
+  void takeValues(_Node<V> other) {
+    _values = other._values;
+    other._values = null;
+  }
+
   /// Set to shallow copy of [values]
   void setValues(Iterable<V> values);
 
+  /// Add a single [value] to the node
   void addValue(V value);
 
+  /// Remove a single [value]  the node
   bool removeValue(V value);
 
+  /// Remove all values from this node and return said values.
+  Iterable<V> removeValues();
+
+  /// Return node value as Iterable
+  Iterable<V> get values => identical(_values, _emptyValues)
+      ? Iterable<V>.empty()
+      : _values as Iterable<V>;
+
   /// Does this node represent the final character of a key?
-  bool get isKeyEnd => values != null;
+  bool get isKeyEnd => _values != null;
+
   // return number of end nodes in subtree with this node as root
   int get sizeDFSTree =>
-      values == null ? numDFSDescendants : numDFSDescendants + 1;
+      _values == null ? numDFSDescendants : numDFSDescendants + 1;
 
   /// return number of end nodes in subtree with this node as prefix root
   int get sizePrefixTree {
-    var size = values == null ? 0 : 1;
+    var size = _values == null ? 0 : 1;
     if (mid != null) {
       size += mid.sizeDFSTree;
     }
@@ -1556,9 +1640,9 @@ abstract class _Node<V> {
   }
 
   /// Set codeunits to fixed size array
-  /// Faster and less memory than growable
   void setCodeUnits(Iterable<int> codeUnits) {
-    this.codeUnits = List<int>.unmodifiable(codeUnits);
+    _freeCodeUnits(this.codeUnits);
+    this.codeUnits = _allocateCodeUnits(codeUnits);
   }
 
   /// Return _Node descendant corresponding to a transformed key.
@@ -1591,12 +1675,17 @@ abstract class _Node<V> {
   /// or [_INVALID_CODE_UNIT] if prefix not processed at all.
   /// * [_PrefixSearchResult.nodeCodeunitIdx] = The index of final matching node codeunit.
   /// * [_PrefixSearchResult.isPrefixMatch] = true if full match was found otherwise false.
-  _PrefixSearchResult<V> getClosestPrefixDescendant(List<int> prefixCodeUnits) {
+  _PrefixSearchResult<V> getClosestPrefixDescendant(
+      final List<int> prefixCodeUnits) {
+    final prefixCodeUnitsLength = prefixCodeUnits.length;
+
     _Node<V> closestNode;
     var nextNode = this;
     var prefixIdx = 0;
     var codeUnitIdx = 0;
     var depth = -1;
+
+    var prefixCodeUnit = prefixCodeUnits[prefixIdx];
 
     while (true) {
       if (nextNode == null) {
@@ -1610,9 +1699,9 @@ abstract class _Node<V> {
 
       // Compare current prefix unit to first unit of new node
       // All nodes have at least one code unit so this wont go out of bounds
-      if (prefixCodeUnits[prefixIdx] < codeUnits[0]) {
+      if (prefixCodeUnit < codeUnits[0]) {
         nextNode = nextNode.left;
-      } else if (prefixCodeUnits[prefixIdx] > codeUnits[0]) {
+      } else if (prefixCodeUnit > codeUnits[0]) {
         nextNode = nextNode.right;
       } else {
         // There is a match between prefix unit and first code unit of this node
@@ -1626,18 +1715,20 @@ abstract class _Node<V> {
 
         // The prefix may live in this node or its mid descendants
         // Match with this nodes code units
-        while (prefixIdx < prefixCodeUnits.length &&
+        while (prefixIdx < prefixCodeUnitsLength &&
             codeUnitIdx < codeUnits.length &&
             codeUnits[codeUnitIdx] == prefixCodeUnits[prefixIdx]) {
           codeUnitIdx++;
           prefixIdx++;
         }
 
-        if (prefixIdx == prefixCodeUnits.length) {
+        if (prefixIdx == prefixCodeUnitsLength) {
           // Found match in current node!
           return _PrefixSearchResult<V>(
               closestNode, prefixIdx - 1, codeUnitIdx - 1, true, depth);
         }
+
+        prefixCodeUnit = prefixCodeUnits[prefixIdx];
 
         if (codeUnitIdx == codeUnits.length) {
           // Made it to end of node codeunits.
@@ -1808,7 +1899,7 @@ abstract class _Node<V> {
     // Node takes on child values/keyend status
     // If child was a key node then node has 1 less descendant
     if (child.isKeyEnd) {
-      values = child.values;
+      _values = child._values;
       // Child has been absorbed so 1 less descendant
       numDFSDescendants--;
     }
@@ -1816,6 +1907,7 @@ abstract class _Node<V> {
     if (mid != null) {
       mid.parent = this;
     }
+    child.destroy();
   }
 
   @override
@@ -1824,61 +1916,68 @@ abstract class _Node<V> {
 
 /// A Node that stores values in [Set].
 class _NodeSet<V> extends _Node<V> {
-  _NodeSet(Iterable<int> codeUnits, int priority, _Node<V> parent,
-      Iterable<V> emptyValues)
-      : super(codeUnits, priority, parent, emptyValues);
+  _NodeSet(Iterable<int> codeUnits, int priority, _Node<V> parent)
+      : super(codeUnits, priority, parent);
 
   @override
   void setValues(Iterable<V> values) {
-    this.values = Set<V>.from(values);
+    _values = Set<V>.from(values);
   }
 
   @override
-  bool removeValue(V value) =>
-      (values == _emptyValues) ? false : (values as Set<V>).remove(value);
+  bool removeValue(V value) => identical(_values, _Node._emptyValues)
+      ? false
+      : (values as Set<V>).remove(value);
 
   @override
   Iterable<V> removeValues() {
+    if (identical(_values, _Node._emptyValues)) {
+      return Iterable<V>.empty();
+    }
     final ret = values;
-    values = _emptyValues;
+    _values = _Node._emptyValues;
     return ret;
   }
 
   @override
   void addValue(V value) {
-    if (values == _emptyValues) {
+    if (identical(_values, _Node._emptyValues)) {
       setValues([value]);
     } else {
-      (values as Set<V>).add(value);
+      (_values as Set<V>).add(value);
     }
   }
 }
 
 /// A Node that stores values in [List].
 class _NodeList<V> extends _Node<V> {
-  _NodeList(Iterable<int> codeUnit, int priority, _Node<V> parent,
-      Iterable<V> emptyValues)
-      : super(codeUnit, priority, parent, emptyValues);
+  _NodeList(Iterable<int> codeUnit, int priority, _Node<V> parent)
+      : super(codeUnit, priority, parent);
 
   @override
   void setValues(Iterable<V> values) {
-    this.values = List<V>.from(values);
+    _values = List<V>.from(values);
   }
 
   @override
-  bool removeValue(V value) =>
-      (values == _emptyValues) ? false : (values as Set<V>).remove(value);
+  bool removeValue(V value) => identical(_values, _Node._emptyValues)
+      ? false
+      : (_values as Set<V>).remove(value);
 
   @override
   Iterable<V> removeValues() {
+    if (identical(_values, _Node._emptyValues)) {
+      return Iterable<V>.empty();
+    }
+
     final ret = values;
-    values = _emptyValues;
+    _values = _Node._emptyValues;
     return ret;
   }
 
   @override
   void addValue(V value) {
-    if (values == _emptyValues) {
+    if (identical(_values, _Node._emptyValues)) {
       setValues([value]);
     } else {
       (values as List<V>).add(value);
@@ -1919,27 +2018,16 @@ class _PrefixSearchResult<V> {
   /// Depth of node from search root
   final int depth;
 
-  /// Trim any code units at end of [prefix] that are contained in [node].
-  ///
-  /// The returned value can be be prepended to [node] to form [prefix].
-  List<int> trimPrefix(List<int> prefix) =>
-      prefix.sublist(0, prefixCodeunitIdx - nodeCodeunitIdx);
-
-  /// Expand prefix using remaining code units of this node
-  List<int> expandPrefix(List<int> prefix) =>
-      prefix.sublist(0, prefixCodeunitIdx) +
-      node.codeUnits.sublist(nodeCodeunitIdx);
-
   @override
   String toString() =>
       'Node: $node, prefixCodeunitIdx: $prefixCodeunitIdx, nodeCodeunitIdx: $nodeCodeunitIdx, isPrefixMatch:$isPrefixMatch';
 }
 
-/// Simple stack implementation based upon dynamic list.
-/// Designed for scenarios where frequency of push/pop operation is
-/// greater concern than depth of stack.
-class _FastStack<E> {
-  _FastStack(int initialSize) : stack = List<E>(initialSize);
+/// Simple array based stack implementation.
+/// Exists only because ListQueue does not have function to
+/// reverse in place.
+class _SimpleStack<E> {
+  _SimpleStack(int initialSize) : stack = List<E>(initialSize);
   List<E> stack;
   int ptrTop = -1;
 
@@ -1950,7 +2038,7 @@ class _FastStack<E> {
 
   void push(E value) {
     if (++ptrTop >= stack.length) {
-      //simplest growth strategy - double current size
+      //simplest growth strategy: double current size
       final newStack = List<E>(stack.length * 2);
       for (var i = 0; i < stack.length; i++) {
         newStack[i] = stack[i];
@@ -1962,9 +2050,7 @@ class _FastStack<E> {
 
   E pop() => stack[ptrTop--];
 
-  E top() => stack[ptrTop];
-
-  E bottom() => stack[0];
+  E peek() => stack[ptrTop];
 
   void reverse() {
     if (ptrTop < 1) {
@@ -2004,7 +2090,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
       {List<int> prefix, this.fuzzy = false})
       : validVersion = owner._version.value,
         prefix = prefix ?? <int>[],
-        prefixRoot = root == null
+        prefixSearchResult = root == null
             ? null
             : prefix == null ? null : root.getClosestPrefixDescendant(prefix) {
     // Distance with no prefix doesnt make sense
@@ -2016,7 +2102,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
   final _ImmutableTernaryTreap<V> owner;
   // Store root as base for near neighbour searches
   final _Node<V> root;
-  final _PrefixSearchResult<V> prefixRoot;
+  final _PrefixSearchResult<V> prefixSearchResult;
   final List<int> prefix;
   final bool fuzzy;
   final int validVersion;
@@ -2031,22 +2117,22 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
       return 0;
     }
 
+    // No query, traversing entire tree
+    if (prefixSearchResult == null) {
+      return root.sizeDFSTree;
+    }
+
+    // Prefix found
+    if (prefixSearchResult.isPrefixMatch) {
+      return prefixSearchResult.node.sizePrefixTree;
+    }
+
     // No shortcut to calulate length for distance queries
     if (fuzzy) {
       return super.length;
     }
 
-    // No query, traversing entire tree
-    if (prefixRoot == null) {
-      return root.sizeDFSTree;
-    }
-
-    // Prefix found
-    if (prefixRoot.isPrefixMatch) {
-      return prefixRoot.node.sizePrefixTree;
-    }
-
-    // Prefix not found
+    // Partial or no match on non fuzzy search can only return 0;
     return 0;
   }
 
@@ -2061,7 +2147,7 @@ class _InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
 
   @override
   TernaryTreapIterator<String> get iterator =>
-      _InOrderKeyIterator<V>._(owner, validVersion, root, prefixRoot,
+      _InOrderKeyIterator<V>._(owner, validVersion, root, prefixSearchResult,
           prefix: prefix, fuzzy: fuzzy);
 }
 
@@ -2082,7 +2168,7 @@ class _InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
 
   @override
   TernaryTreapIterator<V> get iterator =>
-      _InOrderValuesIterator<V>(owner, validVersion, root, prefixRoot,
+      _InOrderValuesIterator<V>(owner, validVersion, root, prefixSearchResult,
           prefix: prefix, fuzzy: fuzzy);
 }
 
@@ -2094,22 +2180,19 @@ class _InOrderMapEntryIterable<V>
 
   @override
   TernaryTreapIterator<MapEntry<String, Iterable<V>>> get iterator =>
-      _InOrderMapEntryIterator<V>(owner, validVersion, root, prefixRoot,
+      _InOrderMapEntryIterator<V>(owner, validVersion, root, prefixSearchResult,
           prefix: prefix, fuzzy: fuzzy);
 }
 
-// store call stack data for iterators
+/// store call stack data for iterators
 @immutable
 class _StackFrame<V> {
   _StackFrame(this.node, this.prefix,
-      {this.distance = _INVALID_DISTANCE, this.ignoreChild}) {
-    if (node == null) {
-      throw ArgumentError.notNull('node');
-    }
-  }
+      {this.distance = _INVALID_DISTANCE, this.ignoreChild});
   final _Node<V> node;
-  final List<int> prefix;
   final int distance;
+
+  final List<int> prefix;
   final _Node<V> ignoreChild;
 
   @override
@@ -2125,6 +2208,13 @@ class _StackFrame<V> {
       _StackFrame<V>(node ?? this.node, prefix ?? this.prefix,
           distance: distance ?? this.distance,
           ignoreChild: ignoreChild ?? this.ignoreChild);
+}
+
+@immutable
+class _UnVisited<V> {
+  _UnVisited(this.node, this.prefix);
+  final List<int> prefix;
+  final _Node<V> node;
 }
 
 enum _FuzzyState { FUZZY_INIT, FUZZY_WORKING, NON_FUZZY }
@@ -2147,17 +2237,20 @@ abstract class _InOrderIteratorBase<V> {
   _InOrderIteratorBase(this.owner, this.validVersion, this.root,
       _PrefixSearchResult<V> prefixSearchResult,
       {this.prefix, bool fuzzy = false})
-      : stack = _FastStack<_StackFrame<V>>(owner.length),
-        fuzzyState = fuzzy ? _FuzzyState.FUZZY_INIT : _FuzzyState.NON_FUZZY {
+      : stack = _SimpleStack<_StackFrame<V>>(owner.length),
+        fuzzyState = fuzzy ? _FuzzyState.FUZZY_INIT : _FuzzyState.NON_FUZZY,
+        maxDistance = fuzzy ? prefix.length - 1 : 0,
+        // Init the worklist for fuzzy search if needed
+        fuzzyList =
+            fuzzy ? List<ListQueue<_UnVisited<V>>>(prefix.length) : null {
     if (root != null) {
-      // Was a search requested?
       if (prefixSearchResult == null) {
         // Simple DFS traversal requested
-        if (fuzzyState == _FuzzyState.FUZZY_INIT) {
+        if (fuzzy) {
           throw ArgumentError('prefixRoot == null && fuzzy');
         }
 
-        pushLeft(stack, _StackFrame<V>(root, []));
+        pushDFS(_StackFrame<V>(root, []));
         return;
       }
 
@@ -2165,6 +2258,11 @@ abstract class _InOrderIteratorBase<V> {
       // Set up intial stack frame parameters
       if (prefixSearchResult.prefixCodeunitIdx == _INVALID_CODE_UNIT) {
         // No match at all was found
+        if (!fuzzy) {
+          /// Bail if fuzzy not selected
+          return;
+        }
+
         // All we know is that minimum possible distance is 1
         currentDistance = 1;
 
@@ -2174,21 +2272,22 @@ abstract class _InOrderIteratorBase<V> {
         // There is no initial subtree intialisation to dodge around
         fuzzyState = _FuzzyState.FUZZY_WORKING;
 
-        pushLeft(stack, prefixFrame);
+        pushDFS(prefixFrame);
       } else {
-        int matchDistance;
+        // Some kind of match was found
+        var matchDistance = 0;
 
         // What distance is intial match?
-        if (prefixSearchResult.isPrefixMatch) {
-          // A distance 0 match has been found
-          matchDistance = 0;
-        } else {
+        if (!prefixSearchResult.isPrefixMatch) {
           // Prefix was only partially matched so trim accordingly and
           // add any remainding code units of match node
-          final closestMatch = prefixSearchResult.expandPrefix(prefix);
-
           // Calculate distance of this partial match
-          matchDistance = prefixDistance(prefix, closestMatch);
+          matchDistance = prefixDistance(
+              prefix,
+              prefix.getRange(0, prefixSearchResult.prefixCodeunitIdx),
+              prefixSearchResult.node.codeUnits.getRange(
+                  prefixSearchResult.nodeCodeunitIdx,
+                  prefixSearchResult.node.codeUnits.length));
 
           // Given no exact match present, minimum possible search distance is 1
           currentDistance = 1;
@@ -2199,7 +2298,11 @@ abstract class _InOrderIteratorBase<V> {
         // prefix + codeUnits we need to remove matched codeUnits from
         // the prefix.
         prefixFrame = _StackFrame<V>(
-            prefixSearchResult.node, prefixSearchResult.trimPrefix(prefix),
+            prefixSearchResult.node,
+            prefix.sublist(
+                0,
+                prefixSearchResult.prefixCodeunitIdx -
+                    prefixSearchResult.nodeCodeunitIdx),
             distance: matchDistance);
 
         // Ensure that only mid child explored for initial run
@@ -2210,7 +2313,7 @@ abstract class _InOrderIteratorBase<V> {
     }
   }
 
-  final _FastStack<_StackFrame<V>> stack;
+  final _SimpleStack<_StackFrame<V>> stack;
 
   final _ImmutableTernaryTreap<V> owner;
 
@@ -2220,6 +2323,17 @@ abstract class _InOrderIteratorBase<V> {
   final _Node<V> root;
 
   final List<int> prefix;
+
+  /// Max distance is when all but one prefix code units are altered.
+  /// Because 0 is a valid distance the total number of distances explored is
+  /// [maxDistance] +1.
+  final int maxDistance;
+
+  /// Collection of nodes and associated distance for future processing.
+  /// Tree traversal and calculation of node distance is fairly expensive so we
+  /// trade memory for speed. Nodes are sorted first by edit distance, then by
+  /// occurance in tree in order traversal.
+  final List<ListQueue<_UnVisited<V>>> fuzzyList;
 
   /// Current state of fuzzy search
   _FuzzyState fuzzyState;
@@ -2242,104 +2356,123 @@ abstract class _InOrderIteratorBase<V> {
   /// In this case moveNext returns false again and has no effect.
   /// A call to moveNext may throw [ConcurrentModificationError] if
   /// iteration has been broken by changing the underlying collection.
+
   bool moveNext() {
     if (owner._version.value != validVersion) {
       throw ConcurrentModificationError(owner);
     }
     if (root != null) {
-      // Max distance is when all but one prefix code units are altered
-      final maxDistance =
-          fuzzyState == _FuzzyState.NON_FUZZY ? 0 : prefix.length - 1;
-
       while (currentDistance <= maxDistance) {
         while (stack.isNotEmpty) {
           final context = stack.pop();
-
-          final nodeCodeUnits = context.prefix + context.node.codeUnits;
 
           // Avoid recalculating if possible
           final nodeDistance = prefix.isEmpty
               ? 0
               : context.distance == _INVALID_DISTANCE
-                  ? prefixDistance(prefix, nodeCodeUnits)
+                  ? prefixDistance(
+                      prefix, context.prefix, context.node.codeUnits)
                   : context.distance;
 
-          // Push right and mid for later consumption
+          // Push right for later consumption
           // Exclude initial path root
           if (context.node.right != null &&
               context.node.right != context.ignoreChild) {
-            pushLeft(stack, _StackFrame<V>(context.node.right, context.prefix));
+            pushDFS(_StackFrame<V>(context.node.right, context.prefix));
           }
 
+          // Only generate this if necessary
+          List<int> nodeCodeUnits;
+
+          // Push right for later consumption
+          // Exclude initial path root
           if (context.node.mid != null &&
-              context.node.mid != context.ignoreChild) {
-            // Only follow if within current distance or
-            // not computable
-            if (nodeDistance <= currentDistance) {
-              pushLeft(
-                  stack,
-                  _StackFrame<V>(context.node.mid, nodeCodeUnits,
-                      distance: nodeDistance),
-                  nodeDistance);
-            }
+              context.node.mid != context.ignoreChild &&
+              // Only follow if within max distance or
+              // not computable. Must follow uncomputable pathways
+              // to gain access to computable children.
+              nodeDistance <= maxDistance) {
+            nodeCodeUnits = context.prefix + context.node.codeUnits;
+            pushDFS(
+                _StackFrame<V>(context.node.mid, nodeCodeUnits,
+                    distance: nodeDistance),
+                nodeDistance);
           }
 
-          //Only return keys of current distance
-          if (context.node.isKeyEnd && nodeDistance == currentDistance) {
-            currentKey = String.fromCharCodes(nodeCodeUnits);
+          // If key has current distance then return
+          if (context.node.isKeyEnd) {
+            if (nodeDistance == currentDistance) {
+              currentKey = String.fromCharCodes(
+                  nodeCodeUnits ?? context.prefix + context.node.codeUnits);
+              currentValue = context.node.values;
+              return true;
+            } else {
+              // ... other wise save for future
+              if (fuzzyList != null &&
+                  nodeDistance != _INVALID_DISTANCE &&
+                  nodeDistance <= maxDistance) {
+                final fuzzyIdx = nodeDistance;
 
-            currentValue = context.node.values;
-
-            return true;
+                if (fuzzyList[fuzzyIdx] == null) {
+                  fuzzyList[fuzzyIdx] = ListQueue<_UnVisited<V>>(1);
+                }
+                fuzzyList[fuzzyIdx]
+                    .addLast(_UnVisited<V>(context.node, context.prefix));
+              }
+            }
           }
         }
 
-        // Prepare stack for next round if needed
+        // Complete fuzzy search if requested
         switch (fuzzyState) {
           case _FuzzyState.FUZZY_INIT:
-            // Only need to partially init here as it has already
-            // been started by constructor
-            pushExplorePath(false);
+            // Backtrack
+            pushBacktrackPath();
             fuzzyState = _FuzzyState.FUZZY_WORKING;
             break;
           case _FuzzyState.FUZZY_WORKING:
-            // Fully re-init stack
-            pushExplorePath(true);
+            // return the next key/value for current distance if available
+            final fuzzyQueue = fuzzyList[currentDistance];
+
+            if (fuzzyQueue != null && fuzzyQueue.isNotEmpty) {
+              final visit = fuzzyQueue.removeFirst();
+              currentKey =
+                  String.fromCharCodes(visit.prefix + visit.node.codeUnits);
+              currentValue = visit.node.values;
+              return true;
+            }
+
             currentDistance++;
             break;
-          case _FuzzyState.NON_FUZZY:
-            currentDistance++;
-            break;
+          default:
+            // Fuzzy search not requested to stop
+            return false;
         }
       }
     }
     return false;
   }
 
-  /// Set up empty stack for backtracking
+  /// Set up stack for backtracking
   // For distance searching we want to traverse in this order:
   // * prefixRoot -> descendants
   // * prefixRoot -> root
   // * root -> rest of tree
   //
   // This gives preference to strings lexiographically similar to prefix.
-  void pushExplorePath(bool includePrefixMid) {
+  void pushBacktrackPath() {
     assert(stack.isEmpty);
 
     var prefixNode = prefixFrame.node;
     var currentPrefix = prefixFrame.prefix;
 
-    if (includePrefixMid) {
-      pushLeft(stack, prefixFrame);
-    } else {
-      // prefixNode and prefixNode->mid have already been explored so explore left and right only
-      if (prefixNode.left != null) {
-        pushLeft(stack, _StackFrame<V>(prefixNode.left, currentPrefix));
-      }
+    // prefixNode and prefixNode->mid have already been explored so explore left and right only
+    if (prefixNode.left != null) {
+      pushDFS(_StackFrame<V>(prefixNode.left, currentPrefix));
+    }
 
-      if (prefixNode.right != null) {
-        pushLeft(stack, _StackFrame<V>(prefixNode.right, currentPrefix));
-      }
+    if (prefixNode.right != null) {
+      pushDFS(_StackFrame<V>(prefixNode.right, currentPrefix));
     }
 
     while (prefixNode != root) {
@@ -2354,7 +2487,7 @@ abstract class _InOrderIteratorBase<V> {
 
       // DFS from parent if last node is not left child
       if (parentNode.left != prefixNode) {
-        pushLeft(stack,
+        pushDFS(
             _StackFrame<V>(parentNode, currentPrefix, ignoreChild: prefixNode));
       } else {
         stack.push(
@@ -2367,28 +2500,69 @@ abstract class _InOrderIteratorBase<V> {
     stack.reverse();
   }
 
-  /// Calculate distance from [prefix] to [compare]
+  /// Calculate distance from [comparePrefix] to the concatenation of:
+  /// [keyPrefix] and [keySuffix].
   ///
-  /// Cannot calculate distance if [compare] is shorter than [prefix]
+  /// By accepting [keyPrefix] and [keySuffix] separately we avoid the need to
+  /// actually concatenate them.
+  ///
+  /// Cannot calculate distance if ([keyPrefix] + [keySuffix]) is shorter than [comparePrefix]
   /// so return [_INVALID_DISTANCE] in this case.
   ///
-  /// Return distance as number of edits between [prefix] and
-  /// first [prefix].length code unti of  [compare].
-  ///
-  int prefixDistance(final List<int> prefix, final List<int> compare) {
-    if (compare.length < prefix.length) {
+  /// Return distance as number of edits between [comparePrefix] and
+  /// first [comparePrefix].length codeunits of ([keyPrefix] + [keySuffix]).
+  int prefixDistance(final Iterable<int> comparePrefix,
+      final Iterable<int> keyPrefix, final Iterable<int> keySuffix) {
+    final keyPrefixLength = keyPrefix.length;
+    final keySuffixLength = keySuffix.length;
+
+    final comparePrefixLength = comparePrefix.length;
+
+    if ((keyPrefixLength + keySuffixLength) < comparePrefixLength) {
       // cannot compute hamming distance here as
       return _INVALID_DISTANCE;
     }
+/*
+    // 1.
+    final prefixLength = prefix.length;
+    final keyLength = key.length;
 
+    for (var i = 0; i <= keyLength - prefixLength; i++) {
+      int j;
+
+      for (j = 0; j < prefixLength; j++) {
+        if (key[i + j] != prefix[j]) {
+          break;
+        }
+      }
+
+      if (j == prefixLength) {
+        return 0;
+      }
+    }
+*/
+    // 2.
     // Assume worst case and improve if possible
-    var distance = prefix.length;
+    var distance = comparePrefixLength;
+    var comparePrefixIdx = 0;
 
-    // Improve if possible
-    for (var i = 0; i < prefix.length; i++) {
-      if (prefix[i] == compare[i]) {
+    // Improve if possible by comparing to keyPrefix and keySuffix
+    for (var i = 0;
+        comparePrefixIdx < comparePrefixLength && i < keyPrefixLength;
+        i++) {
+      if (comparePrefix.elementAt(comparePrefixIdx) == keyPrefix.elementAt(i)) {
         distance--;
       }
+      comparePrefixIdx++;
+    }
+
+    for (var i = 0;
+        comparePrefixIdx < comparePrefixLength && i < keySuffixLength;
+        i++) {
+      if (comparePrefix.elementAt(comparePrefixIdx) == keySuffix.elementAt(i)) {
+        distance--;
+      }
+      comparePrefixIdx++;
     }
 
     return distance;
@@ -2396,8 +2570,7 @@ abstract class _InOrderIteratorBase<V> {
 
   /// Add [context] to [stack] and then follow left children down.
   /// Child inherit prefix
-  void pushLeft(_FastStack<_StackFrame<V>> stack, _StackFrame<V> context,
-      [int distance = _INVALID_DISTANCE]) {
+  void pushDFS(_StackFrame<V> context, [int distance = _INVALID_DISTANCE]) {
     // add current frame to stack and drill down the left
 
     stack.push(context);

@@ -1,32 +1,3 @@
-# TL;DR
-
-  
-
-For simple prefix matching within a set of strings use: [PrefixMatcher](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/PrefixMatcher-class.html) with appropriate [KeyMapping](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html).
-
-  
-  
-
-```dart
-
-final  PrefixMatcher matcher = PrefixMatcher(TernaryTreap.lowerCollapse)
-
-..addAll(['cat', 'Cat', 'CAT', 'CanaRy', 'CANARY']);
-
-```
-
-```dart
-
-print(matcher.match('can'));
-
-```
-
-```shell
-
-(CanaRy, CANARY)
-
-```
-
 # TernaryTreap
 
 This library defines 2 [Multimaps](https://en.wikipedia.org/wiki/Multimap) implemented as self balancing ternary trees allowing fast, memory efficient prefix and near neighbour searching over a set of String keys

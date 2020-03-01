@@ -11,5 +11,4 @@
 /// maintain heap ordering.
 library ternarytreap;
 
-export 'src/prefixmatcher.dart';
 export 'src/ternarytreap_base.dart';

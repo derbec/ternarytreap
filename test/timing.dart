@@ -2,27 +2,20 @@ import 'dart:io';
 
 import 'package:ternarytreap/ternarytreap.dart';
 
-import 'words.dart';
+import 'emails.dart';
 
-const int numRepeats = 1000;
+const int numRepeats = 15;
 
 void main(List<String> args) {
-  final keys = <String>[
-    ...words,
-    ...words
-        .map((String word) => String.fromCharCodes(word.codeUnits.reversed)),
-    ...words.map((String word) => word.toUpperCase()),
-    ...words.map((String word) => '$word $word'),
-    ...words.map((String word) => '***$word**$word**$word**'),
-  ];
+  final keys = emails;
 
   stdout.writeln('Number of keys = ${keys.length}');
 
-  final map = <String, List<String>>{};
+  //final map = <String, List<String>>{};
   final tt = TernaryTreapList<String>();
 
   final timer = Stopwatch()..start();
-
+/*
   for (var i = 0; i < numRepeats; i++) {
     for (final key in keys) {
       map[key] = <String>[key];
@@ -30,20 +23,20 @@ void main(List<String> args) {
   }
   timer.stop();
   stdout.writeln('Map[key] = [key] for all keys: ${timer.elapsedMicroseconds}');
-
+*/
   timer
     ..reset()
     ..start();
 
-  for (var i = 0; i < numRepeats; i++) {
+  //for (var i = 0; i < numRepeats; i++) {
     for (final key in keys) {
       tt[key] = <String>[key];
     }
-  }
+  //}
   timer.stop();
   stdout.writeln('TernaryTreap[key] = [key] for all keys: '
       '${timer.elapsedMicroseconds} ');
-
+/*
   timer
     ..reset()
     ..start();
@@ -57,19 +50,42 @@ void main(List<String> args) {
   }
   timer.stop();
   stdout.writeln('Map: containsKey for all keys: ${timer.elapsedMicroseconds}');
-
+*/
   timer
     ..reset()
     ..start();
 
   for (var i = 0; i < numRepeats; i++) {
+    /*
     for (final key in keys) {
       if (!tt.containsKey(key)) {
         throw Error();
       }
+    }*/
+    for(final entry in tt.entriesByKeyPrefix('pryefuimx', true)){
+
     }
   }
   timer.stop();
   stdout.writeln(
       'TernaryTreap containsKey for all keys: ${timer.elapsedMicroseconds}');
+
+/*
+  var entries = TernaryTreap.codeUnitPool.toList();
+
+  entries.sort((a, b) => a.count.compareTo(b.count));
+
+  var memTotal = 0;
+  var memPooled = 0;
+
+  for (final entry in entries) {
+    final length = entry.codeUnits.length;
+    memTotal += (entry.count * length);
+    memPooled += length;
+
+    //print('${String.fromCharCodes(entry.codeUnits)}  -->  ${entry.count}');
+  }
+
+  print('$memTotal  -->  $memPooled');
+  */
 }

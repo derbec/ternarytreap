@@ -2,7 +2,27 @@ import 'dart:convert';
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:test/test.dart';
 import 'words.dart';
-import 'helper.dart';
+import 'emails.dart';
+
+dynamic toEncodable(dynamic obj) {
+  if (obj is Iterable<String>) {
+    return obj.toList();
+  }
+  if (obj is Set) {
+    return obj.toList();
+  }
+  if (obj is MapEntry<String, Iterable<int>>) {
+    return <String, dynamic>{'key': obj.key, 'val': obj.value.toList()};
+  }
+  if (obj is MapEntry<String, Iterable<String>>) {
+    return <String, dynamic>{'key': obj.key, 'val': obj.value.toList()};
+  }
+  if (obj is MapEntry<String, int>) {
+    return <String, dynamic>{'key': obj.key, 'val': obj.value};
+  }
+
+  return null;
+}
 
 void testIdempotence(TernaryTreap<int> tree, String key) {
   // map key and then ensure that subsequent mappings do not change
@@ -264,6 +284,14 @@ void main() {
       expect(numberTST.keysByPrefix('NOT PRESENT').isEmpty, equals(true));
     });
 
+    test('keysByNonExistentPrefix', () {
+      //Find a prefix that uis not present
+      var prefix = wordTST.keys.first;
+      prefix = '^'+prefix.substring(0,prefix.length-1)+'^';
+      expect(wordTST.keysByPrefix(prefix).isEmpty, equals(true));
+    });
+
+
     test('valuesByKeyPrefix', () {
       //Use key from middle of range
       final key = (startVal + (numUniqueKeys / 2).round()).toString();
@@ -461,14 +489,14 @@ void main() {
       expect(numberTST.isNotEmpty, equals(false));
     });
 
-    test('addAll', () {
+    test('addEntries', () {
       final tree = TernaryTreapSet<int>();
 
       tree['At'] = <int>[1];
 
       tree['be'] = <int>[2, 3];
 
-      tree.addAll(numberTST);
+      tree.addEntries(numberTST.entries);
 
       expect(tree.length, equals(numberTST.length + 2));
 
@@ -482,7 +510,7 @@ void main() {
       }
 
       // Check set behaviour by adding again
-      tree.addAll(numberTST);
+      tree.addEntries(numberTST.entries);
       // All mappings from tst should be the same
       for (final key in numberTST.keys) {
         expect(tree[key], equals(numberTST[key]));
@@ -567,6 +595,7 @@ void main() {
 
     test('keysByPrefixDistance', () {
       for (final key in sortedWordKeys) {
+        // Reverse keys to mix it up
         final prefix = String.fromCharCodes(key.codeUnits.reversed);
         var checker = <String>[];
         for (final key in sortedWordKeys) {
@@ -580,7 +609,6 @@ void main() {
 
         result.sort();
         checker.sort();
-
         expect(result, equals(checker));
       }
     });
@@ -675,24 +703,51 @@ void main() {
       // Check that tree remembers original like
       expect(wordTST.suggestKey('an'), equals(anKeys.last));
     });
+
+    test('emails', () {
+      final emailTST = TernaryTreapSet<String>();
+      emailTST.addKeys(emails);
+
+      print(emailTST.length);
+    });
+
   });
 }
 
-int prefixDistance(final List<int> prefix, final List<int> compare) {
-  if (compare.length < prefix.length) {
-    // cannot compute hamming distance here as
-    return -1;
-  }
-
-  // Assume worst case and improve if possible
-  var distance = prefix.length;
-
-  // Improve if possible
-  for (var i = 0; i < prefix.length; i++) {
-    if (prefix[i] == compare[i]) {
-      distance--;
+  int prefixDistance(final List<int> prefix, final List<int> key) {
+    if (key.length < prefix.length) {
+      // cannot compute hamming distance here as
+      return -1;
     }
-  }
+/*
+    // 1.
+    final prefixLength = prefix.length;
+    final keyLength = key.length;
 
-  return distance;
-}
+    for (var i = 0; i <= keyLength - prefixLength; i++) {
+      int j;
+
+      for (j = 0; j < prefixLength; j++) {
+        if (key[i + j] != prefix[j]) {
+          break;
+        }
+      }
+
+      if (j == prefixLength) {
+        return 0;
+      }
+    }
+*/
+    // 2.
+    // Assume worst case and improve if possible
+    var distance = prefix.length;
+
+    // Improve if possible
+    for (var i = 0; i < prefix.length; i++) {
+      if (prefix[i] == key[i]) {
+        distance--;
+      }
+    }
+
+    return distance;
+  }
