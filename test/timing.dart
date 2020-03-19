@@ -51,24 +51,29 @@ void main(List<String> args) {
   timer.stop();
   stdout.writeln('Map: containsKey for all keys: ${timer.elapsedMicroseconds}');
 */
+
+
+for(var fuzzInt = 0;fuzzInt<11;fuzzInt++){
+  final fuzzDouble = (fuzzInt/10);
   timer
     ..reset()
     ..start();
 
-  for (var i = 0; i < numRepeats; i++) {
+  //for (var i = 0; i < numRepeats; i++) {
     /*
     for (final key in keys) {
       if (!tt.containsKey(key)) {
         throw Error();
       }
     }*/
-    for(final entry in tt.entriesByKeyPrefix('pryefuimx', true)){
+    print(tt.entriesByKeyPrefix('pryefuimx', fuzzDouble).length.toString());
+  //}
 
-    }
-  }
   timer.stop();
   stdout.writeln(
-      'TernaryTreap containsKey for all keys: ${timer.elapsedMicroseconds}');
+      'TernaryTreap containsKey for all keys using fuzz: ${fuzzDouble.toString()} was ${timer.elapsedMicroseconds}');
+}
+
 
 /*
   var entries = TernaryTreap.codeUnitPool.toList();

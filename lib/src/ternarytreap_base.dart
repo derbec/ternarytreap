@@ -2,6 +2,9 @@ import 'dart:collection';
 import 'dart:math';
 import 'package:meta/meta.dart';
 
+const _SIZE_OF_INT = 4;
+const _SIZE_OF_REF = 4; // 64 bit pointers
+
 /// 2^53 because javascript
 const int _MAX_SAFE_INTEGER = 9007199254740991;
 
@@ -12,21 +15,25 @@ const int _INVALID_DISTANCE = -1;
 
 const int _INVALID_CODE_UNIT = -1;
 
-// Unicode categories rock!
-final RegExp _matchLetter = RegExp(r'\p{L}', unicode: true);
-final RegExp _matchNonLetter = RegExp(r'\P{L}', unicode: true);
-final RegExp _matchSeperators = RegExp(r'\p{Z}+', unicode: true);
+final RegExp _matchAlphaNumeric =
+    RegExp(r'[\p{L}\p{Nl}\p{Nd}]+', unicode: true);
+final RegExp _matchNonAlphaNumeric =
+    RegExp(r'[^\p{L}\p{Nl}\p{Nd}]+', unicode: true);
+final RegExp _matchSeparators = RegExp(r'[\p{Zl}\p{Zp}\p{Zs}]+', unicode: true);
 
 /// Often it is desirable to define equivalences between Key
 /// strings, for example for case insensitivity.
 ///
 /// This is achieved via the surjection:
 ///
-/// * <i>m</i> : <i>K</i>&twoheadrightarrow; <i>L  &sube; K</i>
+/// * <i>m</i> : <i>S</i>&twoheadrightarrow; <i>K  &sube; S</i>
 ///
 /// such that:
 ///
-/// * <i>m</i>(<i>m</i>(x)) = <i>m</i>(x), i.e. <i>m</i> must be
+/// * <i>S</i> is set of all strings
+/// * <i>K</i> is set of Keys
+///
+/// <i>m</i>(<i>m</i>(x)) = <i>m</i>(x), i.e. <i>m</i> must be
 /// [idempotent](https://en.wikipedia.org/wiki/Idempotence),
 /// repeated applications do not change the result.
 ///
@@ -407,9 +414,9 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> {
   /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
   /// to all key arguments passed by client
   static String nonLetterToSpace(String str) =>
-      str.replaceAll(_matchNonLetter, ' ');
+      str.replaceAll(_matchNonAlphaNumeric, ' ');
 
-  /// Transform [str] such that adjacent single Letters separated by
+  /// Transform [str] such that adjacent single alphanumeric symbols separated by
   /// whitespace are joined together. For example:
   ///
   /// '    a b   a   b  abcd a b' -> 'ab   ab  abcd ab'
@@ -423,7 +430,7 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> {
   /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
   /// to all key arguments passed by client
   static String joinSingleLetters(String str) {
-    final chunks = str.trim().split(_matchSeperators);
+    final chunks = str.trim().split(_matchSeparators);
 
     final res = <String>[];
     //join all adjacent chunks with size 1
@@ -431,7 +438,8 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> {
 
     for (final chunk in chunks) {
       // if chuck is single Letter
-      if (chunk.length == 1 && _matchLetter.matchAsPrefix(chunk) != null) {
+      if (chunk.length == 1 &&
+          _matchAlphaNumeric.matchAsPrefix(chunk) != null) {
         newChunk.write(chunk);
       } else {
         if (newChunk.isNotEmpty) {
@@ -455,7 +463,7 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> {
   /// When passed to [TernaryTreap()] this [KeyMapping] will be applied
   /// to all key arguments passed by client.
   static String collapseWhitespace(String str) =>
-      str.trim().replaceAll(_matchSeperators, ' ');
+      str.trim().replaceAll(_matchSeparators, ' ');
 
   /// Transform [str] with both [lowercase] and [collapseWhitespace].
   ///
@@ -477,8 +485,10 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> {
   ///
   /// An optional [value] may be supplied to associate with this key.
   ///
+  /// Return [value]. Null if not specified.
+  ///
   /// Throws [ArgumentError] if [mapKey]`(`[key]`)` is empty.
-  void add(String key, [V value]);
+  V add(String key, [V value]);
 
   /// Adds all associations contained in [entries] to this [TernaryTreap].
   ///
@@ -512,8 +522,6 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> {
   /// Removes all data from the [TernaryTreap].
   void clear();
 
-  static HashSet<_CodeUnitPoolEntry> get codeUnitPool => _Node._codeUnitPool;
-
   /// Prioritise [key] such that future prefix searches will return [key]
   /// closer to beginning of search result. Subsequent calls will increase this
   /// effect.
@@ -536,6 +544,15 @@ abstract class TernaryTreap<V> extends _CommonInterface<V> {
   /// Returns the collection of values associated with key,
   /// or an empty iterable if key was unmapped.
   Iterable<V> removeValues(String key);
+
+  /// Return approximate size of tree in bytes
+  ///
+  /// Not exact but provides useful comparison between different
+  /// instances of [TernaryTreap].
+  /// 
+  /// If size of value type should be included in calculation then
+  /// specify size via [valueSizeInBytes].
+  int sizeOf([int valueSizeInBytes=0]);
 }
 
 /// Return a [TernaryTreap] that stores values in a [List]
@@ -562,9 +579,83 @@ class TernaryTreapList<V> extends _MutableTernaryTreap<V> {
   /// Construct a new [TernaryTreapList] with an optional [keyMapping]
   TernaryTreapList([KeyMapping keyMapping])
       : super(
-            (Iterable<int> codeUnit, int priority, _Node<V> parent) =>
-                _NodeList<V>(codeUnit, priority, parent),
+            (Iterable<int> codeUnit, int priority, _Node<V> parent,
+                    final HashSet<_CodeUnitPoolEntry> _codeUnitPool) =>
+                _NodeList<V>(codeUnit, priority, parent, _codeUnitPool),
             keyMapping);
+  @override
+  List<V> operator [](String key) {
+    return super[key] as List<V>;
+  }
+
+  @override
+  Map<String, List<V>> asMap() => Map<String, List<V>>.fromEntries(entries);
+
+  @override
+  Iterable<MapEntry<String, List<V>>> get entries =>
+      _InOrderMapEntryIterableList<V>(this, _root.value);
+
+  @override
+  _TernaryTreapIterable<MapEntry<String, List<V>>> entriesByKeyPrefix(
+          String prefix,
+          [double fuzzy = 0.0]) =>
+      _InOrderMapEntryIterableList<V>(this, _root.value,
+          prefix: _mapKeyErrorOnEmpty(prefix).codeUnits, fuzzy: fuzzy);
+
+  @override
+  void forEachKey(void Function(String key, List<V> values) f) {
+    final entryItr = entries.iterator as _InOrderMapEntryIterator<V>;
+    while (entryItr.moveNext()) {
+      f(entryItr.currentKey, entryItr.currentValue as List<V>);
+    }
+  }
+
+  @override
+  void forEachKeyPrefixedBy(
+      String prefix, void Function(String key, List<V> values) f,
+      [double fuzzy = 0.0]) {
+    final itr = entriesByKeyPrefix(prefix, fuzzy).iterator
+        as _InOrderMapEntryIterator<V>;
+
+    while (itr.moveNext()) {
+      f(itr.currentKey, itr.currentValue as List<V>);
+    }
+  }
+
+  @override
+  List<V> removeValues(String key) {
+    final keyNode =
+        _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key)) as _NodeList<V>;
+
+    // Return empty Iterable when unmapped
+    if (keyNode == null) {
+      return <V>[];
+    }
+
+    _incVersion();
+
+    return keyNode.removeValues();
+  }
+
+  @override
+  List<V> removeAll(String key) {
+    final transformedKey = _mapKeyErrorOnEmpty(key);
+
+    List<V> values;
+    if (_root.value != null) {
+      values = _remove(_root.value, transformedKey) as List<V>;
+      if (_root.value.sizeDFSTree == 0) {
+        /// There are no end nodes left in tree so delete root
+        _root.value = null;
+      }
+    }
+    // Return empty Iterable when unmapped
+    if (values == null) {
+      return <V>[];
+    }
+    _incVersion();
+    return values;
+  }
 }
 
 /// Return a [TernaryTreap] that stores values in a [Set]
@@ -588,9 +679,82 @@ class TernaryTreapSet<V> extends _MutableTernaryTreap<V> {
   /// Construct a new [TernaryTreapSet] with an optional [keyMapping]
   TernaryTreapSet([KeyMapping keyMapping])
       : super(
-            (Iterable<int> codeUnit, int priority, _Node<V> parent) =>
-                _NodeSet<V>(codeUnit, priority, parent),
+            (Iterable<int> codeUnit, int priority, _Node<V> parent,
+                    final HashSet<_CodeUnitPoolEntry> _codeUnitPool) =>
+                _NodeSet<V>(codeUnit, priority, parent, _codeUnitPool),
             keyMapping);
+
+  @override
+  Set<V> operator [](String key) => super[key] as Set<V>;
+
+  @override
+  Map<String, Set<V>> asMap() => Map<String, Set<V>>.fromEntries(entries);
+
+  @override
+  Iterable<MapEntry<String, Set<V>>> get entries =>
+      _InOrderMapEntryIterableSet<V>(this, _root.value);
+
+  @override
+  _TernaryTreapIterable<MapEntry<String, Set<V>>> entriesByKeyPrefix(
+          String prefix,
+          [double fuzzy = 0.0]) =>
+      _InOrderMapEntryIterableSet<V>(this, _root.value,
+          prefix: _mapKeyErrorOnEmpty(prefix).codeUnits, fuzzy: fuzzy);
+
+  @override
+  void forEachKey(void Function(String key, Set<V> values) f) {
+    final entryItr = entries.iterator as _InOrderMapEntryIterator<V>;
+    while (entryItr.moveNext()) {
+      f(entryItr.currentKey, entryItr.currentValue as Set<V>);
+    }
+  }
+
+  @override
+  void forEachKeyPrefixedBy(
+      String prefix, void Function(String key, Set<V> values) f,
+      [double fuzzy = 0.0]) {
+    final itr = entriesByKeyPrefix(prefix, fuzzy).iterator
+        as _InOrderMapEntryIterator<V>;
+
+    while (itr.moveNext()) {
+      f(itr.currentKey, itr.currentValue as Set<V>);
+    }
+  }
+
+  @override
+  Set<V> removeValues(String key) {
+    final keyNode =
+        _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key)) as _NodeSet<V>;
+
+    // Return empty Iterable when unmapped
+    if (keyNode == null) {
+      return <V>{};
+    }
+
+    _incVersion();
+
+    return keyNode.removeValues();
+  }
+
+  @override
+  Set<V> removeAll(String key) {
+    final transformedKey = _mapKeyErrorOnEmpty(key);
+
+    Set<V> values;
+    if (_root.value != null) {
+      values = _remove(_root.value, transformedKey) as Set<V>;
+      if (_root.value.sizeDFSTree == 0) {
+        /// There are no end nodes left in tree so delete root
+        _root.value = null;
+      }
+    }
+    // Return empty Iterable when unmapped
+    if (values == null) {
+      return <V>{};
+    }
+    _incVersion();
+    return values;
+  }
 }
 
 /// A view of a [TernaryTreap] without mutators.
@@ -661,10 +825,7 @@ abstract class _CommonInterface<V> {
   /// Throws ArgumentError if [prefix] is empty.
   _TernaryTreapIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(
       String prefix,
-      [bool fuzzy = false]);
-
-  /// Return a single suggested prefix expansion for [key].
-  String suggestKey(String key);
+      [double fuzzy = 0.0]);
 
   /// Applies [f] to each key/value pair of the [TernaryTreap]
   ///
@@ -685,7 +846,7 @@ abstract class _CommonInterface<V> {
   /// Throws ArgumentError if [prefix] is empty
   void forEachKeyPrefixedBy(
       String prefix, void Function(String key, Iterable<V> values) f,
-      [bool fuzzy = false]);
+      [double fuzzy = 0.0]);
 
   /// Returns true if there are no keys in the [TernaryTreap].
   bool get isEmpty;
@@ -717,16 +878,32 @@ abstract class _CommonInterface<V> {
   ///
   /// Throws ArgumentError if [prefix] is empty.
   _TernaryTreapIterable<String> keysByPrefix(String prefix,
-      [bool fuzzy = false]);
+      [double fuzzy = 0.0]);
 
   /// The number of keys in the [TernaryTreap].
   int get length;
+
+  /// If [TernaryTreap] contains specified ([key], [value]) pair
+  /// then return stored value.
+  ///
+  /// Returned value may not be the same as [value] if element type
+  /// equality does not include identity.
+  ///
+  ///
+  /// If key is mapped to multiple elements satisfying equality
+  /// to [value] then only the first will be returned
+  ///
+  /// If ([key], [value]) pair is not present then returns null.
+  V lookup(String key, V value);
 
   /// Return key transformed by any [KeyMapping] specified
   /// during construction.
   ///
   /// Throws [ArgumentError] if [key] is empty.
   String mapKey(String key);
+
+  /// Return a single suggested prefix expansion for [key].
+  String suggestKey(String key);
 
   /// Generate a string representation of this [TernaryTreap].
   /// Requires that values be json encodable.
@@ -768,7 +945,7 @@ abstract class _CommonInterface<V> {
   ///
   /// Throws ArgumentError if [prefix] is empty.
   _TernaryTreapIterable<V> valuesByKeyPrefix(String prefix,
-      [bool fuzzy = false]);
+      [double fuzzy = 0.0]);
 }
 
 /// Non mutating portion of [TernaryTreap]
@@ -807,10 +984,6 @@ class _ImmutableTernaryTreap<V> implements UnmodifiableTernaryTreap<V> {
     return keyNode.values;
   }
 
-  @override
-  Map<String, Iterable<V>> asMap() =>
-      Map<String, Iterable<V>>.fromEntries(entries);
-
   /// Map key and throw error if result is empty
   String _mapKeyErrorOnEmpty(String key) {
     final mappedKey = mapKey(key);
@@ -819,6 +992,10 @@ class _ImmutableTernaryTreap<V> implements UnmodifiableTernaryTreap<V> {
     }
     return mappedKey;
   }
+
+  @override
+  Map<String, Iterable<V>> asMap() =>
+      Map<String, Iterable<V>>.fromEntries(entries);
 
   @override
   bool contains(String key, V value) {
@@ -845,7 +1022,7 @@ class _ImmutableTernaryTreap<V> implements UnmodifiableTernaryTreap<V> {
   @override
   _TernaryTreapIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(
           String prefix,
-          [bool fuzzy = false]) =>
+          [double fuzzy = 0.0]) =>
       _InOrderMapEntryIterable<V>(this, _root.value,
           prefix: _mapKeyErrorOnEmpty(prefix).codeUnits, fuzzy: fuzzy);
 
@@ -901,7 +1078,7 @@ class _ImmutableTernaryTreap<V> implements UnmodifiableTernaryTreap<V> {
   @override
   void forEachKeyPrefixedBy(
       String prefix, void Function(String key, Iterable<V> values) f,
-      [bool fuzzy = false]) {
+      [double fuzzy = 0.0]) {
     final itr = entriesByKeyPrefix(prefix, fuzzy).iterator
         as _InOrderMapEntryIterator<V>;
 
@@ -940,12 +1117,24 @@ class _ImmutableTernaryTreap<V> implements UnmodifiableTernaryTreap<V> {
 
   @override
   _TernaryTreapIterable<String> keysByPrefix(String prefix,
-          [bool fuzzy = false]) =>
+          [double fuzzy = 0.0]) =>
       _InOrderKeyIterable<V>(this, _root.value,
           prefix: _mapKeyErrorOnEmpty(prefix).codeUnits, fuzzy: fuzzy);
 
   @override
   int get length => _root.value == null ? 0 : _root.value.sizeDFSTree;
+
+  @override
+  V lookup(String key, V value) {
+    final keyNode = _root.value?.getKeyNode(_mapKeyErrorOnEmpty(key));
+
+    // Does the key map to anything?
+    if (keyNode == null) {
+      return null;
+    }
+
+    return keyNode.lookupValue(value);
+  }
 
   @override
   String mapKey(String key) {
@@ -966,7 +1155,7 @@ class _ImmutableTernaryTreap<V> implements UnmodifiableTernaryTreap<V> {
 
   @override
   _TernaryTreapIterable<V> valuesByKeyPrefix(String prefix,
-          [bool fuzzy = false]) =>
+          [double fuzzy = 0.0]) =>
       _InOrderValuesIterable<V>(this, _root.value,
           prefix: _mapKeyErrorOnEmpty(prefix).codeUnits, fuzzy: fuzzy);
 
@@ -1007,14 +1196,55 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   final Random _random = Random();
 
   /// Factory used to create new nodes
-  final _Node<V> Function(Iterable<int> codeUnit, int priority, _Node<V> parent)
-      _nodeFactory;
+  final _Node<V> Function(Iterable<int> codeUnit, int priority, _Node<V> parent,
+      HashSet<_CodeUnitPoolEntry> _codeUnitPool) _nodeFactory;
+
+  /// Pool codeUnits among nodes to reduce memory usage
+  final _codeUnitPool = HashSet<_CodeUnitPoolEntry>(equals:
+      (final _CodeUnitPoolEntry codeUnitPoolEntry1,
+          final _CodeUnitPoolEntry codeUnitPoolEntry2) {
+    if (codeUnitPoolEntry1 == null || codeUnitPoolEntry2 == null) {
+      return false;
+    }
+
+    final codeUnits1 = codeUnitPoolEntry1.codeUnits;
+    final codeUnits2 = codeUnitPoolEntry2.codeUnits;
+
+    if (identical(codeUnits1, codeUnits2)) {
+      return true;
+    }
+
+    final length = codeUnits1.length;
+    if (length != codeUnits2.length) {
+      return false;
+    }
+
+    for (var i = 0; i < length; i++) {
+      if (codeUnits1.elementAt(i) != codeUnits2.elementAt(i)) {
+        return false;
+      }
+    }
+
+    return true;
+  }, hashCode: (final _CodeUnitPoolEntry codeUnitPoolEntry) {
+    // Stolen from Quiver: lib/src/core/hash.dart
+    var hash = 0;
+    final codeUnits = codeUnitPoolEntry.codeUnits;
+
+    final length = codeUnits.length;
+    for (var i = 0; i < length; i++) {
+      hash = 0x1fffffff & (hash + codeUnits.elementAt(i));
+      hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
+    }
+    return hash ^ (hash >> 6);
+  });
 
   @override
-  void add(String key, [V value]) {
+  V add(String key, [V value]) {
     _root.value = _add(_root.value, _mapKeyErrorOnEmpty(key), value).a;
 
     _incVersion();
+    return value;
   }
 
   @override
@@ -1202,6 +1432,39 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
     return values;
   }
 
+  @override
+  int sizeOf([int valueSizeInBytes=0]) {
+    if (_root.value == null) {
+      return 0;
+    }
+
+    // String pool size
+    var poolSize = 0;
+    for (final entry in _codeUnitPool) {
+      poolSize += (entry.codeUnits.length + 1) * _SIZE_OF_INT;
+      if(entry.count<1){
+        print(String.fromCharCodes(entry.codeUnits) + entry.count.toString());
+      }
+    }
+
+    // get tree size
+    return (4 * _SIZE_OF_REF) + poolSize + _sizeOfTree(_root.value, valueSizeInBytes);
+  }
+
+  int _sizeOfTree(_Node<V> p, int valueSizeInBytes) {
+    if (p == null) {
+      return 0;
+    }
+
+    final sizeThisNode = ((2 * _SIZE_OF_INT) + (6 * _SIZE_OF_REF)) +
+        (p.isKeyEnd ? (p.values.length * (_SIZE_OF_REF + valueSizeInBytes)) : 0);
+
+    return sizeThisNode +
+        _sizeOfTree(p.left, valueSizeInBytes) +
+        _sizeOfTree(p.mid, valueSizeInBytes) +
+        _sizeOfTree(p.right, valueSizeInBytes);
+  }
+
   /// Increment modification version.
   /// Wrap backto 0 when [_MAX_SAFE_INTEGER] exceeded
   void _incVersion() {
@@ -1226,8 +1489,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
 
     // Create new root node if needed
     if (_rootNode == null) {
-      _rootNode =
-          _nodeFactory(keyCodeUnits, _random.nextInt(_MAX_RANDOM), null);
+      _rootNode = _nodeFactory(
+          keyCodeUnits, _random.nextInt(_MAX_RANDOM), null, _codeUnitPool);
       keyCodeIdx = keyCodeUnits.length;
     }
 
@@ -1242,7 +1505,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
           currentNode.left = _nodeFactory(
               keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
               _random.nextInt(_MAX_RANDOM),
-              currentNode);
+              currentNode,
+              _codeUnitPool);
 
           keyCodeIdx = keyCodeUnits.length;
         }
@@ -1253,7 +1517,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
           currentNode.right = _nodeFactory(
               keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
               _random.nextInt(_MAX_RANDOM),
-              currentNode);
+              currentNode,
+              _codeUnitPool);
           keyCodeIdx = keyCodeUnits.length;
         }
         currentNode = currentNode.right;
@@ -1278,7 +1543,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
           if (nodeCodeIdx < currentNode.codeUnits.length) {
             // if neither node or key were consumed then split and
             // continue on from new child
-            _split(currentNode, nodeCodeIdx);
+            _split(currentNode, nodeCodeIdx, _codeUnitPool);
           } else {
             // If key was not consumed but node was then grow down
             // and continue from new child
@@ -1286,7 +1551,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
               currentNode.mid = _nodeFactory(
                   keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
                   _random.nextInt(_MAX_RANDOM),
-                  currentNode);
+                  currentNode,
+                  _codeUnitPool);
               keyCodeIdx = keyCodeUnits.length;
             }
           }
@@ -1299,7 +1565,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
           // if key was consumed but node was not then split and
           // return current as target
           if (nodeCodeIdx < currentNode.codeUnits.length) {
-            _split(currentNode, nodeCodeIdx);
+            _split(currentNode, nodeCodeIdx, _codeUnitPool);
             break;
           }
         }
@@ -1315,7 +1581,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
       while (reverseNode != _rootNode.parent) {
         // Merge any ophaned mid children on our way back
         // Probably only useful after multiple add and delete cycles
-        reverseNode.mergeMid();
+        reverseNode.mergeMid(_codeUnitPool);
 
         // Rebalance
         reverseNode.rotateChildren();
@@ -1411,7 +1677,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
       // reverse back up to root node to update node counts
       while (currentNode != _root.value.parent) {
         // Merge any ophaned mid children on our way back
-        currentNode.mergeMid();
+        currentNode.mergeMid(_codeUnitPool);
 
         // Rebalance
         currentNode.rotateChildren();
@@ -1434,7 +1700,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
   /// * Created child inherits node mid child.
   /// * If node is an end node then child is instead.
   /// * Created child [_Node] is attached to node.mid.
-  void _split(_Node<V> node, int codeUnitIdx) {
+  void _split(_Node<V> node, int codeUnitIdx,
+      final HashSet<_CodeUnitPoolEntry> _codeUnitPool) {
     if (node.codeUnits.length < 2) {
       // Nothing to split
       throw ArgumentError();
@@ -1448,7 +1715,8 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
     final child = _nodeFactory(
         node.codeUnits.getRange(codeUnitIdx, node.codeUnits.length),
         _random.nextInt(_MAX_RANDOM),
-        node);
+        node,
+        _codeUnitPool);
 
     child.mid = node.mid;
 
@@ -1458,7 +1726,7 @@ class _MutableTernaryTreap<V> extends _ImmutableTernaryTreap<V>
       child.mid.parent = child;
     }
 
-    node.setCodeUnits(node.codeUnits.getRange(0, codeUnitIdx));
+    node.setCodeUnits(node.codeUnits.getRange(0, codeUnitIdx), _codeUnitPool);
 
     // Insert child under node
     node.mid = child;
@@ -1480,86 +1748,48 @@ class _CodeUnitPoolEntry {
   int count;
 }
 
+List<int> _allocateCodeUnits(final Iterable<int> codeUnits,
+    final HashSet<_CodeUnitPoolEntry> _codeUnitPool) {
+  final key = _CodeUnitPoolEntry(codeUnits, 0);
+
+  var poolEntry = _codeUnitPool.lookup(key);
+  if (poolEntry == null) {
+    poolEntry = _CodeUnitPoolEntry(List<int>.unmodifiable(codeUnits), 1);
+    _codeUnitPool.add(poolEntry);
+  } else {
+    poolEntry.count++;
+  }
+  return poolEntry.codeUnits as List<int>;
+}
+
+void _freeCodeUnits(final Iterable<int> codeUnits,
+    final HashSet<_CodeUnitPoolEntry> _codeUnitPool) {
+  final key = _CodeUnitPoolEntry(codeUnits, 0);
+  final poolEntry = _codeUnitPool.lookup(key);
+  // Avoid check for null because the getter will check anyways
+  poolEntry.count--;
+  if (poolEntry.count < 1) {
+    _codeUnitPool.remove(key);
+  }
+}
+
 /// Base for all node types
 abstract class _Node<V> {
-  _Node(Iterable<int> codeUnits, this.priority, this.parent)
-      : codeUnits = _allocateCodeUnits(codeUnits);
+  _Node(Iterable<int> codeUnits, this.priority, this.parent,
+      final HashSet<_CodeUnitPoolEntry> _codeUnitPool)
+      : codeUnits = _allocateCodeUnits(codeUnits, _codeUnitPool);
 
   /// Release node resources
-  void destroy() {
-    _freeCodeUnits(codeUnits);
+  void destroy(final HashSet<_CodeUnitPoolEntry> _codeUnitPool) {
+    _freeCodeUnits(codeUnits, _codeUnitPool);
   }
 
-  /// An empty values placeholder shared between all nodes of a
-  /// particular TernaryTreap. Avoids the need for an empty valued [_Node]
+  /// Avoids the need for an empty valued [_Node]
   /// to incur space overhead of empty container which is presumably greater
   /// in memory usage than a reference to this shared iterator.
   static const Object _emptyValues = Object();
 
-  /// Pool codeUnits among nodes to reduce memory usage
-  static final _codeUnitPool = HashSet<_CodeUnitPoolEntry>(equals:
-      (final _CodeUnitPoolEntry codeUnitPoolEntry1,
-          final _CodeUnitPoolEntry codeUnitPoolEntry2) {
-    if (codeUnitPoolEntry1 == null || codeUnitPoolEntry2 == null) {
-      return false;
-    }
-
-    final codeUnits1 = codeUnitPoolEntry1.codeUnits;
-    final codeUnits2 = codeUnitPoolEntry2.codeUnits;
-
-    if (identical(codeUnits1, codeUnits2)) {
-      return true;
-    }
-
-    final length = codeUnits1.length;
-    if (length != codeUnits2.length) {
-      return false;
-    }
-
-    for (var i = 0; i < length; i++) {
-      if (codeUnits1.elementAt(i) != codeUnits2.elementAt(i)) {
-        return false;
-      }
-    }
-
-    return true;
-  }, hashCode: (final _CodeUnitPoolEntry codeUnitPoolEntry) {
-    // Stolen from Quiver: lib/src/core/hash.dart
-    var hash = 0;
-    final codeUnits = codeUnitPoolEntry.codeUnits;
-
-    final length = codeUnits.length;
-    for (var i = 0; i < length; i++) {
-      hash = 0x1fffffff & (hash + codeUnits.elementAt(i));
-      hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    }
-    return hash ^ (hash >> 6);
-  });
-
-  static List<int> _allocateCodeUnits(final Iterable<int> codeUnits) {
-    final key = _CodeUnitPoolEntry(codeUnits, 0);
-
-    var poolEntry = _codeUnitPool.lookup(key);
-    if (poolEntry == null) {
-      poolEntry = _CodeUnitPoolEntry(List<int>.unmodifiable(codeUnits), 0);
-      _codeUnitPool.add(poolEntry);
-    } else {
-      poolEntry.count++;
-    }
-    return poolEntry.codeUnits as List<int>;
-  }
-
-  static void _freeCodeUnits(final Iterable<int> codeUnits) {
-    final key = _CodeUnitPoolEntry(codeUnits, 0);
-    final poolEntry = _codeUnitPool.lookup(key);
-    // Avoid check for null because the getter will check anyways
-    poolEntry.count--;
-    if (poolEntry.count < 1) {
-      _codeUnitPool.remove(codeUnits);
-    }
-  }
-
-  /// Fixed size array of unicode code units
+  /// Reference to fixed size array of unicode code units stored in pool
   List<int> codeUnits;
 
   /// Randomly generated value for balancing
@@ -1605,6 +1835,11 @@ abstract class _Node<V> {
     other._values = null;
   }
 
+  /// Return first value that is equal to [value]
+  ///
+  /// If not found return null.
+  V lookupValue(V value);
+
   /// Set to shallow copy of [values]
   void setValues(Iterable<V> values);
 
@@ -1617,10 +1852,7 @@ abstract class _Node<V> {
   /// Remove all values from this node and return said values.
   Iterable<V> removeValues();
 
-  /// Return node value as Iterable
-  Iterable<V> get values => identical(_values, _emptyValues)
-      ? Iterable<V>.empty()
-      : _values as Iterable<V>;
+  Iterable<V> get values;
 
   /// Does this node represent the final character of a key?
   bool get isKeyEnd => _values != null;
@@ -1640,9 +1872,10 @@ abstract class _Node<V> {
   }
 
   /// Set codeunits to fixed size array
-  void setCodeUnits(Iterable<int> codeUnits) {
-    _freeCodeUnits(this.codeUnits);
-    this.codeUnits = _allocateCodeUnits(codeUnits);
+  void setCodeUnits(Iterable<int> codeUnits,
+      final HashSet<_CodeUnitPoolEntry> _codeUnitPool) {
+    _freeCodeUnits(this.codeUnits, _codeUnitPool);
+    this.codeUnits = _allocateCodeUnits(codeUnits, _codeUnitPool);
   }
 
   /// Return _Node descendant corresponding to a transformed key.
@@ -1872,7 +2105,7 @@ abstract class _Node<V> {
   /// * mid is not null.
   /// * is not an end node.
   /// * child has no Left or Right children.
-  void mergeMid() {
+  void mergeMid(final HashSet<_CodeUnitPoolEntry> _codeUnitPool) {
     if (mid == null) {
       // No child to merge
       return;
@@ -1891,7 +2124,7 @@ abstract class _Node<V> {
       return;
     }
 
-    setCodeUnits(codeUnits + child.codeUnits);
+    setCodeUnits(codeUnits + child.codeUnits, _codeUnitPool);
 
     // Take on mid grandchild
     mid = child.mid;
@@ -1907,7 +2140,7 @@ abstract class _Node<V> {
     if (mid != null) {
       mid.parent = this;
     }
-    child.destroy();
+    child.destroy(_codeUnitPool);
   }
 
   @override
@@ -1916,8 +2149,18 @@ abstract class _Node<V> {
 
 /// A Node that stores values in [Set].
 class _NodeSet<V> extends _Node<V> {
-  _NodeSet(Iterable<int> codeUnits, int priority, _Node<V> parent)
-      : super(codeUnits, priority, parent);
+  _NodeSet(Iterable<int> codeUnits, int priority, _Node<V> parent,
+      final HashSet<_CodeUnitPoolEntry> _codeUnitPool)
+      : super(codeUnits, priority, parent, _codeUnitPool);
+
+  @override
+  Set<V> get values =>
+      identical(_values, _Node._emptyValues) ? <V>{} : super._values as Set<V>;
+
+  @override
+  V lookupValue(V value) {
+    return values.lookup(value);
+  }
 
   @override
   void setValues(Iterable<V> values) {
@@ -1925,14 +2168,13 @@ class _NodeSet<V> extends _Node<V> {
   }
 
   @override
-  bool removeValue(V value) => identical(_values, _Node._emptyValues)
-      ? false
-      : (values as Set<V>).remove(value);
+  bool removeValue(V value) =>
+      identical(_values, _Node._emptyValues) ? false : values.remove(value);
 
   @override
-  Iterable<V> removeValues() {
+  Set<V> removeValues() {
     if (identical(_values, _Node._emptyValues)) {
-      return Iterable<V>.empty();
+      return <V>{};
     }
     final ret = values;
     _values = _Node._emptyValues;
@@ -1951,8 +2193,23 @@ class _NodeSet<V> extends _Node<V> {
 
 /// A Node that stores values in [List].
 class _NodeList<V> extends _Node<V> {
-  _NodeList(Iterable<int> codeUnit, int priority, _Node<V> parent)
-      : super(codeUnit, priority, parent);
+  _NodeList(Iterable<int> codeUnit, int priority, _Node<V> parent,
+      final HashSet<_CodeUnitPoolEntry> _codeUnitPool)
+      : super(codeUnit, priority, parent, _codeUnitPool);
+
+  @override
+  List<V> get values =>
+      identical(_values, _Node._emptyValues) ? <V>[] : super._values as List<V>;
+
+  @override
+  V lookupValue(V value) {
+    for (final val in values) {
+      if (val == value) {
+        return val;
+      }
+    }
+    return null;
+  }
 
   @override
   void setValues(Iterable<V> values) {
@@ -1965,9 +2222,9 @@ class _NodeList<V> extends _Node<V> {
       : (_values as Set<V>).remove(value);
 
   @override
-  Iterable<V> removeValues() {
+  List<V> removeValues() {
     if (identical(_values, _Node._emptyValues)) {
-      return Iterable<V>.empty();
+      return <V>[];
     }
 
     final ret = values;
@@ -1980,7 +2237,7 @@ class _NodeList<V> extends _Node<V> {
     if (identical(_values, _Node._emptyValues)) {
       setValues([value]);
     } else {
-      (values as List<V>).add(value);
+      values.add(value);
     }
   }
 }
@@ -2087,15 +2344,15 @@ class _SimpleStack<E> {
 abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
     implements _TernaryTreapIterable<I> {
   _InOrderIterableBase(this.owner, this.root,
-      {List<int> prefix, this.fuzzy = false})
+      {List<int> prefix, this.fuzzy = 0.0})
       : validVersion = owner._version.value,
         prefix = prefix ?? <int>[],
         prefixSearchResult = root == null
             ? null
             : prefix == null ? null : root.getClosestPrefixDescendant(prefix) {
     // Distance with no prefix doesnt make sense
-    if (this.prefix.isEmpty && fuzzy) {
-      throw ArgumentError('prefix.isEmpty && fuzzy');
+    if (this.prefix.isEmpty && fuzzy > 0.0) {
+      throw ArgumentError('prefix.isEmpty && fuzzy > 0.0');
     }
   }
 
@@ -2104,7 +2361,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
   final _Node<V> root;
   final _PrefixSearchResult<V> prefixSearchResult;
   final List<int> prefix;
-  final bool fuzzy;
+  final double fuzzy;
   final int validVersion;
 
   @override
@@ -2128,7 +2385,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
     }
 
     // No shortcut to calulate length for distance queries
-    if (fuzzy) {
+    if (fuzzy > 0.0) {
       return super.length;
     }
 
@@ -2142,7 +2399,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
 
 class _InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
   _InOrderKeyIterable(_ImmutableTernaryTreap<V> owner, _Node<V> root,
-      {List<int> prefix, bool fuzzy = false})
+      {List<int> prefix, double fuzzy = 0.0})
       : super(owner, root, prefix: prefix, fuzzy: fuzzy);
 
   @override
@@ -2163,7 +2420,7 @@ class _InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
 class _InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
   /// Constructs a TernaryTreeValuesIterable
   _InOrderValuesIterable(_ImmutableTernaryTreap<V> owner, _Node<V> root,
-      {List<int> prefix, bool fuzzy = false})
+      {List<int> prefix, double fuzzy = 0.0})
       : super(owner, root, prefix: prefix, fuzzy: fuzzy);
 
   @override
@@ -2175,12 +2432,39 @@ class _InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
 class _InOrderMapEntryIterable<V>
     extends _InOrderIterableBase<V, MapEntry<String, Iterable<V>>> {
   _InOrderMapEntryIterable(_ImmutableTernaryTreap<V> owner, _Node<V> root,
-      {List<int> prefix, bool fuzzy = false})
+      {List<int> prefix, double fuzzy = 0.0})
       : super(owner, root, prefix: prefix, fuzzy: fuzzy);
 
   @override
   TernaryTreapIterator<MapEntry<String, Iterable<V>>> get iterator =>
-      _InOrderMapEntryIterator<V>(owner, validVersion, root, prefixSearchResult,
+      _InOrderMapEntryIteratorIterator<V>(
+          owner, validVersion, root, prefixSearchResult,
+          prefix: prefix, fuzzy: fuzzy);
+}
+
+class _InOrderMapEntryIterableSet<V>
+    extends _InOrderIterableBase<V, MapEntry<String, Set<V>>> {
+  _InOrderMapEntryIterableSet(_ImmutableTernaryTreap<V> owner, _Node<V> root,
+      {List<int> prefix, double fuzzy = 0.0})
+      : super(owner, root, prefix: prefix, fuzzy: fuzzy);
+
+  @override
+  TernaryTreapIterator<MapEntry<String, Set<V>>> get iterator =>
+      _InOrderMapEntryIteratorSet<V>(
+          owner, validVersion, root, prefixSearchResult,
+          prefix: prefix, fuzzy: fuzzy);
+}
+
+class _InOrderMapEntryIterableList<V>
+    extends _InOrderIterableBase<V, MapEntry<String, List<V>>> {
+  _InOrderMapEntryIterableList(_ImmutableTernaryTreap<V> owner, _Node<V> root,
+      {List<int> prefix, double fuzzy = 0.0})
+      : super(owner, root, prefix: prefix, fuzzy: fuzzy);
+
+  @override
+  TernaryTreapIterator<MapEntry<String, List<V>>> get iterator =>
+      _InOrderMapEntryIteratorList<V>(
+          owner, validVersion, root, prefixSearchResult,
           prefix: prefix, fuzzy: fuzzy);
 }
 
@@ -2236,18 +2520,19 @@ abstract class _InOrderIteratorBase<V> {
   /// non fuzzy matching.
   _InOrderIteratorBase(this.owner, this.validVersion, this.root,
       _PrefixSearchResult<V> prefixSearchResult,
-      {this.prefix, bool fuzzy = false})
+      {this.prefix, double fuzzy = 0.0})
       : stack = _SimpleStack<_StackFrame<V>>(owner.length),
-        fuzzyState = fuzzy ? _FuzzyState.FUZZY_INIT : _FuzzyState.NON_FUZZY,
-        maxDistance = fuzzy ? prefix.length - 1 : 0,
+        fuzzyState =
+            fuzzy > 0.0 ? _FuzzyState.FUZZY_INIT : _FuzzyState.NON_FUZZY,
+        maxDistance = calcMaxDistance(prefix, fuzzy),
         // Init the worklist for fuzzy search if needed
         fuzzyList =
-            fuzzy ? List<ListQueue<_UnVisited<V>>>(prefix.length) : null {
+            fuzzy > 0.0 ? List<ListQueue<_UnVisited<V>>>(prefix.length) : null {
     if (root != null) {
       if (prefixSearchResult == null) {
         // Simple DFS traversal requested
-        if (fuzzy) {
-          throw ArgumentError('prefixRoot == null && fuzzy');
+        if (fuzzy > 0.0) {
+          throw ArgumentError('prefixRoot == null && fuzzy > 0.0');
         }
 
         pushDFS(_StackFrame<V>(root, []));
@@ -2258,7 +2543,7 @@ abstract class _InOrderIteratorBase<V> {
       // Set up intial stack frame parameters
       if (prefixSearchResult.prefixCodeunitIdx == _INVALID_CODE_UNIT) {
         // No match at all was found
-        if (!fuzzy) {
+        if (!(fuzzy > 0.0)) {
           /// Bail if fuzzy not selected
           return;
         }
@@ -2500,6 +2785,20 @@ abstract class _InOrderIteratorBase<V> {
     stack.reverse();
   }
 
+  /// Calculate maximum edit distance based upon user specification
+  static int calcMaxDistance(final Iterable<int> comparePrefix, double fuzzy) {
+    if (fuzzy < 0.0 || fuzzy > 1.0) {
+      throw ArgumentError(fuzzy);
+    }
+
+    if (fuzzy > 0.0 && comparePrefix.isNotEmpty) {
+      // Edit distance must be less than prefix length
+      var distance = comparePrefix.length - 1;
+      return (distance * fuzzy).floor();
+    }
+    return 0;
+  }
+
   /// Calculate distance from [comparePrefix] to the concatenation of:
   /// [keyPrefix] and [keySuffix].
   ///
@@ -2511,7 +2810,7 @@ abstract class _InOrderIteratorBase<V> {
   ///
   /// Return distance as number of edits between [comparePrefix] and
   /// first [comparePrefix].length codeunits of ([keyPrefix] + [keySuffix]).
-  int prefixDistance(final Iterable<int> comparePrefix,
+  static int prefixDistance(final Iterable<int> comparePrefix,
       final Iterable<int> keyPrefix, final Iterable<int> keySuffix) {
     final keyPrefixLength = keyPrefix.length;
     final keySuffixLength = keySuffix.length;
@@ -2522,26 +2821,7 @@ abstract class _InOrderIteratorBase<V> {
       // cannot compute hamming distance here as
       return _INVALID_DISTANCE;
     }
-/*
-    // 1.
-    final prefixLength = prefix.length;
-    final keyLength = key.length;
 
-    for (var i = 0; i <= keyLength - prefixLength; i++) {
-      int j;
-
-      for (j = 0; j < prefixLength; j++) {
-        if (key[i + j] != prefix[j]) {
-          break;
-        }
-      }
-
-      if (j == prefixLength) {
-        return 0;
-      }
-    }
-*/
-    // 2.
     // Assume worst case and improve if possible
     var distance = comparePrefixLength;
     var comparePrefixIdx = 0;
@@ -2589,7 +2869,7 @@ class _InOrderKeyIterator<V> extends _InOrderIteratorBase<V>
   /// Construct new [_InOrderKeyIterator]
   _InOrderKeyIterator._(_ImmutableTernaryTreap<V> owner, int validVersion,
       _Node<V> root, _PrefixSearchResult<V> prefixRoot,
-      {List<int> prefix, bool fuzzy = false})
+      {List<int> prefix, double fuzzy = 0.0})
       : super(owner, validVersion, root, prefixRoot,
             prefix: prefix, fuzzy: fuzzy);
 
@@ -2606,7 +2886,7 @@ class _InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
   /// Construct new [_InOrderKeyIterator]
   _InOrderValuesIterator(_ImmutableTernaryTreap<V> owner, int validVersion,
       _Node<V> root, _PrefixSearchResult<V> prefixRoot,
-      {List<int> prefix, bool fuzzy = false})
+      {List<int> prefix, double fuzzy = 0.0})
       : super(owner, validVersion, root, prefixRoot,
             prefix: prefix, fuzzy: fuzzy);
 
@@ -2657,20 +2937,56 @@ class _InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
   int get keyDistance => currentDistance;
 }
 
-/// Iterate through keys
-class _InOrderMapEntryIterator<V> extends _InOrderIteratorBase<V>
-    implements TernaryTreapIterator<MapEntry<String, Iterable<V>>> {
+/// Iterate through entries
+abstract class _InOrderMapEntryIterator<V> extends _InOrderIteratorBase<V> {
   /// Construct new [_InOrderKeyIterator]
   _InOrderMapEntryIterator(_ImmutableTernaryTreap<V> owner, int validVersion,
       _Node<V> root, _PrefixSearchResult<V> prefixRoot,
-      {List<int> prefix, bool fuzzy = false})
+      {List<int> prefix, double fuzzy = 0.0})
+      : super(owner, validVersion, root, prefixRoot,
+            prefix: prefix, fuzzy: fuzzy);
+
+  int get keyDistance => currentDistance;
+}
+
+class _InOrderMapEntryIteratorIterator<V> extends _InOrderMapEntryIterator<V>
+    implements TernaryTreapIterator<MapEntry<String, Iterable<V>>> {
+  /// Construct new [_InOrderKeyIterator]
+  _InOrderMapEntryIteratorIterator(_ImmutableTernaryTreap<V> owner,
+      int validVersion, _Node<V> root, _PrefixSearchResult<V> prefixRoot,
+      {List<int> prefix, double fuzzy = 0.0})
       : super(owner, validVersion, root, prefixRoot,
             prefix: prefix, fuzzy: fuzzy);
 
   @override
   MapEntry<String, Iterable<V>> get current =>
-      MapEntry<String, Iterable<V>>(currentKey, currentValue);
+      MapEntry<String, Iterable<V>>(currentKey, currentValue as Set<V>);
+}
+
+class _InOrderMapEntryIteratorSet<V> extends _InOrderMapEntryIterator<V>
+    implements TernaryTreapIterator<MapEntry<String, Set<V>>> {
+  /// Construct new [_InOrderKeyIterator]
+  _InOrderMapEntryIteratorSet(_ImmutableTernaryTreap<V> owner, int validVersion,
+      _Node<V> root, _PrefixSearchResult<V> prefixRoot,
+      {List<int> prefix, double fuzzy = 0.0})
+      : super(owner, validVersion, root, prefixRoot,
+            prefix: prefix, fuzzy: fuzzy);
 
   @override
-  int get keyDistance => currentDistance;
+  MapEntry<String, Set<V>> get current =>
+      MapEntry<String, Set<V>>(currentKey, currentValue as Set<V>);
+}
+
+class _InOrderMapEntryIteratorList<V> extends _InOrderMapEntryIterator<V>
+    implements TernaryTreapIterator<MapEntry<String, List<V>>> {
+  /// Construct new [_InOrderKeyIterator]
+  _InOrderMapEntryIteratorList(_ImmutableTernaryTreap<V> owner,
+      int validVersion, _Node<V> root, _PrefixSearchResult<V> prefixRoot,
+      {List<int> prefix, double fuzzy = 0.0})
+      : super(owner, validVersion, root, prefixRoot,
+            prefix: prefix, fuzzy: fuzzy);
+
+  @override
+  MapEntry<String, List<V>> get current =>
+      MapEntry<String, List<V>>(currentKey, currentValue as List<V>);
 }

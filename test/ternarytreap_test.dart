@@ -40,6 +40,17 @@ void testIdempotence(TernaryTreap<int> tree, String key) {
   expect(mappedKey, equals(tree.mapKey(mappedKey)));
 }
 
+class TestObject {
+  TestObject(this.name);
+  final name;
+  @override
+  bool operator ==(final dynamic other) =>
+      identical(this, other) || name == other.name;
+
+  @override
+  int get hashCode => name.hashCode;
+}
+
 void main() {
   const numUniqueKeys = 1000;
   // Total number of keys taking into account overlap and special keys
@@ -287,10 +298,9 @@ void main() {
     test('keysByNonExistentPrefix', () {
       //Find a prefix that uis not present
       var prefix = wordTST.keys.first;
-      prefix = '^'+prefix.substring(0,prefix.length-1)+'^';
+      prefix = '^' + prefix.substring(0, prefix.length - 1) + '^';
       expect(wordTST.keysByPrefix(prefix).isEmpty, equals(true));
     });
-
 
     test('valuesByKeyPrefix', () {
       //Use key from middle of range
@@ -348,6 +358,24 @@ void main() {
       }
 
       expect(numberTST.contains('NOT FOUND', 5), equals(false));
+    });
+
+    test('lookupValue', () {
+      final original = TestObject('I am an object');
+      final copy = TestObject('I am an object');
+
+      var treeSet = TernaryTreapSet<TestObject>(TernaryTreap.lowercase);
+      var treeList = TernaryTreapList<TestObject>(TernaryTreap.lowercase);
+
+      treeSet.add('this is a key', original);
+      treeList.add('this is a key', original);
+
+      // Searching for value should return reference to original
+      expect(identical(treeSet.lookup('this is a key', copy), original),
+          equals(true));
+
+      expect(identical(treeList.lookup('this is a key', copy), original),
+          equals(true));
     });
 
     test('containsKey', () {
@@ -423,7 +451,7 @@ void main() {
         ..add('*T_eS  -KK  ,  Bg )\n\t', 1);
       expect(tree[' T eS  ^KK %* ^Bg ;  '], <int>[1]);
 
-      expect(tree.keys.first, equals(' T eS   KK     Bg    '));
+      expect(tree.keys.first, equals(' T eS KK Bg '));
 
       testIdempotence(tree, ' %  asd+=as   & & ^J%@HG  J(GH f`sdf  s*df   )!');
 
@@ -574,10 +602,11 @@ void main() {
       for (final key in sortedWordKeys) {
         // Reverse keys to mix it up
         final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        final maxDistance = calcMaxDistance(prefix.codeUnits, 0.5);
         var checker = <List<String>>[];
         for (final key in sortedWordKeys) {
           final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
-          if (distance > -1 && distance < prefix.length) {
+          if (distance > -1 && distance <= maxDistance) {
             checker.add(wordMap[key]);
           }
         }
@@ -586,7 +615,7 @@ void main() {
             checker.expand((Iterable<String> values) => values).toList();
         flatChecker.sort();
 
-        var result = wordTST.valuesByKeyPrefix(prefix, true).toList();
+        var result = wordTST.valuesByKeyPrefix(prefix, 0.5).toList();
         result.sort();
 
         expect(result, equals(flatChecker));
@@ -597,15 +626,16 @@ void main() {
       for (final key in sortedWordKeys) {
         // Reverse keys to mix it up
         final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        final maxDistance = calcMaxDistance(prefix.codeUnits, 0.5);
         var checker = <String>[];
         for (final key in sortedWordKeys) {
           final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
-          if (distance > -1 && distance < prefix.length) {
+          if (distance > -1 && distance <= maxDistance) {
             checker.add(key);
           }
         }
 
-        var result = wordTST.keysByPrefix(prefix, true).toList();
+        var result = wordTST.keysByPrefix(prefix, 0.5).toList();
 
         result.sort();
         checker.sort();
@@ -617,7 +647,7 @@ void main() {
       for (final key in sortedWordKeys) {
         final prefix = String.fromCharCodes(key.codeUnits.reversed);
 
-        var keyItr = wordTST.keysByPrefix(prefix, true).iterator;
+        var keyItr = wordTST.keysByPrefix(prefix, 0.5).iterator;
         while (keyItr.moveNext()) {
           expect(
               keyItr.keyDistance,
@@ -625,7 +655,7 @@ void main() {
                   prefixDistance(prefix.codeUnits, keyItr.current.codeUnits)));
         }
 
-        var entryItr = wordTST.entriesByKeyPrefix(prefix, true).iterator;
+        var entryItr = wordTST.entriesByKeyPrefix(prefix, 0.5).iterator;
         while (entryItr.moveNext()) {
           expect(
               entryItr.keyDistance,
@@ -638,15 +668,16 @@ void main() {
     test('entriesByPrefixDistance', () {
       for (final key in sortedWordKeys) {
         final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        final maxDistance = calcMaxDistance(prefix.codeUnits, 0.5);
         var checker = <MapEntry<String, Iterable<String>>>[];
         for (final key in sortedWordKeys) {
           final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
-          if (distance > -1 && distance < prefix.length) {
+          if (distance > -1 && distance <= maxDistance) {
             checker.add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
           }
         }
 
-        var result = wordTST.entriesByKeyPrefix(prefix, true).toList();
+        var result = wordTST.entriesByKeyPrefix(prefix, 0.5).toList();
 
         result.sort((a, b) => a.key.compareTo(b.key));
         checker.sort((a, b) => a.key.compareTo(b.key));
@@ -659,10 +690,11 @@ void main() {
     test('forEachKeyPrefixedByDistance', () {
       for (final key in sortedWordKeys) {
         final prefix = String.fromCharCodes(key.codeUnits.reversed);
+        final maxDistance = calcMaxDistance(prefix.codeUnits, 0.5);
         var checker = <MapEntry<String, Iterable<String>>>[];
         for (final key in sortedWordKeys) {
           final distance = prefixDistance(prefix.codeUnits, key.codeUnits);
-          if (distance > -1 && distance < prefix.length) {
+          if (distance > -1 && distance <= maxDistance) {
             checker.add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
           }
         }
@@ -672,7 +704,7 @@ void main() {
         wordTST.forEachKeyPrefixedBy(prefix,
             (String key, Iterable<String> data) {
           result.add(MapEntry<String, Iterable<String>>(key, data));
-        }, true);
+        }, 0.5);
 
         result.sort((a, b) => a.key.compareTo(b.key));
         checker.sort((a, b) => a.key.compareTo(b.key));
@@ -704,50 +736,50 @@ void main() {
       expect(wordTST.suggestKey('an'), equals(anKeys.last));
     });
 
-    test('emails', () {
-      final emailTST = TernaryTreapSet<String>();
-      emailTST.addKeys(emails);
+    test('sizeOf', () {
+      var sizeofEmails = 0;
+      for (final email in emails) {
+        sizeofEmails += email.codeUnits.length * 4;
+      }
+      print(sizeofEmails);
 
-      print(emailTST.length);
+      final emailsTST = TernaryTreapSet<String>();
+      emailsTST.addKeys(emails);
+      
+      print('Size increase: ' + (emailsTST.sizeOf()/sizeofEmails).toString());
     });
-
   });
 }
 
-  int prefixDistance(final List<int> prefix, final List<int> key) {
-    if (key.length < prefix.length) {
-      // cannot compute hamming distance here as
-      return -1;
-    }
-/*
-    // 1.
-    final prefixLength = prefix.length;
-    final keyLength = key.length;
-
-    for (var i = 0; i <= keyLength - prefixLength; i++) {
-      int j;
-
-      for (j = 0; j < prefixLength; j++) {
-        if (key[i + j] != prefix[j]) {
-          break;
-        }
-      }
-
-      if (j == prefixLength) {
-        return 0;
-      }
-    }
-*/
-    // 2.
-    // Assume worst case and improve if possible
-    var distance = prefix.length;
-
-    // Improve if possible
-    for (var i = 0; i < prefix.length; i++) {
-      if (prefix[i] == key[i]) {
-        distance--;
-      }
-    }
-
-    return distance;
+int prefixDistance(final List<int> prefix, final List<int> key) {
+  if (key.length < prefix.length) {
+    // cannot compute hamming distance here as
+    return -1;
   }
+  
+  // Assume worst case and improve if possible
+  var distance = prefix.length;
+
+  // Improve if possible
+  for (var i = 0; i < prefix.length; i++) {
+    if (prefix[i] == key[i]) {
+      distance--;
+    }
+  }
+
+  return distance;
+}
+
+/// Calculate maximum edit distance based upon user specification
+int calcMaxDistance(final Iterable<int> comparePrefix, double fuzzy) {
+  if (fuzzy < 0.0 || fuzzy > 1.0) {
+    throw ArgumentError(fuzzy);
+  }
+
+  if (fuzzy > 0.0 && comparePrefix.isNotEmpty) {
+    // Edit distance must be less than prefix length
+    var distance = comparePrefix.length - 1;
+    return (distance * fuzzy).floor();
+  }
+  return 0;
+}
