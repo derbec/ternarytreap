@@ -52,10 +52,10 @@ abstract class Activity {
   /// Display prompt for next action
   String get prompt;
 
-  /// Return the underlying [TernaryTreap]
-  TernaryTreap<DictEntry> get ternaryTreap;
+  /// Return the underlying [TTMultiMap]
+  TTMultiMap<DictEntry> get ternaryTreap;
 
-  /// Return string representing current [TernaryTreap] state
+  /// Return string representing current [TTMultiMap] state
   String treeString() {
     final result = StringBuffer();
 
@@ -79,8 +79,8 @@ class InputActivity extends Activity {
   /// Constructor for [InputActivity]
   InputActivity({KeyMapping keyMapping, List<String> preload})
       : _ternaryTreap = keyMapping == null
-            ? TernaryTreapSet<DictEntry>()
-            : TernaryTreapSet<DictEntry>(keyMapping) {
+            ? TTMultiMapSet<DictEntry>()
+            : TTMultiMapSet<DictEntry>(keyMapping) {
     if (preload.isNotEmpty) {
       for (final  word in preload) {
         // fabricate dict entry
@@ -89,11 +89,11 @@ class InputActivity extends Activity {
     }
   }
 
-  /// [TernaryTreap] with key transform determined by client
-  final TernaryTreap<DictEntry> _ternaryTreap;
+  /// [TTMultiMap] with key transform determined by client
+  final TTMultiMap<DictEntry> _ternaryTreap;
 
   @override
-  TernaryTreap<DictEntry> get ternaryTreap => _ternaryTreap;
+  TTMultiMap<DictEntry> get ternaryTreap => _ternaryTreap;
 
   /// Word currently being inserted
   String word;
@@ -144,7 +144,7 @@ class QueryActivity extends Activity {
   final InputActivity _inputSession;
 
   @override
-  TernaryTreap<DictEntry> get ternaryTreap => _inputSession.ternaryTreap;
+  TTMultiMap<DictEntry> get ternaryTreap => _inputSession.ternaryTreap;
 
   String _query;
 

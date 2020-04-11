@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:ternarytreap/ternarytreap.dart';
+import 'package:ternarytreap/ternarytreap.dart' as ternarytreap;
 import 'package:example/activities.dart';
 import '../../../ternarytreap/test/words.dart';
 
@@ -37,17 +37,17 @@ void main(List<String> args) {
       break;
     case '1':
       _session =
-          InputActivity(keyMapping: TernaryTreap.lowercase, preload: _words);
+          InputActivity(keyMapping: ternarytreap.lowercase, preload: _words);
       stdout.writeln('Using lowercase KeyMapping');
       break;
     case '2':
       _session = InputActivity(
-          keyMapping: TernaryTreap.collapseWhitespace, preload: _words);
+          keyMapping: ternarytreap.collapseWhitespace, preload: _words);
       stdout.writeln('Using collapseWhitespace KeyMapping');
       break;
     case '3':
       _session = InputActivity(
-          keyMapping: TernaryTreap.lowerCollapse, preload: _words);
+          keyMapping: ternarytreap.lowerCollapse, preload: _words);
       stdout.writeln('Using lowerCollapse KeyMapping');
       break;
     default:

@@ -9,6 +9,10 @@
 /// algorithm where each node is assigned a random priority and
 /// [tree rotation](https://en.wikipedia.org/wiki/Tree_rotation) used to
 /// maintain heap ordering.
-library ternarytreap;
 
-export 'src/ternarytreap_base.dart';
+library ternarytreap;
+export 'src/ttset.dart';
+export 'src/ttmultimap.dart';
+export 'src/ttmultimapimpl.dart';
+export 'src/key_mapping.dart';
+export 'src/prefixeditdistanceiterable.dart';
