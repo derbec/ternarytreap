@@ -113,7 +113,7 @@ void main() {
     for (final x in numberKeys) {
       // Special keys are added with no data
       if (x > (numUniqueKeys * 3 + startVal)) {
-        numberTST.add(x.toString());
+        numberTST.addKey(x.toString());
       } else {
         numberTST.add(x.toString(), x);
       }
@@ -195,7 +195,7 @@ void main() {
     });
 
     test('one key', () {
-      final oneKey = ternarytreap.TTMultiMapSet<int>()..add('a');
+      final oneKey = ternarytreap.TTMultiMapSet<int>()..addKey('a');
       expect(oneKey.length, equals(1));
       expect(oneKey.entries.length, equals(1));
       expect(oneKey.entriesByKeyPrefix('a').length, equals(1));
@@ -337,8 +337,7 @@ void main() {
     });
 
     test('[]=', () {
-      final tree =
-          ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
+      final tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -364,10 +363,10 @@ void main() {
       final original = _TestObject('I am an object');
       final copy = _TestObject('I am an object');
 
-      var treeSet = ternarytreap.TTMultiMapSet<_TestObject>(
-          ternarytreap.lowercase);
-      var treeList = ternarytreap.TTMultiMapList<_TestObject>(
-          ternarytreap.lowercase);
+      var treeSet =
+          ternarytreap.TTMultiMapSet<_TestObject>(ternarytreap.lowercase);
+      var treeList =
+          ternarytreap.TTMultiMapList<_TestObject>(ternarytreap.lowercase);
 
       treeSet.add('this is a key', original);
       treeList.add('this is a key', original);
@@ -402,9 +401,8 @@ void main() {
     });
 
     test('KeyMapping', () {
-      var tree =
-          ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase)
-            ..add('TeStInG', 1);
+      var tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase)
+        ..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
 
@@ -429,8 +427,7 @@ void main() {
 
       testIdempotence(tree, 'asdas KJHGJGH fsdfsdf ');
 
-      tree = ternarytreap.TTMultiMapSet<int>(
-          ternarytreap.collapseWhitespace)
+      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);
       expect(
           tree['t             '
@@ -441,9 +438,8 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree =
-          ternarytreap.TTMultiMapSet<int>(ternarytreap.lowerCollapse)
-            ..add(' T eS   KK     Bg  ', 1);
+      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowerCollapse)
+        ..add(' T eS   KK     Bg  ', 1);
       expect(
           tree['       t es'
               ' kk bg'],
@@ -453,8 +449,7 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = ternarytreap.TTMultiMapSet<int>(
-          ternarytreap.nonLetterToSpace)
+      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.nonLetterToSpace)
         ..add('*T_eS  -KK  ,  Bg )\n\t', 1);
       expect(tree[' T eS  ^KK %* ^Bg ;  '], <int>[1]);
 
@@ -462,8 +457,7 @@ void main() {
 
       testIdempotence(tree, ' %  asd+=as   & & ^J%@HG  J(GH f`sdf  s*df   )!');
 
-      tree = ternarytreap.TTMultiMapSet<int>(
-          ternarytreap.joinSingleLetters)
+      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.joinSingleLetters)
         ..add('    a     b .  ab.cd a  b abcd a        b', 1);
 
       expect(tree['ab .  ab.cd ab abcd ab'], equals(<int>[1]));
@@ -485,8 +479,7 @@ void main() {
     });
 
     test('removeValues', () {
-      final tree =
-          ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
+      final tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -503,8 +496,7 @@ void main() {
     });
 
     test('removeKey', () {
-      final tree =
-          ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
+      final tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -742,87 +734,41 @@ void main() {
     });
 
     test('suggestKey', () {
+      final wordTSTKeys = wordTST.keys.toList();
       final anKeys = wordTST.keysByPrefix('an').toList();
 
       // Prioritise the last key
-      wordTST.likeKey(anKeys.last);
+      wordTST.markKey(anKeys.last);
 
-      // Now suggest should return prioritised key
-      expect(wordTST.suggestKey('an'), equals(anKeys.last));
+      // Now suggest should return promoted key
+      expect(wordTST.lastMarkedKeyByPrefix('an'), equals(anKeys.last));
+
+      expect(wordTST.lastMarkedKeyByPrefix('a'), equals(anKeys.last));
 
       //Repeat with another key
       final cKeys = wordTST.keysByPrefix('c').toList();
 
       // Prioritise the last key
-      wordTST.likeKey(cKeys.last);
+      wordTST.markKey(cKeys.last);
 
       // Now suggest should return prioritised key
-      expect(wordTST.suggestKey('c'), equals(cKeys.last));
+      expect(wordTST.lastMarkedKeyByPrefix('c'), equals(cKeys.last));
 
-      // Check that tree remembers original like
-      expect(wordTST.suggestKey('an'), equals(anKeys.last));
-    });
+      // Check that tree remembers original promotion
+      expect(wordTST.lastMarkedKeyByPrefix('an'), equals(anKeys.last));
 
-    test('doco', () {
-      /// Use for string searching
-      final ternaryTreapSet = ternarytreap.TTSet()
-        ..addAll([
-          'zebra'
-              'canary',
-          'goat',
-          'cat',
-          'chicken',
-          'sheep',
-          'cow',
-          'crocodile',
-          'hawk',
-          'dingo',
-          'dog',
-          'donkey',
-          'horse',
-          'kangaroo',
-          'rabbit',
-          'pig',
-          'rat',
-          'ape',
-        ]);
+      expect(wordTST.lastMarkedKeyByPrefix('c'), equals(cKeys.last));
 
-      /// All keys
-      print(ternaryTreapSet.join(', '));
+      expect(wordTST.keys.toList(), equals(wordTSTKeys));
 
-      /// Keys that start with 'ra', e.g. <mark>ra</mark>bbit, <mark>ra</mark>t
-      print(ternaryTreapSet.lookupByPrefix('ra'));
+      final ttSet = ternarytreap.TTSet.fromIterable(
+          ['grab', 'angry', 'camel', 'axe', 'animal', 'bike', 'announced']);
 
-      /// Keys that start with 'ra' given max edit distance of 1
-      /// eg: <mark>ra</mark>bbit, <mark>ra</mark>t, k<mark>a</mark>ngaroo, h<mark>a</mark>wk, c<mark>a</mark>t
-      print(ternaryTreapSet.lookupByPrefix('ra', maxPrefixEditDistance: 1));
+      final ttSetKeys = ttSet.toList();
 
-      /// Keys that start with 'din' given max edit distance of 2
-      /// eg: <mark>din</mark>go, <mark>d</mark>o<mark>n</mark>key, <mark>d</mark>og, ka<mark>n</mark>garoo, p<mark>i</mark>g
-      print(ternaryTreapSet.lookupByPrefix('din', maxPrefixEditDistance: 2));
+      ttSet.promoteKey('announced');
 
-      /// Use as a multimap
-      final ternaryTreapMultimap =
-          ternarytreap.TTMultiMapSet<String>()
-            ..addValues('cat', ['purrs', 'claws'])
-            ..addValues('canary', ['bird', 'yellow'])
-            ..add('dog')
-            ..add('zebra')
-            ..add('cow')
-            ..add('donkey')
-            ..add('goat')
-            ..add('pig')
-            ..add('horse')
-            ..add('rabbit')
-            ..add('rat')
-            ..add('sheep')
-            ..add('ape')
-            ..add('dingo')
-            ..add('kangaroo')
-            ..add('chicken')
-            ..add('hawk')
-            ..add('crocodile')
-            ..add('cow');
+      expect(ttSet.toList(), equals(ttSetKeys));
     });
   });
 }

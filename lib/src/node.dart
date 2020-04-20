@@ -5,6 +5,9 @@ import 'dart:collection';
 import 'package:meta/meta.dart';
 import 'pool.dart';
 
+/// (2^32)
+const int MAX_PRIORITY = 4294967296;
+
 /// Stores result of prefix search.
 @immutable
 class PrefixSearchResult<V> {
@@ -73,7 +76,7 @@ abstract class Node<V> {
   Node<V> right;
 
   /// Costs space but much faster than maintaining explicit stack.
-  /// during add operation. Maybe can use for near neighbour or something.
+  /// during add operation and useful for near neighbour search.
   Node<V> parent;
 
   /// A single node may map to multiple values.
@@ -114,7 +117,16 @@ abstract class Node<V> {
   void setValues(Iterable<V> values);
 
   /// Add a single [value] to the node
-  void addValue(V value);
+  /// Return true if value collection has changed.
+  /// Return false if value collection is unchanged.
+  bool addValue(V value);
+
+  /// Add all values to node
+  void addValues(Iterable<V> values){
+    for(final value in values){
+      addValue(value);
+    }
+  }
 
   /// Remove a single [value]  the node
   bool removeValue(V value);
@@ -127,6 +139,17 @@ abstract class Node<V> {
 
   /// Does this node represent the final character of a key?
   bool get isKeyEnd => _values != null;
+
+  /// True if this node has been previously marked, false otherwise.
+  bool get isMarked  =>
+      isKeyEnd && priority >= MAX_PRIORITY;
+
+  /// Map node priority into the 'promoted' codomain.
+  void mark() {
+    assert(priority < MAX_PRIORITY);
+    priority += MAX_PRIORITY;
+  }
+
 
   /// return number of end nodes in subtree with this node as root
   int get sizeDFSTree =>
@@ -453,11 +476,13 @@ class NodeSet<V> extends Node<V> {
   }
 
   @override
-  void addValue(V value) {
+  bool addValue(V value) {
     if (identical(_values, Node._emptyValues)) {
+      // Currently set to empty values.
       setValues([value]);
+      return true;
     } else {
-      (_values as Set<V>).add(value);
+      return (_values as Set<V>).add(value);
     }
   }
 }
@@ -505,11 +530,15 @@ class NodeList<V> extends Node<V> {
   }
 
   @override
-  void addValue(V value) {
+  bool addValue(V value) {
     if (identical(_values, Node._emptyValues)) {
+      // Node currently has empty value
       setValues([value]);
+      return true;
     } else {
       values.add(value);
+      // Adding to list always changes list
+      return true;
     }
   }
 }

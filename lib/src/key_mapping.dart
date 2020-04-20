@@ -44,28 +44,16 @@ final RegExp _matchSeparators = RegExp(r'[\p{Zl}\p{Zp}\p{Zs}]+', unicode: true);
 typedef KeyMapping = String Function(String str);
 
 /// Return [str] unchanged.
-///
-/// When passed to [TernaryTreap()] this [KeyMapping] will be applied
-/// to all key arguments passed by client
 String identity(String str) => str;
 
 /// Transform [str] such that all characters are lowercase.
-///
-/// When passed to [TernaryTreap()] this [KeyMapping] will be applied
-/// to all key arguments passed by client
 String lowercase(String str) => str.toLowerCase();
 
 /// Transform [str] such that all characters are uppercase.
-///
-/// When passed to [TernaryTreap()] this [KeyMapping] will be applied
-/// to all key arguments passed by client
 String uppercase(String str) => str.toUpperCase();
 
 /// Transform [str] such that each non letter character is
 /// replaced by a space character.
-///
-/// When passed to [TernaryTreap()] this [KeyMapping] will be applied
-/// to all key arguments passed by client
 String nonLetterToSpace(String str) =>
     str.replaceAll(_matchNonAlphaNumeric, ' ');
 
@@ -79,9 +67,6 @@ String nonLetterToSpace(String str) =>
 ///
 /// Note: This transform trims and collapses whitespace during operation
 /// and is thus equivilent also to performing [collapseWhitespace].
-///
-/// When passed to [TernaryTreap()] this [KeyMapping] will be applied
-/// to all key arguments passed by client
 String joinSingleLetters(String str) {
   final chunks = str.trim().split(_matchSeparators);
 
@@ -111,14 +96,8 @@ String joinSingleLetters(String str) {
 ///
 /// * Whitespace is trimmed from start and end
 /// * Runs of multiple whitespace characters are collapsed into a single ' '.
-///
-/// When passed to [TernaryTreap()] this [KeyMapping] will be applied
-/// to all key arguments passed by client.
 String collapseWhitespace(String str) =>
     str.trim().replaceAll(_matchSeparators, ' ');
 
 /// Transform [str] with both [lowercase] and [collapseWhitespace].
-///
-/// When passed to [TernaryTreap()] this [KeyMapping] will be applied
-/// to all key arguments passed by client
 String lowerCollapse(String str) => collapseWhitespace(str).toLowerCase();

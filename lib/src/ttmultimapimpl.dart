@@ -14,19 +14,20 @@ import 'utility.dart';
 const _SIZE_OF_INT = 4;
 const _SIZE_OF_REF = 4; // 64 bit pointers
 
-/// 2^53 because javascript
+/// (2^53)-1 because javascript
 const int _MAX_SAFE_INTEGER = 9007199254740991;
 
-/// 2^32 specified because javascript
-const int _MAX_RANDOM = 4294967296;
-
-/// Map key and throw error if result is empty
-String mapKeyErrorOnEmpty(String key, KeyMapping keyMapping) {
-  final mappedKey = keyMapping(key);
-  if (mappedKey.isEmpty) {
-    throw ArgumentError('key $key is empty after KeyMapping applied');
-  }
-  return mappedKey;
+/// The result of an add operation.
+class _AddResult<V> {
+  /// [rootNode] is the potentially new root node of treap after add.
+  /// [targetNode] is the node created or affected by the add.
+  /// [newKeyValue] is true if a new key or value was created by this add.
+  _AddResult(this.rootNode, this.targetNode, this.newKeyValue)
+      : assert(rootNode != null),
+        assert(targetNode != null);
+  final Node<V> rootNode;
+  final Node<V> targetNode;
+  final bool newKeyValue;
 }
 
 /// Return a [TTMultiMap] that stores values in a [Set]
@@ -46,7 +47,7 @@ String mapKeyErrorOnEmpty(String key, KeyMapping keyMapping) {
 /// The codomain of <i>f</i> includes the empty set.
 /// This allows Keys to be stored without Values, useful when
 /// you require only a set of Keys for searching purposes.
-class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V>{
+class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   /// Construct a new [TTMultiMapSet] with an optional [keyMapping]
   TTMultiMapSet([KeyMapping keyMapping])
       : super(
@@ -55,11 +56,38 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V>{
                 NodeSet<V>(codeUnit, priority, parent, _codeUnitPool),
             keyMapping);
 
+  /// Create a [TTMultiMapSet] from a [TTMultiMap].
+  factory TTMultiMapSet.from(TTMultiMap<V> other, [KeyMapping keyMapping]) {
+    ArgumentError.checkNotNull(other, 'other');
+    final ttMultiMap = TTMultiMapSet<V>(keyMapping);
+
+    final entryItr = other.entries.iterator as InOrderMapEntryIterator<V>;
+    while (entryItr.moveNext()) {
+      ttMultiMap.addValues(entryItr.currentKey, entryItr.currentValue);
+    }
+
+    return ttMultiMap;
+  }
+
+  /// Create a [TTMultiMapSet] from a [Map].
+  factory TTMultiMapSet.fromMap(Map<String, Iterable<V>> map,
+      [KeyMapping keyMapping]) {
+    ArgumentError.checkNotNull(map, 'map');
+    final ttMultiMap = TTMultiMapSet<V>(keyMapping);
+
+    for (final key in map.keys) {
+      ttMultiMap.addValues(key, map[key]);
+    }
+    return ttMultiMap;
+  }
+
   @override
   Set<V> operator [](String key) => super[key] as Set<V>;
 
   @override
-  Map<String, Set<V>> asMap() => Map<String, Set<V>>.fromEntries(entries);
+  Map<String, Set<V>> asMap() => {
+        for (final key in keys) key: this[key],
+      };
 
   @override
   Iterable<MapEntry<String, Set<V>>> get entries =>
@@ -70,11 +98,12 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V>{
           String prefix,
           {int maxPrefixEditDistance = 0}) =>
       InOrderMapEntryIterableSet<V>(_root, _version,
-          prefix: mapKeyErrorOnEmpty(prefix, keyMapping).codeUnits,
+          prefix: _mapKeyErrorOnEmpty(prefix).codeUnits,
           maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   void forEachKey(void Function(String key, Set<V> values) f) {
+    ArgumentError.checkNotNull(f, 'f');
     final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
     while (entryItr.moveNext()) {
       f(entryItr.currentKey, entryItr.currentValue as Set<V>);
@@ -85,6 +114,7 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V>{
   void forEachKeyPrefixedBy(
       String prefix, void Function(String key, Set<V> values) f,
       {int maxPrefixEditDistance = 0}) {
+    ArgumentError.checkNotNull(f, 'f');
     final itr =
         entriesByKeyPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
             .iterator as InOrderMapEntryIterator<V>;
@@ -95,16 +125,10 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V>{
   }
 
   @override
-  Set<V> removeValues(String key) {
-    final values = super.removeValues(key);
-    return values == null?null:values as Set<V>;
-  }
+  Set<V> removeValues(String key) => super.removeValues(key) as Set<V>;
 
   @override
-  Set<V> removeAll(String key) {
-    final values = super.removeAll(key);
-    return values == null?null:values as Set<V>;
-  }
+  Set<V> removeAll(String key) => super.removeAll(key) as Set<V>;
 }
 
 /// Return a [TTMultiMap] that stores values in a [List]
@@ -135,11 +159,38 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
                     final HashSet<CodeUnitPoolEntry> _codeUnitPool) =>
                 NodeList<V>(codeUnit, priority, parent, _codeUnitPool),
             keyMapping);
+
+  /// Create a [TTMultiMapList] from a [TTMultiMap].
+  factory TTMultiMapList.from(TTMultiMap<V> other, [KeyMapping keyMapping]) {
+    ArgumentError.checkNotNull(other, 'other');
+    final ttMultiMap = TTMultiMapList<V>(keyMapping);
+    final entryItr = other.entries.iterator as InOrderMapEntryIterator<V>;
+
+    while (entryItr.moveNext()) {
+      ttMultiMap.addValues(entryItr.currentKey, entryItr.currentValue);
+    }
+    return ttMultiMap;
+  }
+
+  /// Create a [TTMultiMapList] from a [Map].
+  factory TTMultiMapList.fromMap(Map<String, Iterable<V>> map,
+      [KeyMapping keyMapping]) {
+    ArgumentError.checkNotNull(map, 'map');
+    final ttMultiMap = TTMultiMapList<V>(keyMapping);
+
+    for (final key in map.keys) {
+      ttMultiMap.addValues(key, map[key]);
+    }
+    return ttMultiMap;
+  }
+
   @override
   List<V> operator [](String key) => super[key] as List<V>;
 
   @override
-  Map<String, List<V>> asMap() => Map<String, List<V>>.fromEntries(entries);
+  Map<String, List<V>> asMap() => {
+        for (final key in keys) key: this[key],
+      };
 
   @override
   Iterable<MapEntry<String, List<V>>> get entries =>
@@ -150,11 +201,12 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
           String prefix,
           {int maxPrefixEditDistance = 0}) =>
       InOrderMapEntryIterableList<V>(_root, _version,
-          prefix: mapKeyErrorOnEmpty(prefix, keyMapping).codeUnits,
+          prefix: _mapKeyErrorOnEmpty(prefix).codeUnits,
           maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   void forEachKey(void Function(String key, List<V> values) f) {
+    ArgumentError.checkNotNull(f, 'f');
     final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
     while (entryItr.moveNext()) {
       f(entryItr.currentKey, entryItr.currentValue as List<V>);
@@ -165,6 +217,7 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   void forEachKeyPrefixedBy(
       String prefix, void Function(String key, List<V> values) f,
       {int maxPrefixEditDistance = 0}) {
+    ArgumentError.checkNotNull(f, 'f');
     final itr =
         entriesByKeyPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
             .iterator as InOrderMapEntryIterator<V>;
@@ -175,16 +228,10 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  List<V> removeValues(String key) {
-    final values = super.removeValues(key);
-    return values == null?null:values as List<V>;
-  }
+  List<V> removeValues(String key) => super.removeValues(key) as List<V>;
 
   @override
-  List<V> removeAll(String key) {
-    final values = super.removeAll(key);
-    return values == null?null:values as List<V>;
-  }
+  List<V> removeAll(String key) => super.removeAll(key) as List<V>;
 }
 
 /// TernaryTreap implementation
@@ -220,87 +267,95 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   Node<V> _root;
 
   @override
-  Iterable<V> operator [](String key) {
-    final keyNode = _root?.getKeyNode(mapKeyErrorOnEmpty(key, _keyMapping));
-
-    if (keyNode == null) {
-      return null;
-    }
-
-    return keyNode.values;
-  }
+  Iterable<V> operator [](String key) =>
+      _root?.getKeyNode(_mapKeyErrorOnEmpty(key))?.values;
 
   @override
   void operator []=(String key, Iterable<V> values) {
-    final keyMapped = mapKeyErrorOnEmpty(key, _keyMapping);
+    ArgumentError.checkNotNull(values, 'values');
+    final addResult = _add(_root, _mapKeyErrorOnEmpty(key), null);
 
-    final addResult = _add(_root, keyMapped, null);
     _root = addResult.rootNode;
-    var keyNode = addResult.addedNode;
 
-    if (keyNode == null) {
-      throw Error();
-    }
-
-    // Update values with shallow copy
-    keyNode.setValues(values);
+    addResult.targetNode.setValues(values);
 
     _incVersion();
   }
 
   @override
-  bool add(String key, [V value]) {
-    final addResult = _add(_root, mapKeyErrorOnEmpty(key, _keyMapping), value);
+  bool add(String key, V value) {
+    ArgumentError.checkNotNull(value, 'value');
+    final addResult = _add(_root, _mapKeyErrorOnEmpty(key), value);
+
     _root = addResult.rootNode;
 
     _incVersion();
-    return addResult.newKey;
+
+    return addResult.newKeyValue;
+  }
+
+  @override
+  void addAll(TTMultiMap<V> other) {
+    ArgumentError.checkNotNull(other, 'other');
+    final entryItr = other.entries.iterator as InOrderMapEntryIterator<V>;
+
+    while (entryItr.moveNext()) {
+      _addIterable(
+          _mapKeyErrorOnEmpty(entryItr.currentKey), entryItr.currentValue);
+    }
+
+    _incVersion();
   }
 
   @override
   void addEntries(Iterable<MapEntry<String, Iterable<V>>> entries) {
+    ArgumentError.checkNotNull(entries, 'entries');
     entries.forEach((final entry) {
-      final mappedKey = mapKeyErrorOnEmpty(entry.key, _keyMapping);
-      final data = entry.value;
-
-      // map key alone for case where no data is associated with key
-      final addResult = _add(_root, mappedKey, null);
-      _root = addResult.rootNode;
-
-      // copy data over
-      for (final value in data) {
-        addResult.addedNode.addValue(value);
-      }
+      _addIterable(_mapKeyErrorOnEmpty(entry.key), entry.value);
     });
 
     _incVersion();
   }
 
   @override
-  void addKeys(Iterable<String> keys) {
-    keys.forEach((final key) {
-      add(key);
-    });
+  bool addKey(String key) {
+    final addResult = _add(_root, _mapKeyErrorOnEmpty(key), null);
+
+    _root = addResult.rootNode;
+
+    _incVersion();
+
+    return addResult.newKeyValue;
   }
+
+  @override
+  void addKeys(Iterable<String> keys) => keys.forEach((final key) {
+        addKey(key);
+      });
+
+  @override
+  void addKeyValue(V keyValue) {
+    add(keyValue.toString(), keyValue);
+  }
+
+  @override
+  void addKeyValues(Iterable<V> keyValues) =>
+      keyValues.forEach((final keyValue) {
+        addKeyValue(keyValue);
+      });
 
   @override
   void addValues(String key, Iterable<V> values) {
-    final mappedKey = mapKeyErrorOnEmpty(key, _keyMapping);
-
-    // map key alone for case where no data is associated with key
-    final tuple = _add(_root, mappedKey, null);
-    _root = tuple.rootNode;
-
-    for (final value in values) {
-      tuple.addedNode.addValue(value);
-    }
+    ArgumentError.checkNotNull(values, 'values');
+    _addIterable(_mapKeyErrorOnEmpty(key), values);
 
     _incVersion();
   }
 
   @override
-  Map<String, Iterable<V>> asMap() =>
-      Map<String, Iterable<V>>.fromEntries(entries);
+  Map<String, Iterable<V>> asMap() => {
+        for (final key in keys) key: this[key],
+      };
 
   @override
   void clear() {
@@ -310,7 +365,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   bool contains(String key, V value) {
-    final keyNode = _root?.getKeyNode(mapKeyErrorOnEmpty(key, _keyMapping));
+    final keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
     // Does the key map to anything?
     if (keyNode == null) {
@@ -328,18 +383,19 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   Iterable<MapEntry<String, Iterable<V>>> get entries =>
-      InOrderMapEntryIterable<V>( _root, _version);
+      InOrderMapEntryIterable<V>(_root, _version);
 
   @override
   PrefixEditDistanceIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(
           String prefix,
           {int maxPrefixEditDistance = 0}) =>
-      InOrderMapEntryIterable<V>( _root, _version,
-          prefix: mapKeyErrorOnEmpty(prefix, _keyMapping).codeUnits,
+      InOrderMapEntryIterable<V>(_root, _version,
+          prefix: _mapKeyErrorOnEmpty(prefix).codeUnits,
           maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   void forEach(void Function(String key, V value) f) {
+    ArgumentError.checkNotNull(f, 'f');
     final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
 
     while (entryItr.moveNext()) {
@@ -351,6 +407,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   void forEachKey(void Function(String key, Iterable<V> values) f) {
+    ArgumentError.checkNotNull(f, 'f');
     final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
     while (entryItr.moveNext()) {
       f(entryItr.currentKey, entryItr.currentValue);
@@ -361,6 +418,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   void forEachKeyPrefixedBy(
       String prefix, void Function(String key, Iterable<V> values) f,
       {int maxPrefixEditDistance = 0}) {
+    ArgumentError.checkNotNull(f, 'f');
     final itr =
         entriesByKeyPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
             .iterator as InOrderMapEntryIterator<V>;
@@ -381,10 +439,10 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   PrefixEditDistanceIterable<String> keysByPrefix(String prefix,
-          {int maxPrefixEditDistance = 0}) =>
+          {int maxPrefixEditDistance = 0, bool filterMarked = false}) =>
       InOrderKeyIterable<V>(_root, _version,
-          prefix: mapKeyErrorOnEmpty(prefix, _keyMapping).codeUnits,
-          maxPrefixEditDistance: maxPrefixEditDistance);
+          prefix: _mapKeyErrorOnEmpty(prefix).codeUnits,
+          maxPrefixEditDistance: maxPrefixEditDistance, filterMarked: filterMarked);
 
   @override
   int keyDepth(String key) {
@@ -392,8 +450,8 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       return -1;
     }
 
-    final prefixDescendant = _root.getClosestPrefixDescendant(
-        mapKeyErrorOnEmpty(key, _keyMapping).codeUnits);
+    final prefixDescendant =
+        _root.getClosestPrefixDescendant(_mapKeyErrorOnEmpty(key).codeUnits);
 
     // The node must represent only this key
     if (!prefixDescendant.isPrefixMatch ||
@@ -412,12 +470,15 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   int get length => _root == null ? 0 : _root.sizeDFSTree;
 
   @override
-  void likeKey(String key) {
-    var keyNode = _root?.getKeyNode(mapKeyErrorOnEmpty(key, _keyMapping));
+  void markKey(String key) {
+    var keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
     if (keyNode == null) {
       throw ArgumentError('key: $key not found');
     }
+
+    // Promote node priority
+    keyNode.mark();
 
     var changed = false;
 
@@ -436,7 +497,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
         final parentIsRoot = parent == _root;
 
-        // Also need granparent to swap parent child relationship.
+        // Also need grandparent to swap parent child relationship.
         // Or if at root then assign rotated node as new root.
         final grandparent = parent.parent;
         if (grandparent != null || parentIsRoot) {
@@ -477,65 +538,45 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  V lookup(String key, V value) {
-    final keyNode = _root?.getKeyNode(mapKeyErrorOnEmpty(key, _keyMapping));
-
-    // Does the key map to anything?
-    if (keyNode == null) {
-      return null;
-    }
-
-    return keyNode.lookupValue(value);
-  }
+  V lookup(String key, V value) =>
+      _root?.getKeyNode(_mapKeyErrorOnEmpty(key))?.lookupValue(value);
 
   @override
   bool remove(String key, V value) {
-    final keyNode = _root?.getKeyNode(mapKeyErrorOnEmpty(key, _keyMapping));
+    final keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
-    // Does the key map to anything?
-    if (keyNode == null) {
-      return false;
-    }
-
-    // Try to remove
-    if (keyNode.removeValue(value)) {
+    if (keyNode != null && keyNode.removeValue(value)) {
       _incVersion();
       return true;
     }
+
     return false;
   }
 
   @override
   Iterable<V> removeValues(String key) {
-    final keyNode = _root?.getKeyNode(mapKeyErrorOnEmpty(key, _keyMapping));
+    final keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
 
-    // Return empty Iterable when unmapped
-    if (keyNode == null) {
-      return null;
+    if (keyNode != null) {
+      _incVersion();
+      return keyNode.removeValues();
     }
-
-    _incVersion();
-
-    return keyNode.removeValues();
+    return null;
   }
 
   @override
   Iterable<V> removeAll(String key) {
-    final transformedKey = mapKeyErrorOnEmpty(key, _keyMapping);
-
     Iterable<V> values;
     if (_root != null) {
-      values = _remove(_root, transformedKey);
+      values = _remove(_root, _mapKeyErrorOnEmpty(key));
       if (_root.sizeDFSTree == 0) {
         /// There are no end nodes left in tree so delete root
         _root = null;
       }
+      if (values != null) {
+        _incVersion();
+      }
     }
-    // Return empty Iterable when unmapped
-    if (values == null) {
-      return null;
-    }
-    _incVersion();
     return values;
   }
 
@@ -569,15 +610,15 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  String suggestKey(String key) {
-    final prefix = _keyMapping(key).codeUnits;
+  String lastMarkedKeyByPrefix(String key) {
+    final prefix = _mapKeyErrorOnEmpty(key).codeUnits;
     final searchResult = _root?.getClosestPrefixDescendant(prefix);
 
     if (searchResult == null || !searchResult.isPrefixMatch) {
-      return key;
+      return null;
     }
 
-    // Can we find a suggestion by expanding the node itself
+    // Expand prefix with remaining node codeunits
     var expansion = [
       ...prefix.getRange(0, searchResult.prefixCodeunitIdx),
       ...searchResult.node.codeUnits.getRange(
@@ -585,17 +626,16 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
     ];
 
     // Concatenate mid descendants until key is found
-    var midNode = searchResult.node.mid;
-    while (midNode != null) {
-      expansion += midNode.codeUnits;
-      if (midNode.isKeyEnd) {
-        break;
-      } else {
-        midNode = midNode.mid;
-      }
+    var suggestionNode = searchResult.node;
+
+    while (!suggestionNode.isMarked && suggestionNode.mid != null) {
+      suggestionNode = suggestionNode.mid;
+      expansion += suggestionNode.codeUnits;
     }
 
-    return String.fromCharCodes(expansion);
+    return suggestionNode.isMarked
+        ? String.fromCharCodes(expansion)
+        : null;
   }
 
   @override
@@ -622,14 +662,13 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  PrefixEditDistanceIterable<V> get values =>
-      InOrderValuesIterable<V>(_root, _version);
+  Iterable<V> get values => InOrderValuesIterable<V>(_root, _version);
 
   @override
   PrefixEditDistanceIterable<V> valuesByKeyPrefix(String prefix,
           {int maxPrefixEditDistance = 0}) =>
       InOrderValuesIterable<V>(_root, _version,
-          prefix: mapKeyErrorOnEmpty(prefix, _keyMapping).codeUnits,
+          prefix: _mapKeyErrorOnEmpty(prefix).codeUnits,
           maxPrefixEditDistance: maxPrefixEditDistance);
 
   /// Increment modification _version.
@@ -658,8 +697,8 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
     // Create new root node if needed
     if (_rootNode == null) {
-      _rootNode = _nodeFactory(
-          keyCodeUnits, _random.nextInt(_MAX_RANDOM), null, _codeUnitPool);
+      _rootNode =
+          _nodeFactory(keyCodeUnits, _newPriority(), null, _codeUnitPool);
       keyCodeIdx = keyCodeUnits.length;
     }
 
@@ -673,7 +712,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
         if (currentNode.left == null) {
           currentNode.left = _nodeFactory(
               keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
-              _random.nextInt(_MAX_RANDOM),
+              _newPriority(),
               currentNode,
               _codeUnitPool);
 
@@ -685,7 +724,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
         if (currentNode.right == null) {
           currentNode.right = _nodeFactory(
               keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
-              _random.nextInt(_MAX_RANDOM),
+              _newPriority(),
               currentNode,
               _codeUnitPool);
           keyCodeIdx = keyCodeUnits.length;
@@ -719,7 +758,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
             if (currentNode.mid == null) {
               currentNode.mid = _nodeFactory(
                   keyCodeUnits.getRange(keyCodeIdx, keyCodeUnits.length),
-                  _random.nextInt(_MAX_RANDOM),
+                  _newPriority(),
                   currentNode,
                   _codeUnitPool);
               keyCodeIdx = keyCodeUnits.length;
@@ -743,15 +782,13 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       }
     }
 
-    bool newKey;
-    if (newKey = currentNode.setAsKeyEnd()) {
+    bool newKeyValue;
+    if (newKeyValue = currentNode.setAsKeyEnd()) {
       // If new node was inserted reverse back up to root node
-      // to update node counts
 
       var reverseNode = currentNode;
       while (reverseNode != _rootNode.parent) {
         // Merge any ophaned mid children on our way back
-        // Probably only useful after multiple add and delete cycles
         reverseNode.mergeMid(_codeUnitPool);
 
         // Rebalance
@@ -764,10 +801,30 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
     }
 
     if (value != null) {
-      currentNode.addValue(value);
+      newKeyValue = currentNode.addValue(value) || newKeyValue;
     }
 
-    return _AddResult<V>(_rootNode, currentNode, newKey);
+    return _AddResult<V>(_rootNode, currentNode, newKeyValue);
+  }
+
+  void _addIterable(String key, Iterable<V> values) {
+    // map key alone for case where no data is associated with key
+    final tuple = _add(_root, _mapKeyErrorOnEmpty(key), null);
+    _root = tuple.rootNode;
+
+    tuple.targetNode.addValues(values);
+  }
+
+  /// Map key and throw error if result is empty
+  String _mapKeyErrorOnEmpty(String key) {
+    if (key.isEmpty) {
+      throw ArgumentError.value('key is empty');
+    }
+    final mappedKey = keyMapping(key);
+    if (mappedKey.isEmpty) {
+      throw ArgumentError('key $key is empty after KeyMapping applied');
+    }
+    return mappedKey;
   }
 
   /// Delete node for [transformedKey] starting from [rootNode] and return values
@@ -775,7 +832,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   ///
   /// Assumes [transformedKey] has been transformed
   Iterable<V> _remove(Node<V> rootNode, String transformedKey) {
-    assert(rootNode!=null);
+    assert(rootNode != null);
     final keyCodeUnits = transformedKey.codeUnits;
 
     var keyCodeIdx = 0;
@@ -881,7 +938,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
     final child = _nodeFactory(
         node.codeUnits.getRange(codeUnitIdx, node.codeUnits.length),
-        _random.nextInt(_MAX_RANDOM),
+        _newPriority(),
         node,
         _codeUnitPool);
 
@@ -907,15 +964,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       node.numDFSDescendants++;
     }
   }
-}
 
-/// The result of an add operation.
-class _AddResult<V> {
-  /// [rootNode] is the potentially new root node of treap after add.
-  /// [addedNode] is the node created or affected by the add.
-  /// [newKey] is true if a new key was created by this add.
-  _AddResult(this.rootNode, this.addedNode, this.newKey);
-  final Node<V> rootNode;
-  final Node<V> addedNode;
-  final bool newKey;
+  int _newPriority() => _random.nextInt(MAX_PRIORITY);
+
 }

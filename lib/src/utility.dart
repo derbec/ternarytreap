@@ -33,11 +33,10 @@ class Stack<T> {
   void reverse() => _list = ListQueue.from(_list.toList().reversed);
 }
 
-/// Dart does not have pointers to pointers.
-/// Allow a reference to a pointer to be stored
+/// Allow a reference to an object of primitive type to be stored
 class ByRef<T> {
   /// Construct new [ByRef]
-  ByRef(this.value) : assert(value != null);
+  ByRef(this.value);
 
   /// Value of this [ByRef]
   T value;

@@ -1,299 +1,117 @@
+import 'package:ternarytreap/ternarytreap.dart';
+
 import 'prefixeditdistanceiterable.dart';
 import 'key_mapping.dart';
-/// A self balancing Ternary search tree Multimap
+
+/// A Multimap with prefix and near neighbour searching capability
+/// across keys.
 ///
-/// # Usage
+/// ## Usage
 ///
-/// ## Most basic case
-///
-/// Insert keys and later return those starting with a given prefix.
+/// Use as a generic multimap of arbitrary type.
+/// Key->Values relations are stored as either Set or List as below.
+/// ```dart
+/// final ttMultimapList = ternarytreap.TTMultiMapList<int>()
+///   ..add('zebra')
+///   ..addValues('zebra', [])
+///   ..add('zebra', 23)
+///   ..addValues('cat', [1, 2])
+///   ..addValues('canary', [3, 4])
+///   ..addValues('dog', [5, 6, 7, 9])
+///   ..addValues('cow', [4])
+///   ..addValues('donkey', [7, 5, 1])
+///   ..addValues('donkey', [6, 8, 3])
+///   ..add('goat', 7)
+///   ..add('pig', 3)
+///   ..addValues('horse', [9, 5, 8])
+///   ..add('rabbit')
+///   ..addValues('rat', [2, 3])
+///   ..add('sheep', 7)
+///   ..addValues('ape', [5, 6, 7])
+///   ..add('zonkey') // Yes it's a thing!
+///   ..add('dingo', 5)
+///   ..addValues('kangaroo', [4, 5, 7])
+///   ..add('chicken')
+///   ..add('hawk')
+///   ..add('crocodile', 5)
+///   ..addValues('cow', [3])
+///   ..addValues('zebra', [23, 24, 24, 25]);
+/// ```
+/// Entries with keys starting with 'z'
 ///
 /// ```dart
-/// final  TernaryTreap<String> ternaryTreap = TernaryTreapSet<String>()
-/// ..add('cat')
-/// ..add('Canary')
-/// ..add('dog')
-/// ..add('zebr
-/// ..add('CAT');
-///
-/// print(ternaryTreap.keys);
-/// ```
-/// ```
-/// (CAT, Canary, cat, dog, zebra)
-/// ```
-/// ```dart
-/// print(ternaryTreap.keysByPrefix('ca'));
-/// // for near neighbour (fuzzy) search: print(ternaryTreap.keysByPrefix('ca', true));
+/// print(ttMultimapList.keysByPrefix('z'));
+/// print(ttMultimapList.entriesByKeyPrefix('z'));
+/// print(ttMultimapList.valuesByKeyPrefix('z'));
 /// ```
 /// ```shell
-/// (cat)
+/// (zebra, zonkey)
+/// (MapEntry(zebra: [23, 23, 24, 24, 25]), MapEntry(zonkey: []))
+/// (23, 23, 24, 24, 25)
 /// ```
+///
+/// Same data using Set for value storage. Repeated values are removed.
 /// ```dart
-/// print(ternaryTreap.toString());
+/// final ttMultimapSet =
+///          ternarytreap.TTMultiMapSet<int>.from(ttMultimapList);
+/// ```
+/// Entries with keys starting with 'z' with values.
+/// ```dart
+/// print(ttMultimapSet.entriesByKeyPrefix('z'));
 /// ```
 /// ```shell
-/// -CAT
-/// Canary
-/// cat
-/// dog
-/// zebra
+/// (MapEntry(zebra: {23, 24, 25}), MapEntry(zonkey: {}))
 /// ```
 ///
-/// ## Case insensitivity and other key mappings
+/// ## Near neighbour searching
 ///
-/// The above example matches strings exactly,
-/// i.e. `keysByPrefix('ca')` returns 'cat' but not 'CAT'.
-/// This is because the default identity [KeyMapping]: <i>m</i>(x) = x is used.
-/// This can be overridden by specifying a KeyMapping during construction.
-/// For example to achieve case insensitivity:
-///
+/// [TTMultiMap] supports near neighbour searching.
+/// Keys starting with 'cow' and maxPrefixEditDistance of 2.
+/// i.e.:
+/// <mark>cow</mark>, <mark>c</mark>hicken, <mark>c</mark>rocodile,
+/// <mark>c</mark>anary, <mark>c</mark>at, d<mark>o</mark>g,
+/// d<mark>o</mark>nkey, g<mark>o</mark>at, ha<mark>w</mark>k,
+/// h<mark>o</mark>rse, z<mark>o</mark>nkey
 /// ```dart
-/// import  'package:ternarytreap/ternarytreap.dart';
-/// void  main(List<String> args) {
-/// final  TernaryTreap<String> ternaryTreap =
-/// TernaryTreapSet<String>(TernaryTreap.lowercase)
-/// ..add('cat')
-/// ..add('Canary')
-/// ..add('dog')
-/// ..add('zebra')
-/// ..add('CAT');
-/// }
-///
-/// print(ternaryTreap.keys);
-/// ```
-///
-/// ```
-/// (canary, cat, dog, zebra)
-/// ```
-///
-/// ```dart
-/// print(ternaryTreap.keysByPrefix('ca'));
-/// ```
-///
-/// ```shell
-/// (canary, cat)
-/// ```
-///
-/// ```dart
-/// print(ternaryTreap.toString());
-/// ```
-///
-/// ```shell
-/// canary
-/// cat
-/// dog
-/// zebra
-/// ```
-/// ## Attaching String Data to Retain Key->Input Mapping
-///
-/// When a [KeyMapping] such as [lowercase]
-/// maps multiple inputs to the same key the original input strings are lost.
-/// In the example below this results in input
-/// strings 'CAT' and 'Cat' being lost.
-///
-/// ```dart
-/// final  TernaryTreap<String> ternaryTreap =
-/// TernaryTreapSet<String>(TernaryTreap.lowercase)
-/// ..add('cat')
-/// ..add('Cat')
-/// ..add('CAT');
-/// print(ternaryTreap.keysByPrefix('ca'));
-/// ```
-///
-/// ```shell
-/// (cat)
-/// ```
-/// To retain the original string you may attach it as a Value during insertion.
-/// These strings may now be recovered during subsequent queries.
-/// ```dart
-/// import  'package:ternarytreap/ternarytreap.dart';
-/// void  main(List<String> args) {
-/// final  TernaryTreap<String> ternaryTreap =
-/// TernaryTreap<String>(TernaryTreap.lowercase)
-/// ..add('cat', 'cat')
-/// ..add('Cat', 'Cat')
-/// ..add('CAT', 'CAT')
-/// ..add('CanaRy', 'CanaRy')
-/// ..add('CANARY', 'CANARY');
-/// }
-/// ```
-/// ```dart
-/// print(ternaryTreap.keys);
+/// print(ttMultimapSet.keysByPrefix('cow', maxPrefixEditDistance: 2).join(', '));
 /// ```
 /// ```shell
-/// (canary, cat)
+/// cow, chicken, crocodile, canary, cat, dog, donkey, goat, hawk, horse, zonkey
+///
 /// ```
+///
+/// ## Case sensitivity and other key transformations
+///
+/// Use key mappings to specify key transforms during all operations.
+///
 /// ```dart
-/// print(ternaryTreap.keysByPrefix('ca'));
+/// final ttMultiMap = ternarytreap.TTMultiMapSet<String>(ternarytreap.lowercase)
+///   ..addKeys(['TeStInG', 'Cat', 'cAt', 'testinG', 'DOG', 'dog']);
+/// print(ttMultiMap.keys);
 /// ```
 /// ```shell
-/// (canary, cat)
+/// (cat, dog, testing)
 /// ```
+///
+/// Depending on the [KeyMapping] this may result in 1 to many relationships
+/// between input string and key.
+///
+/// For example case insensitivity can be achieved by applying a lowercase
+/// mapping to all keys. If original strings are required than these must
+/// be stored as values.
+///
 /// ```dart
-/// print(ternaryTreap.values);
+/// final keyValue = ternarytreap.TTMultiMapSet<String>(ternarytreap.lowercase)
+///   ..addKeyValues(['TeStInG', 'Cat', 'cAt', 'testinG', 'DOG', 'dog']);
+/// print(keyValue.entries);
+/// print(keyValue.valuesByKeyPrefix('CA'));
 /// ```
 /// ```shell
-/// (canary, CanaRy, CANARY, cat, Cat, CAT)
-/// ```
-/// ```dart
-/// print(ternaryTreap.valuesByKeyPrefix('cat'));
-/// ```
-/// ```shell
-/// (cat, Cat, CAT)
-/// ```
-/// ```dart
-/// print(ternaryTreap.toString());
-/// ```
-/// ```shell
-/// canary
-/// CanaRy
-/// CANARY
-/// cat
-/// cat
-/// Cat
-/// CAT
-/// ```
-/// ## Attaching Complex data Types
-/// Sometimes it is useful to associate input strings
-/// with more complex datatypes.
-/// For example the following datatype stores an 'Animal'
-/// with name, description and a timestamp
-///
-/// ```dart
-/// import  'package:ternarytreap/ternarytreap.dart';
-///
-/// // An example of a data object, takes a name and description,
-/// // and adds a timestamp.
-/// class  Animal {
-/// Animal(this.name, this.description)
-/// : timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-///
-/// // name - will be set to original input string pre KeyMapping
-/// final  String name;
-///
-/// final  String description;
-///
-/// final  String timestamp;
-///
-/// Return String value.
-///
-/// @returns String repesenting object.
-/// @override
-/// String  toString() => <String, dynamic>{
-/// 'name': name,
-/// 'description': description,
-/// 'timestamp': timestamp,
-/// }.toString();
-/// }
-///
-/// void  main(List<String> args) {
-/// final  TernaryTreap<Animal> ternaryTreap =
-/// TernaryTreap<Animal>(TernaryTreap.lowerCollapse)
-/// ..add('Cat', Animal('Cat', 'Purrs'))
-/// ..add('Canary', Animal('Canary', 'Yellow'))
-/// ..add('Dog', Animal('Dog', 'Friend'))
-/// ..add('Zebra', Animal('Zebra', 'Stripes'))
-/// ..add('CAT', Animal('CAT', 'Scan'));
+/// (MapEntry(cat: {Cat, cAt}), MapEntry(dog: {DOG, dog}), MapEntry(testing: {TeStInG, testinG}))
+/// (Cat, cAt)
 /// ```
 ///
-/// ```dart
-/// print(ternaryTreap.keys);
-/// ```
-///
-/// ```shell
-/// (canary, cat, dog, zebra)
-/// ```
-///
-/// ```dart
-/// print(ternaryTreap.keysByPrefix('ca'));
-/// ```
-///
-/// ```shell
-/// (canary, cat)
-/// ```
-///
-/// ```dart
-/// print(ternaryTreap.values);
-/// ```
-///
-/// ```shell
-/// ({name: Canary, description: Yellow, timestamp: 1574730578753},
-/// {name: Cat, description: Purrs, timestamp: 1574730578735},
-/// {name: CAT, description: Scan, timestamp: 1574730578754},
-/// {name: Dog, description: Friend, timestamp: 1574730578754},
-/// {name: Zebra, description: Stripes, timestamp: 1574730578754})
-/// ```
-///
-/// ```dart
-/// print(ternaryTreap.valuesByKeyPrefix('ca'));
-/// ```
-///
-/// ```shell
-/// ({name: Canary, description: Yellow, timestamp: 1574730578753},
-/// {name: Cat, description: Purrs, timestamp: 1574730578735},
-/// {name: CAT, description: Scan, timestamp: 1574730578754})
-/// ```
-///
-/// ```dart
-/// print(ternaryTreap.toString());
-/// ```
-///
-/// ```shell
-/// canary
-/// {name: Canary, description: Yellow, timestamp: 1574730578753}
-/// cat
-/// {name: Cat, description: Purrs, timestamp: 1574730578735}
-/// {name: CAT, description: Scan, timestamp: 1574730578754}
-/// dog
-/// {name: Dog, description: Friend, timestamp: 1574730578754}
-/// zebra
-/// {name: Zebra, description: Stripes, timestamp: 1574730578754}
-/// ```
-///
-/// # Specification
-///
-/// [TTMultiMapSet] and [TTMultiMapList] are multimaps:
-///
-/// * <i>f</i> :  <i>K</i> &mapsto; &weierp; (<i>V</i>)
-/// * <i>g</i> :  <i>K</i> &mapsto; <i>V</i><sup>&#8469;</sup> &cup; V<sup>&emptyset;</sup>
-///
-/// such that
-///
-/// * K is the set of all Keys
-/// * V is the set of all Values
-/// * &#8469; is the set of Natural numbers
-/// * &weierp; (<i>V</i>) is the powerset of V
-/// * <i>V</i><sup>&#8469;</sup> is the set of all functions &#8469; &mapsto; <i>V</i>
-/// * <i>V</i><sup>&emptyset;</sup> contains the empty function &emptyset; &mapsto; <i>V</i>
-///
-/// The codomain of <i>f</i> and <i>g</i> include the empty set and empty sequence respectively.
-/// This allows Keys to be stored without Values, useful when
-/// you require only a set of Keys for prefix searching purposes.
-///
-/// Often it is desirable to define equivalences between Key strings,
-/// for example case insensitivity.
-///
-/// For example the key 'it' may map to 'IT', 'It' or 'it'.
-///
-/// This is achieved via a [KeyMapping](https://pub.dev/documentation/ternarytreap/latest/ternarytreap/KeyMapping.html), defined as the surjection:
-///
-///* <i>m</i> : <i>K</i>&twoheadrightarrow; <i>L  &sube; K</i>
-///
-/// such that:
-///
-/// * <i>m</i>(<i>m</i>(x)) = <i>m</i>(x), i.e. <i>m</i> must be [idempotent](https://en.wikipedia.org/wiki/Idempotence), repeated applications do not change the result.
-///
-/// For example:
-///
-/// * <i>m</i>(x) = x : Default identity function, preserve all input keys.
-/// * <i>m</i>(x) = lowercase(x) : Convert keys to lowercase.
-///
-/// TernaryTreap Multimaps are composite functions with KeyMapping parameter <i>m</i>.
-///
-/// * TernaryTreapSet<sub><i>m</i></sub>(x) = <i>f</i> &#8728; <i>m</i>(x)
-/// * TernaryTreapList<sub><i>m</i></sub>(x) = <i>g</i> &#8728; <i>m</i>(x)
-///
-/// # Structure
+/// ## Implementation
 ///
 /// A [TTMultiMap] is a tree of Nodes.
 ///
@@ -332,6 +150,8 @@ import 'key_mapping.dart';
 /// (Node.right.priority < Node.priority)
 /// ```
 /// is maintained.
+///
+/// Note: Key nodes with empty Value collections all share a common empty collection object.
 abstract class TTMultiMap<V> {
   /// Return [Iterable] of values for specified [key].
   ///
@@ -345,33 +165,51 @@ abstract class TTMultiMap<V> {
   ///
   /// Any existing [values] of [key] are replaced.
   ///
-  /// Throws [ArgumentError] if [mapKey]`(`[key]`)` is empty.
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty.
   void operator []=(String key, Iterable<V> values);
 
-  /// Insert a [key] and optional [value].
+  /// Insert a [key] and [value] association.
   ///
   /// [key] is a string to be transformed via [KeyMapping] into a key.
   ///
-  /// An optional [value] may be supplied to associate with this key.
-  ///
   /// Return true if (key, value) pair did not already exist, false otherwise.
   ///
-  /// Throws [ArgumentError] if [mapKey]`(`[key]`)` is empty.
-  bool add(String key, [V value]);
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty.
+  bool add(String key, V value);
+
+  /// Add all key/value pairs from [other].
+  void addAll(TTMultiMap<V> other);
 
   /// Adds all associations contained in [entries] to this [TTMultiMap].
   ///
   /// Is equivilent to calling [addValues] for each entry.
   ///
-  /// [mapKey] is applied to all incoming keys so
+  /// [keyMapping] is applied to all incoming keys so
   /// keys may be altered during copying from [entries].
   ///
-  /// Throws [ArgumentError] if [mapKey]`(key)` is empty for any
+  /// Throws [ArgumentError] if [keyMapping]`(key)` is empty for any
   /// incoming keys of [entries].
   void addEntries(Iterable<MapEntry<String, Iterable<V>>> entries);
 
-  /// Call [add](key) for each key in [keys].
+  /// Add [key] to collection.
+  ///
+  /// If a key does not allready exists then it is mapped to an empty
+  /// value collection, otherwise no change occurs.
+  void addKey(String key);
+
+  /// Call [addKey](key) for each key in [keys].
+  ///
+  /// If a key does not allready exists then it is mapped to an empty
+  /// value collection, otherwise no change occurs.
   void addKeys(Iterable<String> keys);
+
+  /// Convenience method for cases where key and value are the same object.
+  ///
+  /// Equivilent to calling [add]([keyValue].toString(), [keyValue] as V)
+  void addKeyValue(V keyValue);
+
+  /// Equivilent to calling [addKeyValue] for all [keyValues].
+  void addKeyValues(Iterable<V> keyValues);
 
   /// Add all [values] to specified key
   ///
@@ -382,7 +220,7 @@ abstract class TTMultiMap<V> {
   ///
   /// See [add].
   ///
-  /// Throws [ArgumentError] if [mapKey]`(`[key]`)` is empty.
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty.
   void addValues(String key, Iterable<V> values);
 
   /// Return a view of this [TTMultiMap] as a [Map]
@@ -409,20 +247,12 @@ abstract class TTMultiMap<V> {
   Iterable<MapEntry<String, Iterable<V>>> get entries;
 
   /// Iterates through [TTMultiMap] as [MapEntry] objects such
-  /// that only keys prefixed by [mapKey]`(`[prefix]`)` are included.
+  /// that only keys prefixed by [keyMapping]`(`[prefix]`)` are included.
   ///
   /// Each [MapEntry] contains a key and its associated values.
   ///
-  /// If [mapKey]`(`[prefix]`)` is empty then returns empty [Iterable].
-  ///
-  /// If [fuzzy] is true then search will expand to all keys within
-  /// a [Hamming edit distance](https://en.wikipedia.org/wiki/Hamming_distance)
-  /// corresponding to length of transformed prefix.
-  ///
-  /// Results are ordered by key as:
-  ///
-  /// 1. Results where key is prefixed by [prefix]
-  /// 2. Results of increasing edit distance ordered by lexographic similarity to [prefix].
+  /// See [keysByPrefix] for more information on result ordering, 
+  /// near neighbour search etc.
   ///
   /// Throws ArgumentError if [prefix] is empty.
   PrefixEditDistanceIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(
@@ -469,19 +299,23 @@ abstract class TTMultiMap<V> {
   /// Return [Iterable] view of keys
   Iterable<String> get keys;
 
-  /// Returns [Iterable] collection of each key of the [TTMultiMap]
-  /// where key is prefixed by [mapKey]`(`[prefix]`)`.
+  /// Iterates through [TTMultiMap] keys such
+  /// that only keys prefixed by [keyMapping]`(`[prefix]`)` are included.
   ///
-  /// If [mapKey]`(`[prefix]`)` is empty then returns empty [Iterable].
-  ///
-  /// If [fuzzy] is true then search will expand to all keys within
-  /// a [Hamming edit distance](https://en.wikipedia.org/wiki/Hamming_distance)
-  /// corresponding to length of transformed prefix.
+  /// * If [keyMapping]`(`[prefix]`)` is empty then returns empty [Iterable].
+  /// * If [maxPrefixEditDistance] > 0 then search will expand to all keys
+  /// whose prefix is within a [Hamming edit distance](https://en.wikipedia.org/wiki/Hamming_distance)
+  /// of [maxPrefixEditDistance] or less. For example searching for prefix
+  /// 'cow' with [maxPrefixEditDistance] = 2 may give:
+  /// <mark>cow</mark>,<mark>cow</mark>boy, <mark>c</mark>hicken, <mark>c</mark>rocodile,
+  /// <mark>c</mark>anary, <mark>c</mark>at, d<mark>o</mark>g,
+  /// d<mark>o</mark>nkey, g<mark>o</mark>at, ha<mark>w</mark>k,
+  /// h<mark>o</mark>rse, z<mark>o</mark>nkey
   ///
   /// Results are ordered by key as:
   ///
-  /// 1. Results where key is prefixed by [prefix]
-  /// 2. Results of increasing edit distance ordered by lexographic similarity to [prefix].
+  /// 1. Results where key is prefixed by [prefix] ordered lexicographically.
+  /// 2. Results of increasing edit distance ordered lexographically.
   ///
   /// Throws ArgumentError if [prefix] is empty.
   PrefixEditDistanceIterable<String> keysByPrefix(String prefix,
@@ -490,10 +324,15 @@ abstract class TTMultiMap<V> {
   /// The number of keys in the [TTMultiMap].
   int get length;
 
-  /// Prioritise [key] such that future prefix searches will return [key]
-  /// closer to beginning of search result. Subsequent calls will increase this
-  /// effect.
-  void likeKey(String key);
+  /// Mark a key such that it can be refered to in future. For example via the `filterMarked`
+  /// parameter of [keysByPrefix].
+  /// 
+  /// Although this uses no extra memory it rearranges the tree such that the newly
+  /// marked key is moved toward root, enabling later identification of the last marked key
+  /// with a given prefix.
+  ///
+  /// see: [lastMarkedKeyByPrefix], [keysByPrefix]
+  void markKey(String key);
 
   /// If [TTMultiMap] contains specified ([key], [value]) pair
   /// then return stored value.
@@ -535,8 +374,33 @@ abstract class TTMultiMap<V> {
   /// specify size via [valueSizeInBytes].
   int sizeOf([int valueSizeInBytes = 0]);
 
-  /// Return a single suggested prefix expansion for [key].
-  String suggestKey(String key);
+  /// Attempt to return the last marked key with a specified [prefix].
+  /// 
+  /// For example: 
+  ///
+  /// ```dart
+  /// final ttSet = ternarytreap.TTSet.fromIterable(
+  ///     ['grab', 'angry', 'camel', 'axe', 'animal', 'bike', 'announced']);
+  ///
+  /// // Mark key 'announced'.
+  /// ttSet.markKey('announced');
+  ///
+  /// // Retrieve the last marked key for the prefix 'an'.
+  /// // The result should be 'announced'.
+  /// print(ttSet.lastMarkedKeyByPrefix('an'));
+  /// ```
+  /// ```shell
+  /// announced
+  /// ```
+  ///
+  /// Ordering of key marking is not stored explicitly but instead a result of 
+  /// tree reordering by [markKey]. Thus the correctness of [lastMarkedKeyByPrefix] 
+  /// is not guaranteed to survive beyond the next operation that modifies the [TTMultiMap].
+  ///
+  /// If no marked key is found for [prefix] then returns null.
+  ///
+  /// see: [markKey]
+  String lastMarkedKeyByPrefix(String prefix);
 
   /// Generate a string representation of this [TTMultiMap].
   /// Requires that values be json encodable.
@@ -552,26 +416,22 @@ abstract class TTMultiMap<V> {
 
   /// Return [Iterable] view of values
   ///
-  /// Return an iterable that combines individual Key->Values
-  /// relations into a single flat ordering.
+  /// Combines individual Key->Values relations into a single flat ordering.
   ///
   /// `[['Card', 'card'],['Cat', 'cat', 'CAT']]` ->
   /// `['Card', 'card','Cat', 'cat', 'CAT']`.
   Iterable<V> get values;
 
-  /// Return [Iterable] view of values where key
-  /// is prefixed by [mapKey]`(`[prefix]`)`.
+  /// Iterates through [TTMultiMap] values for each key such
+  /// that only keys prefixed by [keyMapping]`(`[prefix]`)` are included.
   ///
-  /// If [mapKey]`(`[prefix]`)` is empty then returns empty [Iterable].
+  /// See [keysByPrefix] for more information on result ordering, 
+  /// near neighbour search etc.
   ///
-  /// If [fuzzy] is true then search will expand to all keys within
-  /// a [Hamming edit distance](https://en.wikipedia.org/wiki/Hamming_distance)
-  /// corresponding to length of transformed prefix.
+  /// Combines individual Key->Values relations into a single flat ordering.
   ///
-  /// Results are ordered by key as:
-  ///
-  /// 1. Results where key is prefixed by [prefix]
-  /// 2. Results of increasing edit distance ordered by lexographic similarity to [prefix].
+  /// `[['Card', 'card'],['Cat', 'cat', 'CAT']]` ->
+  /// `['Card', 'card','Cat', 'cat', 'CAT']`.
   ///
   /// Throws ArgumentError if [prefix] is empty.
   PrefixEditDistanceIterable<V> valuesByKeyPrefix(String prefix,
