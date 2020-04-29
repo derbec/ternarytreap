@@ -140,10 +140,10 @@ import 'key_mapping.dart';
 /// ```
 /// Each Node stores:
 ///
-/// * A list of characters `Node.codeUnits` such that Ternary Tree invarient
+/// * A list of characters `Node.runes` such that Ternary Tree invarient
 /// is maintained:
-/// `Node.codeUnits.left.first < Node.codeUnits.first` &
-/// `Node.codeUnits.right.first > Node.codeUnits.first`
+/// `Node.runes.left.first < Node.runes.first` &
+/// `Node.runes.right.first > Node.runes.first`
 /// * An integer priority value `Node.priority` such that Treap invarient:
 /// ```
 /// (Node.left.priority < Node.priority) &&
@@ -251,7 +251,7 @@ abstract class TTMultiMap<V> {
   ///
   /// Each [MapEntry] contains a key and its associated values.
   ///
-  /// See [keysByPrefix] for more information on result ordering, 
+  /// See [keysByPrefix] for more information on result ordering,
   /// near neighbour search etc.
   ///
   /// Throws ArgumentError if [prefix] is empty.
@@ -326,12 +326,12 @@ abstract class TTMultiMap<V> {
 
   /// Mark a key such that it can be refered to in future. For example via the `filterMarked`
   /// parameter of [keysByPrefix].
-  /// 
+  ///
   /// Although this uses no extra memory it rearranges the tree such that the newly
   /// marked key is moved toward root, enabling later identification of the last marked key
   /// with a given prefix.
   ///
-  /// see: [lastMarkedKeyByPrefix], [keysByPrefix]
+  /// see: [lastMarkedKeyForPrefix], [keysByPrefix]
   void markKey(String key);
 
   /// If [TTMultiMap] contains specified ([key], [value]) pair
@@ -356,7 +356,7 @@ abstract class TTMultiMap<V> {
   ///
   /// Returns the collection of values associated with key,
   /// or null if key was unmapped.
-  Iterable<V> removeAll(String key);
+  Iterable<V> removeKey(String key);
 
   /// Removes all values associated with [key].
   /// The key remains present, mapped to an empty iterable.
@@ -374,9 +374,9 @@ abstract class TTMultiMap<V> {
   /// specify size via [valueSizeInBytes].
   int sizeOf([int valueSizeInBytes = 0]);
 
-  /// Attempt to return the last marked key with a specified [prefix].
-  /// 
-  /// For example: 
+  /// Attempt to return the most recently marked key with a specified [prefix].
+  ///
+  /// For example:
   ///
   /// ```dart
   /// final ttSet = ternarytreap.TTSet.fromIterable(
@@ -393,26 +393,36 @@ abstract class TTMultiMap<V> {
   /// announced
   /// ```
   ///
-  /// Ordering of key marking is not stored explicitly but instead a result of 
-  /// tree reordering by [markKey]. Thus the correctness of [lastMarkedKeyByPrefix] 
+  /// Ordering of key marking is not stored explicitly but instead a result of
+  /// tree reordering by [markKey]. Thus the correctness of [lastMarkedKeyForPrefix]
   /// is not guaranteed to survive beyond the next operation that modifies the [TTMultiMap].
   ///
   /// If no marked key is found for [prefix] then returns null.
   ///
   /// see: [markKey]
-  String lastMarkedKeyByPrefix(String prefix);
+  String lastMarkedKeyForPrefix(String prefix);
 
   /// Generate a string representation of this [TTMultiMap].
-  /// Requires that values be json encodable.
   ///
   /// Optional left [paddingChar] to indicate tree depth.
   /// Default = '-', use '' for no depth.
-  /// Returns String representation of objects in order of traversal
-  /// formated as:
-  /// key
-  /// value (value type must have valid [toString] method)
+  ///
+  /// Key nodes will be distinguishable by a values collection appended
+  /// to the key.
   @override
   String toString([String paddingChar = '-']);
+
+  /// Return Json representation of [TTMultiMap].
+  ///
+  /// Simply storing the key->value pairs and rebuilding on deserialisation
+  /// would lose the [markKey], [lastMarkedKeyForPrefix] functionality thus
+  /// tree structure is maintained during serialisation.
+  ///
+  /// Node tree stored as preorder traversal.
+  ///
+  /// If [includeValues] is true then values are included and must be
+  /// Json serialisable in their own right.
+  Map<String, dynamic> toJson([bool includeValues = true]);
 
   /// Return [Iterable] view of values
   ///
@@ -425,7 +435,7 @@ abstract class TTMultiMap<V> {
   /// Iterates through [TTMultiMap] values for each key such
   /// that only keys prefixed by [keyMapping]`(`[prefix]`)` are included.
   ///
-  /// See [keysByPrefix] for more information on result ordering, 
+  /// See [keysByPrefix] for more information on result ordering,
   /// near neighbour search etc.
   ///
   /// Combines individual Key->Values relations into a single flat ordering.

@@ -41,21 +41,26 @@ final RegExp _matchSeparators = RegExp(r'[\p{Zl}\p{Zp}\p{Zs}]+', unicode: true);
 /// * [nonLetterToSpace]
 /// * [lowerCollapse]
 /// * [joinSingleLetters]
+///
+/// If [str] is null then the name of the keymapping is returned.
 typedef KeyMapping = String Function(String str);
 
 /// Return [str] unchanged.
-String identity(String str) => str;
+String identity(String str) => str ?? 'identity';
 
 /// Transform [str] such that all characters are lowercase.
-String lowercase(String str) => str.toLowerCase();
+String lowercase(String str) =>
+    identical(str, null) ? 'lowercase' : str.toLowerCase();
 
 /// Transform [str] such that all characters are uppercase.
-String uppercase(String str) => str.toUpperCase();
+String uppercase(String str) =>
+    identical(str, null) ? 'uppercase' : str.toUpperCase();
 
 /// Transform [str] such that each non letter character is
 /// replaced by a space character.
-String nonLetterToSpace(String str) =>
-    str.replaceAll(_matchNonAlphaNumeric, ' ');
+String nonLetterToSpace(String str) => identical(str, null)
+    ? 'nonLetterToSpace'
+    : str.replaceAll(_matchNonAlphaNumeric, ' ');
 
 /// Transform [str] such that adjacent single alphanumeric symbols separated by
 /// whitespace are joined together. For example:
@@ -68,6 +73,9 @@ String nonLetterToSpace(String str) =>
 /// Note: This transform trims and collapses whitespace during operation
 /// and is thus equivilent also to performing [collapseWhitespace].
 String joinSingleLetters(String str) {
+  if (identical(str, null)) {
+    return 'joinSingleLetters';
+  }
   final chunks = str.trim().split(_matchSeparators);
 
   final res = <String>[];
@@ -76,7 +84,8 @@ String joinSingleLetters(String str) {
 
   for (final chunk in chunks) {
     // if chuck is single Letter
-    if (chunk.length == 1 && _matchAlphaNumeric.matchAsPrefix(chunk) != null) {
+    if (chunk.length == 1 &&
+        !identical(_matchAlphaNumeric.matchAsPrefix(chunk), null)) {
       newChunk.write(chunk);
     } else {
       if (newChunk.isNotEmpty) {
@@ -96,8 +105,11 @@ String joinSingleLetters(String str) {
 ///
 /// * Whitespace is trimmed from start and end
 /// * Runs of multiple whitespace characters are collapsed into a single ' '.
-String collapseWhitespace(String str) =>
-    str.trim().replaceAll(_matchSeparators, ' ');
+String collapseWhitespace(String str) => identical(str, null)
+    ? 'collapseWhitespace'
+    : str.trim().replaceAll(_matchSeparators, ' ');
 
 /// Transform [str] with both [lowercase] and [collapseWhitespace].
-String lowerCollapse(String str) => collapseWhitespace(str).toLowerCase();
+String lowerCollapse(String str) => identical(str, null)
+    ? 'lowerCollapse'
+    : collapseWhitespace(str).toLowerCase();

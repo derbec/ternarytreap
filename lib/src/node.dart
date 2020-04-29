@@ -1,31 +1,33 @@
 library node;
 
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:meta/meta.dart';
+import 'package:collection/collection.dart';
 import 'pool.dart';
 
 /// (2^32)
-const int MAX_PRIORITY = 4294967296;
+const int _MAX_PRIORITY = 4294967296;
 
 /// Stores result of prefix search.
 @immutable
 class PrefixSearchResult<V> {
   /// Construct new PrefixSearchResult
-  PrefixSearchResult(this.prefixCodeUnits, this.node, this.prefixCodeunitIdx,
-      this.nodeCodeunitIdx, this.isPrefixMatch, this.depth);
+  PrefixSearchResult(this.prefixRunes, this.node, this.prefixRuneIdx,
+      this.nodeRuneIdx, this.isPrefixMatch, this.depth);
 
   /// The prefix searched for
-  final List<int> prefixCodeUnits;
+  final List<int> prefixRunes;
 
   /// Node at which search terminated.
   final Node<V> node;
 
-  /// The final matching codeunit index in prefix.
-  final int prefixCodeunitIdx;
+  /// The final matching rune index in prefix.
+  final int prefixRuneIdx;
 
-  /// The final matching codeunit index in [node].
-  final int nodeCodeunitIdx;
+  /// The final matching rune index in [node].
+  final int nodeRuneIdx;
 
   /// Is true then the prefix was fully matched.
   final bool isPrefixMatch;
@@ -35,28 +37,212 @@ class PrefixSearchResult<V> {
 
   @override
   String toString() =>
-      'Node: $node, prefixCodeunitIdx: $prefixCodeunitIdx, nodeCodeunitIdx: $nodeCodeunitIdx, isPrefixMatch:$isPrefixMatch';
+      'Node: $node, prefixRuneIdx: $prefixRuneIdx, nodeRuneIdx: $nodeRuneIdx, isPrefixMatch:$isPrefixMatch';
+}
+
+final _listEquality = ListEquality();
+final _deepCollectionEquality = DeepCollectionEquality();
+
+/// Allow deep comparison of nodes
+/// [Node] is equivilent to [other] tree if:
+/// * parent status is same
+/// * child status is same
+/// * keyEnd status is same
+/// * marked status is same
+/// * runes are same
+/// * values are same
+/// * decendant count are same
+/// * subtree is same
+bool nodeEquality(Node e1, Node e2) {
+  // If both are null or same object then true
+  if (identical(e1, e2)) {
+    return true;
+  }
+  // If only 1 null then false
+  if (identical(e1, null) || identical(e2, null)) {
+    return false;
+  }
+
+  return
+      // Compare parent status
+      (e1.hasParent == e2.hasParent) &&
+          // Compare child status
+          (e1.hasLeft == e2.hasLeft) &&
+          (e1.hasMid == e2.hasMid) &&
+          (e1.hasRight == e2.hasRight) &&
+          // Compare keyEnd
+          (e1.isKeyEnd == e2.isKeyEnd) &&
+          // Compare marked
+          (e1.isMarked == e2.isMarked) &&
+          // Compare descendant count
+          (e1.numDFSDescendants == e2.numDFSDescendants) &&
+          // Compare runes
+          (_listEquality.equals(e1.runes, e2.runes)) &&
+          // Compare values
+          (_deepCollectionEquality.equals(e1.values, e2.values)) &&
+          // Compare subtree
+          nodeEquality(e1.left, e2.left) &&
+          nodeEquality(e1.mid, e2.mid) &&
+          nodeEquality(e1.right, e2.right);
+}
+
+/// Pointer to function for generating [Node] objects
+typedef NodeFactory<V> = Node<V> Function(Iterable<int> runes,
+    Random priorityGenerator, Node<V> parent, HashSet<RunePoolEntry> _runePool);
+
+/// Pointer to function for generating [Node] objects from json
+typedef JsonNodeFactory<V> = Node<V> Function(List<dynamic> json,
+    Random priorityGenerator, Node<V> parent, HashSet<RunePoolEntry> _runePool);
+
+/// A Node that stores values in [Set].
+class NodeSet<V> extends Node<V> {
+  /// Construct a NodeSet representing specified runes
+  NodeSet(Iterable<int> runes, Random priorityGenerator, Node<V> parent,
+      HashSet<RunePoolEntry> _runePool)
+      : super(runes, priorityGenerator, parent, _runePool);
+
+  /// Construct a NodeSet from the given Json
+  factory NodeSet.fromJson(List<dynamic> json, Random priorityGenerator,
+      Node<V> parent, HashSet<RunePoolEntry> _runePool) {
+    if (json.isEmpty) {
+      return null;
+    }
+
+    final runes = json[0].toString().runes.toList();
+
+    return NodeSet(runes, priorityGenerator, parent, _runePool)
+      .._setFromJson(json);
+  }
+
+  @override
+  Set<V> get values =>
+      identical(_values, Node._emptyValues) ? <V>{} : super._values as Set<V>;
+
+  /// Return values as a Json encodable type
+  @override
+  Iterable<V> valuesToJson() => values.toList();
+
+  @override
+  V lookupValue(V value) => values.lookup(value);
+
+  @override
+  Object _createValuesCollection(Iterable<V> values) => Set<V>.from(values);
+
+  @override
+  bool removeValue(V value) =>
+      identical(_values, Node._emptyValues) ? false : values.remove(value);
+
+  @override
+  Set<V> removeValues() {
+    if (identical(_values, Node._emptyValues)) {
+      return <V>{};
+    }
+    final ret = values;
+    _values = Node._emptyValues;
+    return ret;
+  }
+
+  @override
+  bool addValue(V value) {
+    if (identical(_values, Node._emptyValues)) {
+      // Currently set to empty values.
+      setValues([value]);
+      return true;
+    } else {
+      return (_values as Set<V>).add(value);
+    }
+  }
+}
+
+/// A Node that stores values in [List].
+class NodeList<V> extends Node<V> {
+  /// Construct a NodeList
+  NodeList(Iterable<int> rune, Random priorityGenerator, Node<V> parent,
+      HashSet<RunePoolEntry> _runePool)
+      : super(rune, priorityGenerator, parent, _runePool);
+
+  /// Construct a NodeSet from the given Json
+  factory NodeList.fromJson(List<dynamic> json, Random priorityGenerator,
+      Node<V> parent, HashSet<RunePoolEntry> _runePool) {
+    if (json.isEmpty) {
+      return null;
+    }
+
+    final runes = json[0].toString().runes.toList();
+
+    return NodeList(runes, priorityGenerator, parent, _runePool)
+      .._setFromJson(json);
+  }
+
+  @override
+  List<V> get values =>
+      identical(_values, Node._emptyValues) ? <V>[] : super._values as List<V>;
+
+  @override
+  V lookupValue(V value) {
+    for (final val in values) {
+      if (val == value) {
+        return val;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Object _createValuesCollection(Iterable<V> values) => List<V>.from(values);
+
+  @override
+  bool removeValue(V value) => identical(_values, Node._emptyValues)
+      ? false
+      : (_values as Set<V>).remove(value);
+
+  @override
+  List<V> removeValues() {
+    if (identical(_values, Node._emptyValues)) {
+      return <V>[];
+    }
+
+    final ret = values;
+    _values = Node._emptyValues;
+    return ret;
+  }
+
+  @override
+  bool addValue(V value) {
+    if (identical(_values, Node._emptyValues)) {
+      // Node currently has empty value
+      setValues([value]);
+      return true;
+    } else {
+      values.add(value);
+      // Adding to list always changes list
+      return true;
+    }
+  }
 }
 
 /// Base for all node types
 abstract class Node<V> {
   /// Construct new Node
-  Node(Iterable<int> codeUnits, this.priority, this.parent,
-      final HashSet<CodeUnitPoolEntry> _codeUnitPool)
-      : codeUnits = allocateCodeUnits(codeUnits, _codeUnitPool);
+  Node(Iterable<int> runes, Random priorityGenerator, this.parent,
+      final HashSet<RunePoolEntry> _runePool)
+      : runes = allocateRunes(runes, _runePool),
+        priority = priorityGenerator.nextInt(_MAX_PRIORITY);
 
   /// Release node resources
-  void destroy(final HashSet<CodeUnitPoolEntry> _codeUnitPool) {
-    freeCodeUnits(codeUnits, _codeUnitPool);
+  void destroy(HashSet<RunePoolEntry> _runePool) {
+    freeRunes(runes, _runePool);
+    // Don't forget children!
+    left?.destroy(_runePool);
+    mid?.destroy(_runePool);
+    right?.destroy(_runePool);
   }
 
-  /// Avoids the need for an empty valued [Node]
-  /// to incur space overhead of empty container which is presumably greater
-  /// in memory usage than a reference to this shared iterator.
+  /// Shared amongst empty valued key nodes.
   static const Object _emptyValues = Object();
 
   /// Reference to fixed size array of unicode code units stored in pool
-  List<int> codeUnits;
+  List<int> runes;
 
   /// Randomly generated value for balancing
   /// May be changed later when reducing node proximity to root.
@@ -88,13 +274,38 @@ abstract class Node<V> {
   ///
   /// If node was already a key end then returns true, falsde otherwaise.
   bool setAsKeyEnd() {
-    if (_values == null) {
+    if (identical(_values, null)) {
       _values = _emptyValues;
       return true;
     } else {
       return false;
     }
   }
+
+  /// Return Map for Json conversion
+  ///
+  /// If [includeValues] is true then values are included.
+  List<dynamic> toJson([bool includeValues = true]) {
+    includeValues &= isKeyEnd;
+    final json = <dynamic>[];
+    json.add(String.fromCharCodes(runes));
+    if (isMarked) {
+      json.add(1);
+    }
+    if (isKeyEnd) {
+      if(includeValues){
+        json.add(valuesToJson());
+      }else{
+        // Empty collection specifies keyend
+        json.add([]);
+      }
+    }
+
+    return json;
+  }
+
+  /// Return values as a Json encodable type
+  Iterable<V> valuesToJson() => values;
 
   /// Remove key end status from node
   void clearKeyEnd() {
@@ -114,7 +325,12 @@ abstract class Node<V> {
   V lookupValue(V value);
 
   /// Set to shallow copy of [values]
-  void setValues(Iterable<V> values);
+  void setValues(Iterable<V> values) {
+    _values =
+        values.isEmpty ? Node._emptyValues : _createValuesCollection(values);
+  }
+
+  Object _createValuesCollection(Iterable<V> values);
 
   /// Add a single [value] to the node
   /// Return true if value collection has changed.
@@ -122,8 +338,8 @@ abstract class Node<V> {
   bool addValue(V value);
 
   /// Add all values to node
-  void addValues(Iterable<V> values){
-    for(final value in values){
+  void addValues(Iterable<V> values) {
+    for (final value in values) {
       addValue(value);
     }
   }
@@ -138,38 +354,47 @@ abstract class Node<V> {
   Iterable<V> get values;
 
   /// Does this node represent the final character of a key?
-  bool get isKeyEnd => _values != null;
+  bool get isKeyEnd => !identical(_values, null);
+
+  /// Does this node have a parent node?
+  bool get hasParent => !identical(parent, null);
+
+  /// Does this node have a left node?
+  bool get hasLeft => !identical(left, null);
+
+  /// Does this node have a left node?
+  bool get hasMid => !identical(mid, null);
+
+  /// Does this node have a left node?
+  bool get hasRight => !identical(right, null);
 
   /// True if this node has been previously marked, false otherwise.
-  bool get isMarked  =>
-      isKeyEnd && priority >= MAX_PRIORITY;
+  bool get isMarked => isKeyEnd && priority >= _MAX_PRIORITY;
 
   /// Map node priority into the 'promoted' codomain.
   void mark() {
-    assert(priority < MAX_PRIORITY);
-    priority += MAX_PRIORITY;
+    assert(priority < _MAX_PRIORITY);
+    priority += _MAX_PRIORITY;
   }
-
 
   /// return number of end nodes in subtree with this node as root
   int get sizeDFSTree =>
-      _values == null ? numDFSDescendants : numDFSDescendants + 1;
+      identical(_values, null) ? numDFSDescendants : numDFSDescendants + 1;
 
   /// return number of end nodes in subtree with this node as prefix root
   int get sizePrefixTree {
-    var size = _values == null ? 0 : 1;
-    if (mid != null) {
+    var size = identical(_values, null) ? 0 : 1;
+    if (!identical(mid, null)) {
       size += mid.sizeDFSTree;
     }
 
     return size;
   }
 
-  /// Set codeunits to fixed size array
-  void setCodeUnits(Iterable<int> codeUnits,
-      final HashSet<CodeUnitPoolEntry> _codeUnitPool) {
-    freeCodeUnits(this.codeUnits, _codeUnitPool);
-    this.codeUnits = allocateCodeUnits(codeUnits, _codeUnitPool);
+  /// Set runes to fixed size array
+  void setRunes(Iterable<int> runes, final HashSet<RunePoolEntry> _runePool) {
+    freeRunes(this.runes, _runePool);
+    this.runes = allocateRunes(runes, _runePool);
   }
 
   /// Return _Node descendant corresponding to a transformed key.
@@ -181,12 +406,12 @@ abstract class Node<V> {
     }
 
     final prefixDescendant =
-        getClosestPrefixDescendant(transformedKey.codeUnits);
+        getClosestPrefixDescendant(transformedKey.runes.toList());
 
     // The node must represent only this key
     if (!prefixDescendant.isPrefixMatch ||
-        prefixDescendant.nodeCodeunitIdx !=
-            prefixDescendant.node.codeUnits.length - 1 ||
+        prefixDescendant.nodeRuneIdx !=
+            prefixDescendant.node.runes.length - 1 ||
         !prefixDescendant.node.isKeyEnd) {
       return null;
     }
@@ -198,38 +423,38 @@ abstract class Node<V> {
   /// Return [PrefixSearchResult] where:
   ///
   /// * [PrefixSearchResult.node] = Node containing end of prefix or closest to it. Equal to this node if no match found.
-  /// * [PrefixSearchResult.prefixCodeunitIdx] = The index of final matching prefix codeunit
+  /// * [PrefixSearchResult.prefixRuneIdx] = The index of final matching prefix rune
   /// or [_INVALID_CODE_UNIT] if prefix not processed at all.
-  /// * [PrefixSearchResult.nodeCodeunitIdx] = The index of final matching node codeunit.
+  /// * [PrefixSearchResult.nodeRuneIdx] = The index of final matching node rune.
   /// * [PrefixSearchResult.isPrefixMatch] = true if full match was found otherwise false.
   PrefixSearchResult<V> getClosestPrefixDescendant(
-      final List<int> prefixCodeUnits) {
-    assert(prefixCodeUnits != null);
-    final prefixCodeUnitsLength = prefixCodeUnits.length;
+      final List<int> prefixRunes) {
+    assert(!identical(prefixRunes, null));
+    final prefixRunesLength = prefixRunes.length;
 
     Node<V> closestNode;
     var nextNode = this;
     var prefixIdx = 0;
-    var codeUnitIdx = 0;
+    var runeIdx = 0;
     var depth = -1;
 
-    var prefixCodeUnit = prefixCodeUnits[prefixIdx];
+    var prefixRune = prefixRunes[prefixIdx];
 
     while (true) {
-      if (nextNode == null) {
-        return PrefixSearchResult<V>(prefixCodeUnits, closestNode,
-            prefixIdx - 1, codeUnitIdx - 1, false, depth);
+      if (identical(nextNode, null)) {
+        return PrefixSearchResult<V>(
+            prefixRunes, closestNode, prefixIdx - 1, runeIdx - 1, false, depth);
       }
 
       depth++;
 
-      final codeUnits = nextNode.codeUnits;
+      final runes = nextNode.runes;
 
       // Compare current prefix unit to first unit of new node
       // All nodes have at least one code unit so this wont go out of bounds
-      if (prefixCodeUnit < codeUnits[0]) {
+      if (prefixRune < runes[0]) {
         nextNode = nextNode.left;
-      } else if (prefixCodeUnit > codeUnits[0]) {
+      } else if (prefixRune > runes[0]) {
         nextNode = nextNode.right;
       } else {
         // There is a match between prefix unit and first code unit of this node
@@ -237,29 +462,29 @@ abstract class Node<V> {
         closestNode = nextNode;
 
         // Continue matching for this node
-        codeUnitIdx = 1;
+        runeIdx = 1;
         prefixIdx++;
         nextNode = null;
 
         // The prefix may live in this node or its mid descendants
-        // Match with this nodes code units
-        while (prefixIdx < prefixCodeUnitsLength &&
-            codeUnitIdx < codeUnits.length &&
-            codeUnits[codeUnitIdx] == prefixCodeUnits[prefixIdx]) {
-          codeUnitIdx++;
+        // Match with this nodes runes
+        while (prefixIdx < prefixRunesLength &&
+            runeIdx < runes.length &&
+            runes[runeIdx] == prefixRunes[prefixIdx]) {
+          runeIdx++;
           prefixIdx++;
         }
 
-        if (prefixIdx == prefixCodeUnitsLength) {
+        if (prefixIdx == prefixRunesLength) {
           // Found match in current node!
-          return PrefixSearchResult<V>(prefixCodeUnits, closestNode,
-              prefixIdx - 1, codeUnitIdx - 1, true, depth);
+          return PrefixSearchResult<V>(prefixRunes, closestNode, prefixIdx - 1,
+              runeIdx - 1, true, depth);
         }
 
-        prefixCodeUnit = prefixCodeUnits[prefixIdx];
+        prefixRune = prefixRunes[prefixIdx];
 
-        if (codeUnitIdx == codeUnits.length) {
-          // Made it to end of node codeunits.
+        if (runeIdx == runes.length) {
+          // Made it to end of node runes.
           // Hunt for rest of prefix down mid child.
           nextNode = closestNode.mid;
         }
@@ -269,31 +494,51 @@ abstract class Node<V> {
 
   /// Accumulate prefix descendant counts and update own count
   void updateDescendantCounts() {
-    numDFSDescendants = (left == null ? 0 : left.sizeDFSTree) +
-        (mid == null ? 0 : mid.sizeDFSTree) +
-        (right == null ? 0 : right.sizeDFSTree);
+    numDFSDescendants = (identical(left, null) ? 0 : left.sizeDFSTree) +
+        (identical(mid, null) ? 0 : mid.sizeDFSTree) +
+        (identical(right, null) ? 0 : right.sizeDFSTree);
+  }
+
+  /// Adjust priority relationship with the specified child
+  /// Keep operation within marked/unmarked sets.
+  void adjustPrioritiesForChild(Node<V> child) {
+    if (!identical(child, null)) {
+      assert(identical(child.parent, this));
+      // Marked nodes always have higer priority than unmarked
+      if ((isMarked || !child.isMarked) && child.priority > priority) {
+        final tmp = priority;
+        priority = child.priority;
+        child.priority = tmp;
+      }
+    }
   }
 
   /// Update [oldChild] with [newChild]
   void updateChild(Node<V> oldChild, Node<V> newChild) {
-    if (left == oldChild) {
+    if (identical(left, oldChild)) {
       left = newChild;
-    } else if (mid == oldChild) {
+    } else if (identical(mid, oldChild)) {
       mid = newChild;
-    } else if (right == oldChild) {
+    } else if (identical(right, oldChild)) {
       right = newChild;
     } else {
       throw Error();
     }
   }
 
+  /// Delete [child] from this node
+  void deleteChild(Node<V> child, HashSet<RunePoolEntry> runePool) {
+    updateChild(child, null);
+    child.destroy(runePool);
+  }
+
   /// If children exist then rotate if needed.
   void rotateChildren() {
-    if (left != null) {
+    if (!identical(left, null)) {
       left = left.rotateIfNeeded();
     }
 
-    if (right != null) {
+    if (!identical(right, null)) {
       right = right.rotateIfNeeded();
     }
   }
@@ -306,11 +551,11 @@ abstract class Node<V> {
   ///
   /// Return possibly new root of rotated node tree
   Node<V> rotateIfNeeded() {
-    if (left != null && left.priority > priority) {
+    if (!identical(left, null) && left.priority > priority) {
       return rotateRight();
     }
 
-    if (right != null && right.priority > priority) {
+    if (!identical(right, null) && right.priority > priority) {
       return rotateLeft();
     }
     return this;
@@ -327,7 +572,7 @@ abstract class Node<V> {
     final b = this;
     final a = b.right;
 
-    if (a == null) {
+    if (identical(a, null)) {
       return b;
     }
 
@@ -342,7 +587,7 @@ abstract class Node<V> {
       ..right = d
       ..parent = a;
 
-    if (d != null) {
+    if (!identical(d, null)) {
       d.parent = b;
     }
 
@@ -364,7 +609,7 @@ abstract class Node<V> {
     final a = this;
     final b = a.left;
 
-    if (b == null) {
+    if (identical(b, null)) {
       // Nothing to rotate to.
       return a;
     }
@@ -380,7 +625,7 @@ abstract class Node<V> {
       ..left = d
       ..parent = b;
 
-    if (d != null) {
+    if (!identical(d, null)) {
       d.parent = a;
     }
 
@@ -392,7 +637,7 @@ abstract class Node<V> {
   }
 
   /// Merge node and mid child such that:
-  /// * codeUnits becomes codeUnits + mid.codeUnits.
+  /// * runes becomes runes + mid.runes.
   /// * node takes on all children of mid.
   /// * node takes on values children of mid.
   ///
@@ -400,8 +645,8 @@ abstract class Node<V> {
   /// * mid is not null.
   /// * is not an end node.
   /// * child has no Left or Right children.
-  void mergeMid(final HashSet<CodeUnitPoolEntry> _codeUnitPool) {
-    if (mid == null) {
+  void mergeMid(final HashSet<RunePoolEntry> _runePool) {
+    if (identical(mid, null)) {
       // No child to merge
       return;
     }
@@ -414,12 +659,12 @@ abstract class Node<V> {
 
     final child = mid;
 
-    if (child.left != null || child.right != null) {
+    if (!identical(child.left, null) || !identical(child.right, null)) {
       // Would disrupt tree ordering
       return;
     }
 
-    setCodeUnits(codeUnits + child.codeUnits, _codeUnitPool);
+    setRunes(runes + child.runes, _runePool);
 
     // Take on mid grandchild
     mid = child.mid;
@@ -432,113 +677,37 @@ abstract class Node<V> {
       numDFSDescendants--;
     }
 
-    if (mid != null) {
+    if (!identical(mid, null)) {
       mid.parent = this;
     }
-    child.destroy(_codeUnitPool);
+    child.destroy(_runePool);
   }
 
   @override
-  String toString() => '${String.fromCharCodes(codeUnits)}';
-}
+  String toString() => '${String.fromCharCodes(runes)}';
 
-/// A Node that stores values in [Set].
-class NodeSet<V> extends Node<V> {
-  /// Constrcut a NodeSet
-  NodeSet(Iterable<int> codeUnits, int priority, Node<V> parent,
-      final HashSet<CodeUnitPoolEntry> _codeUnitPool)
-      : super(codeUnits, priority, parent, _codeUnitPool);
-
-  @override
-  Set<V> get values =>
-      identical(_values, Node._emptyValues) ? <V>{} : super._values as Set<V>;
-
-  @override
-  V lookupValue(V value) => values.lookup(value);
-
-  @override
-  void setValues(Iterable<V> values) {
-    _values = Set<V>.from(values);
-  }
-
-  @override
-  bool removeValue(V value) =>
-      identical(_values, Node._emptyValues) ? false : values.remove(value);
-
-  @override
-  Set<V> removeValues() {
-    if (identical(_values, Node._emptyValues)) {
-      return <V>{};
-    }
-    final ret = values;
-    _values = Node._emptyValues;
-    return ret;
-  }
-
-  @override
-  bool addValue(V value) {
-    if (identical(_values, Node._emptyValues)) {
-      // Currently set to empty values.
-      setValues([value]);
-      return true;
-    } else {
-      return (_values as Set<V>).add(value);
-    }
-  }
-}
-
-/// A Node that stores values in [List].
-class NodeList<V> extends Node<V> {
-  /// Construct a NodeList
-  NodeList(Iterable<int> codeUnit, int priority, Node<V> parent,
-      final HashSet<CodeUnitPoolEntry> _codeUnitPool)
-      : super(codeUnit, priority, parent, _codeUnitPool);
-
-  @override
-  List<V> get values =>
-      identical(_values, Node._emptyValues) ? <V>[] : super._values as List<V>;
-
-  @override
-  V lookupValue(V value) {
-    for (final val in values) {
-      if (val == value) {
-        return val;
+  /// Update node values from json
+  void _setFromJson(List<dynamic> json) {
+    if (json.length > 1) {
+      final obj = json[1];
+      //   Could be either node marked specifier or list of values
+      if (obj is List) {
+        setValues(obj.cast<V>().toList());
+      } else if ((obj as int) == 1) {
+        mark();
+      } else {
+        throw ArgumentError.value(obj, 'Invalid Json value');
       }
     }
-    return null;
-  }
 
-  @override
-  void setValues(Iterable<V> values) {
-    _values = List<V>.from(values);
-  }
+    if (json.length > 2) {
+      final obj = json[1];
 
-  @override
-  bool removeValue(V value) => identical(_values, Node._emptyValues)
-      ? false
-      : (_values as Set<V>).remove(value);
-
-  @override
-  List<V> removeValues() {
-    if (identical(_values, Node._emptyValues)) {
-      return <V>[];
-    }
-
-    final ret = values;
-    _values = Node._emptyValues;
-    return ret;
-  }
-
-  @override
-  bool addValue(V value) {
-    if (identical(_values, Node._emptyValues)) {
-      // Node currently has empty value
-      setValues([value]);
-      return true;
-    } else {
-      values.add(value);
-      // Adding to list always changes list
-      return true;
+      if (obj is List) {
+        setValues(obj.cast<V>().toList());
+      } else {
+        throw ArgumentError.value(obj, 'Invalid Json value');
+      }
     }
   }
 }

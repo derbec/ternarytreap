@@ -6,7 +6,7 @@ import 'dart:collection';
 class Stack<T> {
   /// Construct new [Stack]
   Stack([int initialSize = 0])
-      : assert(initialSize != null),
+      : assert(!identical(initialSize, null)),
         _list = ListQueue<T>(initialSize);
 
   ListQueue<T> _list;

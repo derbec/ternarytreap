@@ -1,90 +1,67 @@
 library pool;
 
+import 'package:collection/collection.dart';
 import 'dart:collection';
-
-const _SIZE_OF_INT = 4;
-
+import 'global.dart';
 
 /// A single entry on the pool
-class CodeUnitPoolEntry {
-  /// Construct a new CodeUnitPoolEntry
-  CodeUnitPoolEntry(this._codeUnits, this._count);
-  final Iterable<int> _codeUnits;
+class RunePoolEntry {
+  /// Construct a new RunePoolEntry.
+  /// Assumes _runes is passed an EfficientLength iterator that also
+  /// provides efficient elementAt() method.
+  /// Such as ListIterable or SubListIterable
+  RunePoolEntry(this._runes, this._count);
+  final Iterable<int> _runes;
   int _count;
+
+  @override
+  String toString()=> String.fromCharCodes(_runes);
 }
 
 /// Size of pool in bytes
-int sizeOfPool(final HashSet<CodeUnitPoolEntry> codeUnitPool) {
+int sizeOfPool(final HashSet<RunePoolEntry> runePool) {
   var poolSize = 0;
-    for (final entry in codeUnitPool) {
-      poolSize += (entry._codeUnits.length + 1) * _SIZE_OF_INT;
-    }
+  for (final entry in runePool) {
+    poolSize += (entry._runes.length + 1) * SIZE_OF_INT;
+  }
   return poolSize;
 }
 
 /// Create a new pool
-HashSet<CodeUnitPoolEntry> createPool() => HashSet<CodeUnitPoolEntry>(equals:
-      (final CodeUnitPoolEntry codeUnitPoolEntry1,
-          final CodeUnitPoolEntry codeUnitPoolEntry2) {
-    if (codeUnitPoolEntry1 == null || codeUnitPoolEntry2 == null) {
-      return false;
-    }
+HashSet<RunePoolEntry> createPool() {
+  final _iterableEquality = IterableEquality<int>();
+  return HashSet<RunePoolEntry>(
+      equals: (RunePoolEntry runePoolEntry1, RunePoolEntry runePoolEntry2) =>
+          _iterableEquality.equals(
+              runePoolEntry1._runes, runePoolEntry2._runes),
+      hashCode: (final RunePoolEntry runePoolEntry) =>
+          _iterableEquality.hash(runePoolEntry._runes));
+}
 
-    final codeUnits1 = codeUnitPoolEntry1._codeUnits;
-    final codeUnits2 = codeUnitPoolEntry2._codeUnits;
+/// Allocate new runes, drawing from pool if possible
+List<int> allocateRunes(
+    Iterable<int> runes,  HashSet<RunePoolEntry> runePool) {
+  final key = RunePoolEntry(runes, 0);
 
-    if (identical(codeUnits1, codeUnits2)) {
-      return true;
-    }
-
-    final length = codeUnits1.length;
-    if (length != codeUnits2.length) {
-      return false;
-    }
-
-    for (var i = 0; i < length; i++) {
-      if (codeUnits1.elementAt(i) != codeUnits2.elementAt(i)) {
-        return false;
-      }
-    }
-
-    return true;
-  }, hashCode: (final CodeUnitPoolEntry codeUnitPoolEntry) {
-    // Stolen from Quiver: lib/src/core/hash.dart
-    var hash = 0;
-    final codeUnits = codeUnitPoolEntry._codeUnits;
-
-    final length = codeUnits.length;
-    for (var i = 0; i < length; i++) {
-      hash = 0x1fffffff & (hash + codeUnits.elementAt(i));
-      hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    }
-    return hash ^ (hash >> 6);
-  });
-
-/// Allocate new code units, drawing from pool if possible
-List<int> allocateCodeUnits(final Iterable<int> codeUnits,
-    final HashSet<CodeUnitPoolEntry> codeUnitPool) {
-  final key = CodeUnitPoolEntry(codeUnits, 0);
-
-  var poolEntry = codeUnitPool.lookup(key);
-  if (poolEntry == null) {
-    poolEntry = CodeUnitPoolEntry(List<int>.unmodifiable(codeUnits), 1);
-    codeUnitPool.add(poolEntry);
+  var poolEntry = runePool.lookup(key);
+  if (identical(poolEntry, null)) {
+    poolEntry = RunePoolEntry(List<int>.unmodifiable(runes), 1);
+    runePool.add(poolEntry);
   } else {
     poolEntry._count++;
   }
-  return poolEntry._codeUnits as List<int>;
+  return poolEntry._runes as List<int>;
 }
 
-/// Free code units, remove form pool if no more refrences
-void freeCodeUnits(final Iterable<int> codeUnits,
-    final HashSet<CodeUnitPoolEntry> codeUnitPool) {
-  final key = CodeUnitPoolEntry(codeUnits, 0);
-  final poolEntry = codeUnitPool.lookup(key);
+/// Free runes, remove form pool if no more refrences
+void freeRunes(
+     Iterable<int> runes,  HashSet<RunePoolEntry> runePool) {
+  final key = RunePoolEntry(runes, 0);
+  final poolEntry = runePool.lookup(key);
   // Avoid check for null because the getter will check anyways
   poolEntry._count--;
+
   if (poolEntry._count < 1) {
-    codeUnitPool.remove(key);
+    runePool.remove(key);
   }
 }

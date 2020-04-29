@@ -1,8 +1,25 @@
 import 'dart:collection';
-
+import 'package:collection/collection.dart';
 import 'key_mapping.dart';
 import 'prefixeditdistanceiterable.dart';
 import 'ttmultimapimpl.dart';
+
+/// An equality over TTSets
+class TTSetEquality implements Equality<TTSet> {
+  final _ttMultiMapEquality = TTMultiMapEquality<dynamic>();
+
+  @override
+  bool equals(TTSet e1, TTSet e2) =>
+      (!identical(e1, null) && !identical(e2, null)) &&
+      _ttMultiMapEquality.equals(e1._ttMultiMap, e2._ttMultiMap);
+
+  @override
+  int hash(TTSet e) =>
+      identical(e, null) ? null.hashCode : _ttMultiMapEquality.hash(e._ttMultiMap);
+
+  @override
+  bool isValidKey(Object o) => o is TTSet;
+}
 
 /// A `Set<String>` with prefix and near neighbour searching capability
 /// across elements.
@@ -64,7 +81,7 @@ import 'ttmultimapimpl.dart';
 /// ```
 /// ## Case sensitivity and other key transformations
 ///
-/// Paa a [KeyMapping] during construction to specify key 
+/// Paa a [KeyMapping] during construction to specify key
 /// transform to be performed before all operations.
 ///
 /// ```dart
@@ -80,9 +97,15 @@ class TTSet extends SetBase<String> {
   TTSet([KeyMapping keyMapping]) : _ttMultiMap = TTMultiMapList(keyMapping);
 
   /// Construct a new [TTSet] and fill with [elements].
-  factory TTSet.fromIterable(Iterable<String> elements,
-          [KeyMapping keyMapping]) =>
-      TTSet(keyMapping)..addAll(elements);
+  TTSet.fromIterable(Iterable<String> elements, [KeyMapping keyMapping])
+      : _ttMultiMap = TTMultiMapList(keyMapping) {
+    ArgumentError.checkNotNull(elements, 'elements');
+    addAll(elements);
+  }
+
+  /// Construct a new [TTSet] from [json].
+  TTSet.fromJson(Map<String, dynamic> json, [KeyMapping keyMapping])
+      : _ttMultiMap = TTMultiMapList.fromJson(json, keyMapping);
 
   final TTMultiMapList _ttMultiMap;
 
@@ -110,15 +133,16 @@ class TTSet extends SetBase<String> {
 
   /// Iterates through [TTSet] elements such
   /// that only elements prefixed by [keyMapping]`(`[prefix]`)` are included.
-  /// 
+  ///
   /// See: [TTMultiMap.keysByPrefix] for how results are ordered and usage
   /// of [maxPrefixEditDistance] parameter.
-  /// 
+  ///
   /// Throws ArgumentError if [prefix] is empty.
   PrefixEditDistanceIterable<String> lookupByPrefix(String prefix,
           {int maxPrefixEditDistance = 0, bool filterMarked = false}) =>
       _ttMultiMap.keysByPrefix(prefix,
-          maxPrefixEditDistance: maxPrefixEditDistance, filterMarked:filterMarked);
+          maxPrefixEditDistance: maxPrefixEditDistance,
+          filterMarked: filterMarked);
 
   /// Promote [key] such that future calls to [suggestKey] will be
   /// more likely to return [key].
@@ -128,12 +152,18 @@ class TTSet extends SetBase<String> {
 
   @override
   bool remove(Object value) =>
-      value is String && _ttMultiMap.removeAll(value) != null;
+      value is String && !identical(_ttMultiMap.removeKey(value), null);
 
   /// Return a single suggested key expansion for [prefix].
   ///
   /// see: [promoteKey]
-  String suggestKey(String prefix) => _ttMultiMap.lastMarkedKeyByPrefix(prefix);
+  String suggestKey(String prefix) =>
+      _ttMultiMap.lastMarkedKeyForPrefix(prefix);
+
+  /// Return structure for Json encoding
+  ///
+  /// see: [TTMultiMap.toJson]
+  Map<String, dynamic> toJson() => _ttMultiMap.toJson(false);
 
   @override
   Set<String> toSet() => Set<String>.from(_ttMultiMap.keys);
