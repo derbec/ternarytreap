@@ -3,8 +3,9 @@ library node;
 import 'dart:collection';
 import 'dart:math';
 
-import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
+import 'package:meta/meta.dart';
+
 import 'pool.dart';
 
 /// (2^32)
@@ -15,7 +16,7 @@ const int _MAX_PRIORITY = 4294967296;
 class PrefixSearchResult<V> {
   /// Construct new PrefixSearchResult
   PrefixSearchResult(this.prefixRunes, this.node, this.prefixRuneIdx,
-      this.nodeRuneIdx, this.isPrefixMatch, this.depth);
+      this.nodeRuneIdx, this.isPrefixMatch);
 
   /// The prefix searched for
   final List<int> prefixRunes;
@@ -32,25 +33,22 @@ class PrefixSearchResult<V> {
   /// Is true then the prefix was fully matched.
   final bool isPrefixMatch;
 
-  /// Depth of node from search root
-  final int depth;
-
   @override
   String toString() =>
       'Node: $node, prefixRuneIdx: $prefixRuneIdx, nodeRuneIdx: $nodeRuneIdx, isPrefixMatch:$isPrefixMatch';
 }
 
 final _listEquality = ListEquality();
-final _deepCollectionEquality = DeepCollectionEquality();
+final _setEquality = SetEquality();
 
-/// Allow deep comparison of nodes
-/// [Node] is equivilent to [other] tree if:
+/// Determine equality of nodes
+/// [Node] is equivilent to [other] node if:
 /// * parent status is same
 /// * child status is same
 /// * keyEnd status is same
 /// * marked status is same
 /// * runes are same
-/// * values are same
+/// * values collection type and content are same
 /// * decendant count are same
 /// * subtree is same
 bool nodeEquality(Node e1, Node e2) {
@@ -78,8 +76,13 @@ bool nodeEquality(Node e1, Node e2) {
           (e1.numDFSDescendants == e2.numDFSDescendants) &&
           // Compare runes
           (_listEquality.equals(e1.runes, e2.runes)) &&
-          // Compare values
-          (_deepCollectionEquality.equals(e1.values, e2.values)) &&
+          // Compare types and values
+          ((e1 is NodeList &&
+                  e2 is NodeList &&
+                  _listEquality.equals(e1.values, e2.values)) ||
+              ((e1 is NodeSet &&
+                  e2 is NodeSet &&
+                  _setEquality.equals(e1.values, e2.values)))) &&
           // Compare subtree
           nodeEquality(e1.left, e2.left) &&
           nodeEquality(e1.mid, e2.mid) &&
@@ -101,6 +104,20 @@ class NodeSet<V> extends Node<V> {
       HashSet<RunePoolEntry> _runePool)
       : super(runes, priorityGenerator, parent, _runePool);
 
+  /// Construct a NodeSet from [other]
+  NodeSet.from(Node<V> other, Node<V> parent, HashSet<RunePoolEntry> _runePool)
+      : super.from(other, parent, _runePool) {
+    if (!identical(other.left, null)) {
+      left = NodeSet.from(other.left, this, _runePool);
+    }
+    if (!identical(other.mid, null)) {
+      mid = NodeSet.from(other.mid, this, _runePool);
+    }
+    if (!identical(other.right, null)) {
+      right = NodeSet.from(other.right, this, _runePool);
+    }
+  }
+
   /// Construct a NodeSet from the given Json
   factory NodeSet.fromJson(List<dynamic> json, Random priorityGenerator,
       Node<V> parent, HashSet<RunePoolEntry> _runePool) {
@@ -120,7 +137,8 @@ class NodeSet<V> extends Node<V> {
 
   /// Return values as a Json encodable type
   @override
-  Iterable<V> valuesToJson() => values.toList();
+  Iterable<dynamic> valuesToJson(dynamic Function(V value) toEncodable) =>
+      values.map((e) => toEncodable(e)).toList();
 
   @override
   V lookupValue(V value) => values.lookup(value);
@@ -160,6 +178,20 @@ class NodeList<V> extends Node<V> {
   NodeList(Iterable<int> rune, Random priorityGenerator, Node<V> parent,
       HashSet<RunePoolEntry> _runePool)
       : super(rune, priorityGenerator, parent, _runePool);
+
+  /// Construct a NodeList from [other]
+  NodeList.from(Node<V> other, Node<V> parent, HashSet<RunePoolEntry> _runePool)
+      : super.from(other, parent, _runePool) {
+    if (!identical(other.left, null)) {
+      left = NodeList.from(other.left, this, _runePool);
+    }
+    if (!identical(other.mid, null)) {
+      mid = NodeList.from(other.mid, this, _runePool);
+    }
+    if (!identical(other.right, null)) {
+      right = NodeList.from(other.right, this, _runePool);
+    }
+  }
 
   /// Construct a NodeSet from the given Json
   factory NodeList.fromJson(List<dynamic> json, Random priorityGenerator,
@@ -229,7 +261,20 @@ abstract class Node<V> {
       : runes = allocateRunes(runes, _runePool),
         priority = priorityGenerator.nextInt(_MAX_PRIORITY);
 
-  /// Release node resources
+  /// Construct new node from [other]
+  Node.from(Node<V> other, this.parent, final HashSet<RunePoolEntry> _runePool)
+      : assert(!identical(other, null)),
+        assert(!identical(_runePool, null)),
+        runes = allocateRunes(other.runes, _runePool),
+        priority = other.priority,
+        numDFSDescendants = other.numDFSDescendants {
+    if (other.isKeyEnd) {
+      setAsKeyEnd();
+      setValues(other.values);
+    }
+  }
+
+  /// Release resources of node and all children
   void destroy(HashSet<RunePoolEntry> _runePool) {
     freeRunes(runes, _runePool);
     // Don't forget children!
@@ -272,8 +317,9 @@ abstract class Node<V> {
 
   /// If node is not already key End then set as key end
   ///
-  /// If node was already a key end then returns true, falsde otherwaise.
-  bool setAsKeyEnd() {
+  /// If node was not already a key end then returns true, false otherwaise.
+  /// Optional [values] with which to init node.
+  bool setAsKeyEnd([Iterable<V> values]) {
     if (identical(_values, null)) {
       _values = _emptyValues;
       return true;
@@ -285,7 +331,8 @@ abstract class Node<V> {
   /// Return Map for Json conversion
   ///
   /// If [includeValues] is true then values are included.
-  List<dynamic> toJson([bool includeValues = true]) {
+  List<dynamic> toJson(
+      bool includeValues, dynamic Function(V value) toEncodable) {
     includeValues &= isKeyEnd;
     final json = <dynamic>[];
     json.add(String.fromCharCodes(runes));
@@ -293,9 +340,9 @@ abstract class Node<V> {
       json.add(1);
     }
     if (isKeyEnd) {
-      if(includeValues){
-        json.add(valuesToJson());
-      }else{
+      if (includeValues) {
+        json.add(valuesToJson(toEncodable));
+      } else {
         // Empty collection specifies keyend
         json.add([]);
       }
@@ -305,18 +352,24 @@ abstract class Node<V> {
   }
 
   /// Return values as a Json encodable type
-  Iterable<V> valuesToJson() => values;
+  Iterable<dynamic> valuesToJson(dynamic Function(V value) toEncodable) =>
+      values.map((e) => toEncodable(e)).toList();
 
   /// Remove key end status from node
   void clearKeyEnd() {
     _values = null;
+    // Node can only be marked if it is a key end
+    unmark();
   }
 
-  /// Take reference to values from other node removing
-  /// its keyend status in the process.
-  void takeValues(Node<V> other) {
+  /// Take keyend and marked status from [other].
+  void takeKeyEndMarked(Node<V> other) {
     _values = other._values;
     other._values = null;
+    if (other.isMarked) {
+      mark();
+      other.unmark();
+    }
   }
 
   /// Return first value that is equal to [value]
@@ -325,7 +378,10 @@ abstract class Node<V> {
   V lookupValue(V value);
 
   /// Set to shallow copy of [values]
+  ///
+  /// Throws error if node not already keyEnd
   void setValues(Iterable<V> values) {
+    assert(isKeyEnd);
     _values =
         values.isEmpty ? Node._emptyValues : _createValuesCollection(values);
   }
@@ -372,9 +428,26 @@ abstract class Node<V> {
   bool get isMarked => isKeyEnd && priority >= _MAX_PRIORITY;
 
   /// Map node priority into the 'promoted' codomain.
-  void mark() {
-    assert(priority < _MAX_PRIORITY);
-    priority += _MAX_PRIORITY;
+  ///
+  /// Return true if key was not already marked, false otherwise
+  bool mark() {
+    assert(isKeyEnd);
+    if (priority < _MAX_PRIORITY) {
+      priority += _MAX_PRIORITY;
+      return true;
+    }
+    return false;
+  }
+
+  /// Reverse [mark].
+  ///
+  /// Return true if key was previously marked, false otherwise
+  bool unmark() {
+    if (priority >= _MAX_PRIORITY) {
+      priority -= _MAX_PRIORITY;
+      return true;
+    }
+    return false;
   }
 
   /// return number of end nodes in subtree with this node as root
@@ -436,17 +509,15 @@ abstract class Node<V> {
     var nextNode = this;
     var prefixIdx = 0;
     var runeIdx = 0;
-    var depth = -1;
+    //var depth = -1;
 
     var prefixRune = prefixRunes[prefixIdx];
 
     while (true) {
       if (identical(nextNode, null)) {
         return PrefixSearchResult<V>(
-            prefixRunes, closestNode, prefixIdx - 1, runeIdx - 1, false, depth);
+            prefixRunes, closestNode, prefixIdx - 1, runeIdx - 1, false);
       }
-
-      depth++;
 
       final runes = nextNode.runes;
 
@@ -477,8 +548,8 @@ abstract class Node<V> {
 
         if (prefixIdx == prefixRunesLength) {
           // Found match in current node!
-          return PrefixSearchResult<V>(prefixRunes, closestNode, prefixIdx - 1,
-              runeIdx - 1, true, depth);
+          return PrefixSearchResult<V>(
+              prefixRunes, closestNode, prefixIdx - 1, runeIdx - 1, true);
         }
 
         prefixRune = prefixRunes[prefixIdx];
@@ -652,7 +723,7 @@ abstract class Node<V> {
     }
 
     if (isKeyEnd) {
-      // Would result in lost key/values for
+      // Would result in lost key/values for node.
       // Node and child need to be kept separated.
       return;
     }
@@ -672,7 +743,7 @@ abstract class Node<V> {
     // Node takes on child values/keyend status
     // If child was a key node then node has 1 less descendant
     if (child.isKeyEnd) {
-      _values = child._values;
+      takeKeyEndMarked(child);
       // Child has been absorbed so 1 less descendant
       numDFSDescendants--;
     }
@@ -692,6 +763,7 @@ abstract class Node<V> {
       final obj = json[1];
       //   Could be either node marked specifier or list of values
       if (obj is List) {
+        setAsKeyEnd();
         setValues(obj.cast<V>().toList());
       } else if ((obj as int) == 1) {
         mark();
@@ -704,6 +776,7 @@ abstract class Node<V> {
       final obj = json[1];
 
       if (obj is List) {
+        setAsKeyEnd();
         setValues(obj.cast<V>().toList());
       } else {
         throw ArgumentError.value(obj, 'Invalid Json value');

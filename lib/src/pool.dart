@@ -1,7 +1,9 @@
 library pool;
 
-import 'package:collection/collection.dart';
 import 'dart:collection';
+
+import 'package:collection/collection.dart';
+
 import 'global.dart';
 
 /// A single entry on the pool
@@ -15,7 +17,7 @@ class RunePoolEntry {
   int _count;
 
   @override
-  String toString()=> String.fromCharCodes(_runes);
+  String toString() => String.fromCharCodes(_runes);
 }
 
 /// Size of pool in bytes
@@ -39,8 +41,7 @@ HashSet<RunePoolEntry> createPool() {
 }
 
 /// Allocate new runes, drawing from pool if possible
-List<int> allocateRunes(
-    Iterable<int> runes,  HashSet<RunePoolEntry> runePool) {
+List<int> allocateRunes(Iterable<int> runes, HashSet<RunePoolEntry> runePool) {
   final key = RunePoolEntry(runes, 0);
 
   var poolEntry = runePool.lookup(key);
@@ -54,8 +55,7 @@ List<int> allocateRunes(
 }
 
 /// Free runes, remove form pool if no more refrences
-void freeRunes(
-     Iterable<int> runes,  HashSet<RunePoolEntry> runePool) {
+void freeRunes(Iterable<int> runes, HashSet<RunePoolEntry> runePool) {
   final key = RunePoolEntry(runes, 0);
   final poolEntry = runePool.lookup(key);
   // Avoid check for null because the getter will check anyways

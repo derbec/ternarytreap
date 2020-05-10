@@ -26,3 +26,8 @@
 
 - Fixed lint errors
 
+## 1.0.7
+
+- Added distance searching
+
+

@@ -1,6 +1,4 @@
-import 'package:ternarytreap/ternarytreap.dart';
-
-import 'prefixeditdistanceiterable.dart';
+import 'ttiterable.dart';
 import 'key_mapping.dart';
 
 /// A Multimap with prefix and near neighbour searching capability
@@ -101,10 +99,11 @@ import 'key_mapping.dart';
 /// be stored as values.
 ///
 /// ```dart
-/// final keyValue = ternarytreap.TTMultiMapSet<String>(ternarytreap.lowercase)
-///   ..addKeyValues(['TeStInG', 'Cat', 'cAt', 'testinG', 'DOG', 'dog']);
-/// print(keyValue.entries);
-/// print(keyValue.valuesByKeyPrefix('CA'));
+/// final keyValues = ['TeStInG', 'Cat', 'cAt', 'testinG', 'DOG', 'dog'];
+/// final ttMultiMap = ternarytreap.TTMultiMapSet<String>.fromIterables(
+///      keyValues, keyValues, ternarytreap.lowercase);
+/// print(ttMultiMap.entries);
+/// print(ttMultiMap.valuesByKeyPrefix('CA'));
 /// ```
 /// ```shell
 /// (MapEntry(cat: {Cat, cAt}), MapEntry(dog: {DOG, dog}), MapEntry(testing: {TeStInG, testinG}))
@@ -113,7 +112,7 @@ import 'key_mapping.dart';
 ///
 /// ## Implementation
 ///
-/// A [TTMultiMap] is a tree of Nodes.
+/// A [TTMultiMap] is a self balancing compact ternary tree.
 ///
 /// ```
 ///                +---+   Graph with 3 keys,
@@ -126,7 +125,7 @@ import 'key_mapping.dart';
 ///   |            +-+-+   CUT: 1 value object
 /// +-+-+            |
 /// |A 3|            |     * Numbers represent priorities.
-/// |N  |          +-+-+   * Middle children are collapsed
+/// |N  |          +-+-+   * Non branching middle children are collapsed.
 /// +-+-+          |P 8+-------------+
 ///                +-+-+             |
 ///                  |             +-+-+
@@ -151,6 +150,8 @@ import 'key_mapping.dart';
 /// ```
 /// is maintained.
 ///
+/// Non branching middle nodes are collapsed into single node making this a compact trie.
+///
 /// Note: Key nodes with empty Value collections all share a common empty collection object.
 abstract class TTMultiMap<V> {
   /// Return [Iterable] of values for specified [key].
@@ -158,26 +159,40 @@ abstract class TTMultiMap<V> {
   /// If no value associated with key then returns empty [Iterable].
   /// If key not found then returns null.
   ///
-  /// Throws [ArgumentError] if [key] is empty.
+  /// Throws [ArgumentError] if [key] is empty or null.
+  ///
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
   Iterable<V> operator [](String key);
 
   /// Set [Iterable] of values corresponding to [key].
   ///
   /// Any existing [values] of [key] are replaced.
   ///
-  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty.
+  /// Throws [ArgumentError] if [key] is empty or null.
+  ///
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
   void operator []=(String key, Iterable<V> values);
 
   /// Insert a [key] and [value] association.
   ///
-  /// [key] is a string to be transformed via [KeyMapping] into a key.
+  /// [key] is a string to be transformed via [keyMapping] into a key.
   ///
   /// Return true if (key, value) pair did not already exist, false otherwise.
   ///
-  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty.
+  /// Throws [ArgumentError] if [key] is empty or null.
+  ///
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
   bool add(String key, V value);
 
   /// Add all key/value pairs from [other].
+  ///
+  /// Note: [keyMapping] is applied to all incoming keys so
+  /// keys may be altered or skipped during copying from [other].
+  ///
+  /// Depending on characteristics of values collection type operation
+  /// may or may not change this instance. For example if this instance
+  /// holds values in a Set then it may not be updated if value already
+  /// exists.
   void addAll(TTMultiMap<V> other);
 
   /// Adds all associations contained in [entries] to this [TTMultiMap].
@@ -185,31 +200,31 @@ abstract class TTMultiMap<V> {
   /// Is equivilent to calling [addValues] for each entry.
   ///
   /// [keyMapping] is applied to all incoming keys so
-  /// keys may be altered during copying from [entries].
+  /// keys may be altered or skipped during copying from [entries].
   ///
-  /// Throws [ArgumentError] if [keyMapping]`(key)` is empty for any
-  /// incoming keys of [entries].
+  /// Depending on characteristics of values collection type operation
+  /// may or may not change this instance. For example if this instance
+  /// holds values in a Set then it may not be updated if value already
+  /// exists.
   void addEntries(Iterable<MapEntry<String, Iterable<V>>> entries);
 
   /// Add [key] to collection.
   ///
   /// If a key does not allready exists then it is mapped to an empty
   /// value collection, otherwise no change occurs.
-  void addKey(String key);
+  ///
+  /// Returns true if key did not already exist, false otherwise.
+  ///
+  /// Throws [ArgumentError] if [key] is empty or null.
+  ///
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
+  bool addKey(String key);
 
-  /// Call [addKey](key) for each key in [keys].
+  /// Add each key in [keys].
   ///
   /// If a key does not allready exists then it is mapped to an empty
   /// value collection, otherwise no change occurs.
   void addKeys(Iterable<String> keys);
-
-  /// Convenience method for cases where key and value are the same object.
-  ///
-  /// Equivilent to calling [add]([keyValue].toString(), [keyValue] as V)
-  void addKeyValue(V keyValue);
-
-  /// Equivilent to calling [addKeyValue] for all [keyValues].
-  void addKeyValues(Iterable<V> keyValues);
 
   /// Add all [values] to specified key
   ///
@@ -220,7 +235,9 @@ abstract class TTMultiMap<V> {
   ///
   /// See [add].
   ///
-  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty.
+  /// Throws [ArgumentError] if [key] is empty or null.
+  ///
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
   void addValues(String key, Iterable<V> values);
 
   /// Return a view of this [TTMultiMap] as a [Map]
@@ -230,7 +247,9 @@ abstract class TTMultiMap<V> {
   void clear();
 
   /// Returns whether this [TTMultiMap] contains an
-  /// association between [key[] and [value].
+  /// association between [keyMapping]`(`[key]`)` and [value].
+  ///
+  /// Throws [ArgumentError] if [key] is empty or null.
   bool contains(String key, V value);
 
   /// Returns whether this [TTMultiMap] contains [key].
@@ -242,21 +261,21 @@ abstract class TTMultiMap<V> {
 
   /// Iterates through [TTMultiMap] as [MapEntry] objects.
   ///
-  /// Each [MapEntry] contains a key (after [KeyMapping] applied)
-  /// and its associated values.
+  /// Each [MapEntry] contains a key and its associated values.
   Iterable<MapEntry<String, Iterable<V>>> get entries;
 
   /// Iterates through [TTMultiMap] as [MapEntry] objects such
   /// that only keys prefixed by [keyMapping]`(`[prefix]`)` are included.
   ///
+  /// If [keyMapping]`(`[prefix]`)` is empty then returns empty Iterable.
+  ///
   /// Each [MapEntry] contains a key and its associated values.
   ///
   /// See [keysByPrefix] for more information on result ordering,
-  /// near neighbour search etc.
+  /// near neighbour search ([maxPrefixEditDistance]) etc.
   ///
-  /// Throws ArgumentError if [prefix] is empty.
-  PrefixEditDistanceIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(
-      String prefix,
+  /// Throws ArgumentError if [prefix] is empty or null.
+  TTIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix,
       {int maxPrefixEditDistance = 0});
 
   /// Applies [f] to each key/value pair of the [TTMultiMap]
@@ -271,11 +290,14 @@ abstract class TTMultiMap<V> {
   void forEachKey(void Function(String key, Iterable<V> values) f);
 
   /// Applies [f] to each key/value pair of the [TTMultiMap]
-  /// where key is prefixed by [prefix] (after [KeyMapping] applied).
+  /// where key is prefixed by [prefix].
   ///
   /// Calling [f] must not add or remove keys from the [TTMultiMap]
   ///
-  /// Throws ArgumentError if [prefix] is empty
+  /// See [keysByPrefix] for more information on result ordering,
+  /// near neighbour search ([maxPrefixEditDistance]) etc.
+  ///
+  /// Throws ArgumentError if [prefix] is empty or null.
   void forEachKeyPrefixedBy(
       String prefix, void Function(String key, Iterable<V> values) f,
       {int maxPrefixEditDistance = 0});
@@ -286,23 +308,19 @@ abstract class TTMultiMap<V> {
   /// Returns true if there is at least one key in the [TTMultiMap].
   bool get isNotEmpty;
 
-  /// The [KeyMapping] in use by this [TTMultiMap]
+  /// The [KeyMapping] in use by this [TTMultiMap].
+  /// Is applied to all incoming keys.
   ///
   /// See: [KeyMapping].
   KeyMapping get keyMapping;
 
-  /// The node depth of [key].
-  ///
-  /// Used for diagnostic/testing purposes.
-  int keyDepth(String key);
-
   /// Return [Iterable] view of keys
-  Iterable<String> get keys;
+  TTIterable<String> get keys;
 
   /// Iterates through [TTMultiMap] keys such
   /// that only keys prefixed by [keyMapping]`(`[prefix]`)` are included.
   ///
-  /// * If [keyMapping]`(`[prefix]`)` is empty then returns empty [Iterable].
+  /// * If [keyMapping]`(`[prefix]`)` is empty then returns empty Iterable.
   /// * If [maxPrefixEditDistance] > 0 then search will expand to all keys
   /// whose prefix is within a [Hamming edit distance](https://en.wikipedia.org/wiki/Hamming_distance)
   /// of [maxPrefixEditDistance] or less. For example searching for prefix
@@ -314,25 +332,26 @@ abstract class TTMultiMap<V> {
   ///
   /// Results are ordered by key as:
   ///
-  /// 1. Results where key is prefixed by [prefix] ordered lexicographically.
+  /// 1. Results where key is prefixed by [prefix] (i.e. prefixEditDistance == 0) ordered lexicographically.
   /// 2. Results of increasing edit distance ordered lexographically.
   ///
-  /// Throws ArgumentError if [prefix] is empty.
-  PrefixEditDistanceIterable<String> keysByPrefix(String prefix,
+  /// Throws ArgumentError if [prefix] is empty or null.
+  TTIterable<String> keysByPrefix(String prefix,
       {int maxPrefixEditDistance = 0});
 
   /// The number of keys in the [TTMultiMap].
   int get length;
 
-  /// Mark a key such that it can be refered to in future. For example via the `filterMarked`
-  /// parameter of [keysByPrefix].
+  /// Add a key to the marked set.
   ///
-  /// Although this uses no extra memory it rearranges the tree such that the newly
-  /// marked key is moved toward root, enabling later identification of the last marked key
-  /// with a given prefix.
+  /// This key may be retrieved later via the `filterMarked` parameter of [keysByPrefix].
   ///
-  /// see: [lastMarkedKeyForPrefix], [keysByPrefix]
-  void markKey(String key);
+  /// see: [keysByPrefix]
+  ///
+  /// Throws [ArgumentError] if [key] is empty or null.
+  ///
+  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
+  bool markKey(String key);
 
   /// If [TTMultiMap] contains specified ([key], [value]) pair
   /// then return stored value.
@@ -340,11 +359,12 @@ abstract class TTMultiMap<V> {
   /// Returned value may not be the same as [value] if element type
   /// equality does not include identity.
   ///
-  ///
   /// If key is mapped to multiple elements satisfying equality
   /// to [value] then only the first will be returned
   ///
   /// If ([key], [value]) pair is not present then returns null.
+  ///
+  /// Throws [ArgumentError] if [key] is empty or null.
   V lookup(String key, V value);
 
   /// Removes the association between the given [key] and [value].
@@ -362,7 +382,7 @@ abstract class TTMultiMap<V> {
   /// The key remains present, mapped to an empty iterable.
   ///
   /// Returns the collection of values associated with key,
-  /// or an empty iterable if key was unmapped.
+  /// or null if key was unmapped.
   Iterable<V> removeValues(String key);
 
   /// Return approximate size of tree in bytes
@@ -373,34 +393,6 @@ abstract class TTMultiMap<V> {
   /// If size of value type should be included in calculation then
   /// specify size via [valueSizeInBytes].
   int sizeOf([int valueSizeInBytes = 0]);
-
-  /// Attempt to return the most recently marked key with a specified [prefix].
-  ///
-  /// For example:
-  ///
-  /// ```dart
-  /// final ttSet = ternarytreap.TTSet.fromIterable(
-  ///     ['grab', 'angry', 'camel', 'axe', 'animal', 'bike', 'announced']);
-  ///
-  /// // Mark key 'announced'.
-  /// ttSet.markKey('announced');
-  ///
-  /// // Retrieve the last marked key for the prefix 'an'.
-  /// // The result should be 'announced'.
-  /// print(ttSet.lastMarkedKeyByPrefix('an'));
-  /// ```
-  /// ```shell
-  /// announced
-  /// ```
-  ///
-  /// Ordering of key marking is not stored explicitly but instead a result of
-  /// tree reordering by [markKey]. Thus the correctness of [lastMarkedKeyForPrefix]
-  /// is not guaranteed to survive beyond the next operation that modifies the [TTMultiMap].
-  ///
-  /// If no marked key is found for [prefix] then returns null.
-  ///
-  /// see: [markKey]
-  String lastMarkedKeyForPrefix(String prefix);
 
   /// Generate a string representation of this [TTMultiMap].
   ///
@@ -414,15 +406,12 @@ abstract class TTMultiMap<V> {
 
   /// Return Json representation of [TTMultiMap].
   ///
-  /// Simply storing the key->value pairs and rebuilding on deserialisation
-  /// would lose the [markKey], [lastMarkedKeyForPrefix] functionality thus
-  /// tree structure is maintained during serialisation.
-  ///
   /// Node tree stored as preorder traversal.
   ///
   /// If [includeValues] is true then values are included and must be
   /// Json serialisable in their own right.
-  Map<String, dynamic> toJson([bool includeValues = true]);
+  Map<String, dynamic> toJson(
+      {bool includeValues = true, dynamic Function(V value) valueToEncodable});
 
   /// Return [Iterable] view of values
   ///
@@ -435,6 +424,8 @@ abstract class TTMultiMap<V> {
   /// Iterates through [TTMultiMap] values for each key such
   /// that only keys prefixed by [keyMapping]`(`[prefix]`)` are included.
   ///
+  /// If [keyMapping]`(`[prefix]`)` is empty then returns empty iterable.
+  ///
   /// See [keysByPrefix] for more information on result ordering,
   /// near neighbour search etc.
   ///
@@ -443,7 +434,7 @@ abstract class TTMultiMap<V> {
   /// `[['Card', 'card'],['Cat', 'cat', 'CAT']]` ->
   /// `['Card', 'card','Cat', 'cat', 'CAT']`.
   ///
-  /// Throws ArgumentError if [prefix] is empty.
-  PrefixEditDistanceIterable<V> valuesByKeyPrefix(String prefix,
+  /// Throws ArgumentError if [prefix] is empty or null.
+  TTIterable<V> valuesByKeyPrefix(String prefix,
       {int maxPrefixEditDistance = 0});
 }

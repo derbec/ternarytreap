@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:ternarytreap/ternarytreap.dart' as ternarytreap;
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:test/test.dart';
@@ -62,7 +61,7 @@ void main() {
   Map<String, List<int>> numberMap;
   Map<String, List<String>> wordMap;
   ternarytreap.TTMultiMap<int> numberTST;
-  ternarytreap.TTMultiMap<String> wordTST;
+  ternarytreap.TTMultiMapList<String> wordTST;
 
   setUp(() {
     //Test data
@@ -328,49 +327,73 @@ void main() {
     });
 
     test('from', () {
+      final tt1 = ternarytreap.TTMultiMapSet<String>();
+      tt1.addKeys(['blue', 'black', 'purple', 'green', 'dink']);
+
+      final tt2 = ternarytreap.TTMultiMapSet.from(tt1);
+
       expect(
-          TTMultiMapEquality<String>().equals(
-              ternarytreap.TTMultiMapList<String>.from(wordTST), wordTST),
+          TTMultiMapSetEquality<String>().equals(tt1, tt2, true), equals(true));
+
+      expect(
+          TTMultiMapListEquality<String>().equals(
+              ternarytreap.TTMultiMapList<String>.from(wordTST), wordTST, true),
           equals(true));
 
       expect(
-          TTMultiMapEquality<String>().equals(
-              wordTST, ternarytreap.TTMultiMapList<String>.from(wordTST)),
+          TTMultiMapListEquality<String>().equals(
+              wordTST, ternarytreap.TTMultiMapList<String>.from(wordTST), true),
           equals(true));
     });
 
+    test('fromIterables', () {
+      final keyValues = ['TeStInG', 'Cat', 'cAt', 'testinG', 'DOG', 'dog'];
+      final tt = ternarytreap.TTMultiMapSet<String>.fromIterables(
+          keyValues, keyValues, ternarytreap.lowercase);
+
+      final compare =
+          ternarytreap.TTMultiMapSet<String>(ternarytreap.lowercase);
+      for (final keyVal in keyValues) {
+        compare.add(keyVal, keyVal);
+      }
+
+      expect(tt.keys, equals(compare.keys));
+
+      expect(tt.values, equals(compare.values));
+    });
+
     test('fromJson', () {
-      final eq = TTMultiMapEquality<String>();
+      final eq = TTMultiMapListEquality<String>();
       final json = wordTST.toJson();
       final rehydrated = ternarytreap.TTMultiMapList<String>.fromJson(json);
 
       expect(rehydrated.length, equals(wordTST.length));
       expect(rehydrated.keys, equals(wordTST.keys));
       expect(rehydrated.values, equals(wordTST.values));
-      expect(eq.equals(rehydrated, wordTST), equals(true));
+      expect(eq.equals(rehydrated, wordTST, true), equals(true));
 
       final key = 'this is a test';
       final val = 'test result';
 
       wordTST.addKey(key);
       expect(
-          eq.equals(
-              ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST),
+          eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST,
+              true),
           equals(false));
 
       wordTST.add(key, val);
       expect(wordTST.lookup(key, val), equals(val));
 
       expect(
-          eq.equals(
-              ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST),
+          eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST,
+              true),
           equals(false));
 
       final json2 = wordTST.toJson();
       final rehydrated2 = ternarytreap.TTMultiMapList<String>.fromJson(json2);
 
-      expect(eq.equals(rehydrated2, wordTST), equals(true));
-      expect(eq.equals(rehydrated2, rehydrated), equals(false));
+      expect(eq.equals(rehydrated2, wordTST, true), equals(true));
+      expect(eq.equals(rehydrated2, rehydrated, true), equals(false));
 
       expect(rehydrated2.length, equals(rehydrated.length + 1));
       expect(
@@ -383,16 +406,16 @@ void main() {
       wordTST.markKey(key);
 
       expect(
-          eq.equals(
-              ternarytreap.TTMultiMapList<String>.fromJson(json3), wordTST),
+          eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json3),
+              wordTST, true),
           equals(false));
 
       final ttSet = ternarytreap.TTSet.fromIterable(wordTST.keys);
       final json4 = ttSet.toJson();
 
-      stdout.writeln(json4);
-
-      expect(ternarytreap.TTSetEquality().equals(TTSet.fromJson(json4), ttSet),
+      expect(
+          ternarytreap.TTSetEquality()
+              .equals(TTSet.fromJson(json4), ttSet, true),
           equals(true));
     });
 
@@ -675,8 +698,8 @@ void main() {
 
           var checker = <List<String>>[];
           for (final key in sortedWordKeys) {
-            final distance =
-                prefixDistance(prefix.runes.toList(), key.runes.toList(), Iterable.empty());
+            final distance = prefixDistance(
+                prefix.runes.toList(), key.runes.toList(), Iterable.empty());
             if (distance > -1 && distance <= maxPrefixEditDistance) {
               checker.add(wordMap[key]);
             }
@@ -706,8 +729,8 @@ void main() {
 
           var checker = <String>[];
           for (final key in sortedWordKeys) {
-            final distance =
-                prefixDistance(prefix.runes.toList(), key.runes.toList(), Iterable.empty());
+            final distance = prefixDistance(
+                prefix.runes.toList(), key.runes.toList(), Iterable.empty());
             if (distance > -1 && distance <= maxPrefixEditDistance) {
               checker.add(key);
             }
@@ -738,8 +761,8 @@ void main() {
           while (keyItr.moveNext()) {
             expect(
                 keyItr.prefixEditDistance,
-                equals(prefixDistance(
-                    prefix.runes.toList(), keyItr.current.runes.toList(), Iterable.empty())));
+                equals(prefixDistance(prefix.runes.toList(),
+                    keyItr.current.runes.toList(), Iterable.empty())));
           }
 
           var entryItr = wordTST
@@ -764,8 +787,8 @@ void main() {
 
           var checker = <MapEntry<String, Iterable<String>>>[];
           for (final key in sortedWordKeys) {
-            final distance =
-                prefixDistance(prefix.runes.toList(), key.runes.toList(), Iterable.empty());
+            final distance = prefixDistance(
+                prefix.runes.toList(), key.runes.toList(), Iterable.empty());
             if (distance > -1 && distance <= maxPrefixEditDistance) {
               checker
                   .add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
@@ -794,8 +817,8 @@ void main() {
 
           var checker = <MapEntry<String, Iterable<String>>>[];
           for (final key in sortedWordKeys) {
-            final distance =
-                prefixDistance(prefix.runes.toList(), key.runes.toList(), Iterable.empty());
+            final distance = prefixDistance(
+                prefix.runes.toList(), key.runes.toList(), Iterable.empty());
             if (distance > -1 && distance <= maxPrefixEditDistance) {
               checker
                   .add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
@@ -818,80 +841,54 @@ void main() {
       }
     });
 
-    test('suggestKey', () {
-      final wordTSTKeys = wordTST.keys.toList();
-      final anKeys = wordTST.keysByPrefix('an').toList();
-
-      // Prioritise the last key
-      wordTST.markKey(anKeys.last);
-
-      // Now suggest should return promoted key
-      expect(wordTST.lastMarkedKeyForPrefix('an'), equals(anKeys.last));
-
-      expect(wordTST.lastMarkedKeyForPrefix('a'), equals(anKeys.last));
-
-      //Repeat with another key
-      final cKeys = wordTST.keysByPrefix('c').toList();
-
-      // Prioritise the last key
-      wordTST.markKey(cKeys.last);
-
-      // Now suggest should return prioritised key
-      expect(wordTST.lastMarkedKeyForPrefix('c'), equals(cKeys.last));
-
-      // Check that tree remembers original promotion
-      expect(wordTST.lastMarkedKeyForPrefix('an'), equals(anKeys.last));
-
-      expect(wordTST.lastMarkedKeyForPrefix('c'), equals(cKeys.last));
-
-      expect(wordTST.keys.toList(), equals(wordTSTKeys));
-
+    test('markKey', () {
       final ttSet = ternarytreap.TTSet.fromIterable(
           ['grab', 'angry', 'camel', 'axe', 'animal', 'bike', 'announced']);
 
-      final ttSetKeys = ttSet.toList();
+      ttSet.markKey('announced');
 
-      ttSet.promoteKey('announced');
+      expect(ttSet.marked.toList(), equals(['announced']));
 
-      expect(ttSet.toList(), equals(ttSetKeys));
+      expect(ttSet.unmarked.toList(),
+          equals(['angry', 'animal', 'axe', 'bike', 'camel', 'grab']));
     });
   });
 }
 
-  int prefixDistance(final Iterable<int> comparePrefix,
-      final Iterable<int> keyPrefix, final Iterable<int> keySuffix) {
-    final keyPrefixLength = keyPrefix.length;
-    final keySuffixLength = keySuffix.length;
+int prefixDistance(final Iterable<int> comparePrefix,
+    final Iterable<int> keyPrefix, final Iterable<int> keySuffix) {
+  final keyPrefixLength = keyPrefix.length;
+  final keySuffixLength = keySuffix.length;
 
-    final comparePrefixLength = comparePrefix.length;
+  final comparePrefixLength = comparePrefix.length;
 
-    if ((keyPrefixLength + keySuffixLength) < comparePrefixLength) {
-      // cannot compute hamming distance here as
-      return -1;
-    }
-
-    // Assume worst case and improve if possible
-    var distance = comparePrefixLength;
-    var comparePrefixIdx = 0;
-
-    // Improve if possible by comparing to keyPrefix and keySuffix
-    for (var i = 0;
-        comparePrefixIdx < comparePrefixLength && i < keyPrefixLength;
-        i++) {
-      if (comparePrefix.elementAt(comparePrefixIdx) == keyPrefix.elementAt(i)) {
-        distance--;
-      }
-      comparePrefixIdx++;
-    }
-
-    for (var i = 0;
-        comparePrefixIdx < comparePrefixLength && i < keySuffixLength;
-        i++) {
-      if (comparePrefix.elementAt(comparePrefixIdx) == keySuffix.elementAt(i)) {
-        distance--;
-      }
-      comparePrefixIdx++;
-    }
-
-    return distance;
+  if ((keyPrefixLength + keySuffixLength) < comparePrefixLength) {
+    // cannot compute hamming distance here as
+    return -1;
   }
+
+  // Assume worst case and improve if possible
+  var distance = comparePrefixLength;
+  var comparePrefixIdx = 0;
+
+  // Improve if possible by comparing to keyPrefix and keySuffix
+  for (var i = 0;
+      comparePrefixIdx < comparePrefixLength && i < keyPrefixLength;
+      i++) {
+    if (comparePrefix.elementAt(comparePrefixIdx) == keyPrefix.elementAt(i)) {
+      distance--;
+    }
+    comparePrefixIdx++;
+  }
+
+  for (var i = 0;
+      comparePrefixIdx < comparePrefixLength && i < keySuffixLength;
+      i++) {
+    if (comparePrefix.elementAt(comparePrefixIdx) == keySuffix.elementAt(i)) {
+      distance--;
+    }
+    comparePrefixIdx++;
+  }
+
+  return distance;
+}

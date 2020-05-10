@@ -3,7 +3,7 @@ A command line app is in example/bin:
 
 * Demonstrates the key -> data relationship using different key transforms.
 * Shows how to add a custom data type containing title, description and timestamp.
-* Shows how the [TernaryTreap] is built and balanced.
+* Shows how the TernaryTreap is built and balanced.
 
 ## Usage:
 `dart main.dart <KeyMapping> <preload>`

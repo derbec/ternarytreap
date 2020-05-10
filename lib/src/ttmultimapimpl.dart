@@ -1,16 +1,16 @@
 import 'dart:collection';
 import 'dart:math';
-import 'package:collection/collection.dart';
-import 'package:ternarytreap/ternarytreap.dart';
 
-import 'key_mapping.dart';
-import 'pool.dart';
-import 'prefixeditdistanceiterable.dart';
-import 'ttmultimap.dart';
-import 'node.dart';
-import 'iterator.dart';
-import 'utility.dart';
+import 'package:collection/collection.dart';
+
 import 'global.dart';
+import 'iterator.dart';
+import 'key_mapping.dart';
+import 'node.dart';
+import 'pool.dart';
+import 'ttiterable.dart';
+import 'ttmultimap.dart';
+import 'utility.dart';
 
 /// (2^53)-1 because javascript
 const int _MAX_SAFE_INTEGER = 9007199254740991;
@@ -30,45 +30,98 @@ class _AddResult<V> {
   final bool newKeyValue;
 }
 
-/// An equality over TTMultiMaps
-///
-/// Compares keys, values and structure.
-class TTMultiMapEquality<V> implements Equality<TTMultiMap<V>> {
+/// Defines equality between [TTMultiMap] instance.
+class _TTMultiMapEquality<V> {
   final _keyEquality = IterableEquality<String>();
-  final _valueEquality = IterableEquality<V>();
   final _hasher = ListEquality<int>();
-  @override
-  bool equals(TTMultiMap<V> e1, TTMultiMap<V> e2) {
+
+  bool equals(TTMultiMap<V> e1, TTMultiMap<V> e2,
+      Equality<Iterable<V>> valueEquality, bool strict) {
+    ArgumentError.checkNotNull(strict);
     if (identical(e1, e2)) {
       return true;
     }
 
     if (e1 is _TTMultiMapImpl<V> && e2 is _TTMultiMapImpl<V>) {
-      if (e1.isEmpty && e2.isEmpty) {
+      if (e1.length != e2.length) {
+        // must be same length
+        return false;
+      }
+
+      if (e1.isEmpty) {
         // two empty collections are the same
         return true;
       }
 
-      if (e1.length != e2.length) {
-        return false;
-      }
-      if (!identical(e1._root, null)) {
-        // To support [lastMarkedKeyForPrefix] structure needs to be the same
+      if (strict) {
+        // Compare everything exactly
         return nodeEquality(e1._root, e2._root);
+      } else {
+        // Only compare keys, values and node marking
+        final keyItr1 = e1.keys.iterator as InOrderKeyIterator<V>;
+        final keyItr2 = e2.keys.iterator as InOrderKeyIterator<V>;
+        while (keyItr1.moveNext() && keyItr2.moveNext()) {
+          if (keyItr1.currentKey != keyItr2.currentKey ||
+              keyItr1.isMarked != keyItr2.isMarked ||
+              !valueEquality.equals(
+                  keyItr1.currentValue, keyItr2.currentValue)) {
+            return false;
+          }
+        }
+        return true;
       }
     }
 
     return false;
   }
 
+  int hash(TTMultiMap<V> e, Equality<Iterable<V>> valueEquality) =>
+      identical(e, null)
+          ? null.hashCode
+          : _hasher
+              .hash([_keyEquality.hash(e.keys), valueEquality.hash(e.values)]);
+}
+
+/// An equality between [TTMultiMapSetEquality] instances.
+class TTMultiMapSetEquality<V> implements Equality<TTMultiMapSet<V>> {
+  final _ttMultiMapEquality = _TTMultiMapEquality<V>();
+  final _valueEquality = UnorderedIterableEquality<V>();
+
+  /// If [strict] is true then compares exact structure.
+  /// If [strict] is false then compares keys, values and node marking.
+  ///
+  /// [strict] == 'false' should suffice for almost all cases.
   @override
-  int hash(TTMultiMap<V> e) => identical(e, null)
-      ? null.hashCode
-      : _hasher
-          .hash([_keyEquality.hash(e.keys), _valueEquality.hash(e.values)]);
+  bool equals(TTMultiMapSet<V> e1, TTMultiMapSet<V> e2,
+          [bool strict = false]) =>
+      _ttMultiMapEquality.equals(e1, e2, _valueEquality, strict);
 
   @override
-  bool isValidKey(Object o) => o is TTMultiMap<V>;
+  int hash(TTMultiMapSet<V> e) => _ttMultiMapEquality.hash(e, _valueEquality);
+
+  @override
+  bool isValidKey(Object o) => o is TTMultiMapSet<V>;
+}
+
+/// An equality between [TTMultiMapListEquality] instances.
+class TTMultiMapListEquality<V> implements Equality<TTMultiMapList<V>> {
+  final _ttMultiMapEquality = _TTMultiMapEquality<V>();
+  final _valueEquality = IterableEquality<V>();
+
+  /// If [strict] is true then compares exact structure.
+  /// If [strict] is false then compares keys, values and node marking.
+  ///
+  /// [strict] == 'false' should suffice for almost all cases.
+  @override
+  bool equals(TTMultiMapList<V> e1, TTMultiMapList<V> e2,
+          [bool strict = false]) =>
+      _ttMultiMapEquality.equals(e1, e2, _valueEquality, strict);
+
+  @override
+  int hash(TTMultiMapList<V> e) => _ttMultiMapEquality.hash(e, _valueEquality);
+
+  @override
+  bool isValidKey(Object o) => o is TTMultiMapSet<V>;
 }
 
 /// Return a [TTMultiMap] that stores values in a [Set]
@@ -101,32 +154,28 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   ///
   /// Values are stored as Set collections, thus if [other] stores values in list
   /// then result will not be an exact copy.
-  ///
-  /// ** CURRENTLY SLOW AS PIGGYBACKS ON JSON ROUTINE **
-  TTMultiMapSet.from(TTMultiMap<V> other, [KeyMapping keyMapping])
-      : super(
-            (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
-                    HashSet<RunePoolEntry> _runePool) =>
-                NodeSet<V>(runes, priorityGenerator, parent, _runePool),
-            keyMapping) {
-    ArgumentError.checkNotNull(other, 'other');
-    _setFromJson(
-        (List<dynamic> json, Random priorityGenerator, Node<V> parent,
-                HashSet<RunePoolEntry> _runePool) =>
-            NodeSet.fromJson(json, priorityGenerator, parent, _runePool),
-        other.toJson());
+  /// Create a [TTMultiMapList] from a [TTMultiMap].
+  TTMultiMapSet.from(TTMultiMap<V> other)
+      : super.from(other as _TTMultiMapImpl<V>) {
+    final impl = (other as _TTMultiMapImpl<V>);
+    if (!identical(impl._root, null)) {
+      _root = NodeSet.from(impl._root, null, _runePool);
+    }
   }
 
-  /// Create a [TTMultiMapSet] from a [Map].
-  TTMultiMapSet.fromMap(Map<String, Iterable<V>> map, [KeyMapping keyMapping])
+  /// Create a [TTMultiMapSet] from Iterables of [keys] and [values].
+  ///
+  /// Throws Error if [keys] and [values] are not of same length.
+  ///
+  /// Throws Error if any key in [keys] is empty after [KeyMapping] applied.
+  TTMultiMapSet.fromIterables(Iterable<String> keys, Iterable<V> values,
+      [KeyMapping keyMapping])
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
                 NodeSet<V>(runes, priorityGenerator, parent, _runePool),
             keyMapping) {
-    for (final key in map.keys) {
-      addValues(key, map[key]);
-    }
+    _setFromIterables(keys, values);
   }
 
   /// Construct a [TTMultiMapSet] from the given Json
@@ -143,6 +192,18 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
         json);
   }
 
+  /// Create a [TTMultiMapSet] from a [Map].
+  TTMultiMapSet.fromMap(Map<String, Iterable<V>> map, [KeyMapping keyMapping])
+      : super(
+            (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
+                    HashSet<RunePoolEntry> _runePool) =>
+                NodeSet<V>(runes, priorityGenerator, parent, _runePool),
+            keyMapping) {
+    for (final key in map.keys) {
+      addValues(key, map[key]);
+    }
+  }
+
   @override
   Set<V> operator [](String key) => super[key] as Set<V>;
 
@@ -156,19 +217,24 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
       InOrderMapEntryIterableSet<V>(_root, _version);
 
   @override
-  PrefixEditDistanceIterable<MapEntry<String, Set<V>>> entriesByKeyPrefix(
-          String prefix,
-          {int maxPrefixEditDistance = 0}) =>
-      InOrderMapEntryIterableSet<V>(_root, _version,
-          prefix: _mapKeyErrorOnEmpty(prefix).runes.toList(),
-          maxPrefixEditDistance: maxPrefixEditDistance);
+  TTIterable<MapEntry<String, Set<V>>> entriesByKeyPrefix(String prefix,
+      {int maxPrefixEditDistance = 0}) {
+    final key = _mapKey(prefix);
+    return (key.isEmpty)
+        ? InOrderMapEntryIterableSet<V>(null, _version)
+        : InOrderMapEntryIterableSet<V>(_root, _version,
+            prefixSearchResult: identical(_root, null)
+                ? null
+                : _root.getClosestPrefixDescendant(key.runes.toList()),
+            maxPrefixEditDistance: maxPrefixEditDistance);
+  }
 
   @override
   void forEachKey(void Function(String key, Set<V> values) f) {
     ArgumentError.checkNotNull(f, 'f');
-    final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
-    while (entryItr.moveNext()) {
-      f(entryItr.currentKey, entryItr.currentValue as Set<V>);
+    final keyItr = keys.iterator as InOrderKeyIterator<V>;
+    while (keyItr.moveNext()) {
+      f(keyItr.currentKey, keyItr.currentValue as Set<V>);
     }
   }
 
@@ -178,8 +244,8 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
       {int maxPrefixEditDistance = 0}) {
     ArgumentError.checkNotNull(f, 'f');
     final itr =
-        entriesByKeyPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
-            .iterator as InOrderMapEntryIterator<V>;
+        keysByPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
+            .iterator as InOrderKeyIterator<V>;
 
     while (itr.moveNext()) {
       f(itr.currentKey, itr.currentValue as Set<V>);
@@ -223,21 +289,27 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
             keyMapping);
 
   /// Create a [TTMultiMapList] from a [TTMultiMap].
+  TTMultiMapList.from(TTMultiMap<V> other)
+      : super.from(other as _TTMultiMapImpl<V>) {
+    final impl = (other as _TTMultiMapImpl<V>);
+    if (!identical(impl._root, null)) {
+      _root = NodeList.from(impl._root, null, _runePool);
+    }
+  }
+
+  /// Create a [TTMultiMapList] from Iterables of [keys] and [values].
   ///
-  /// Values are stored as List collections, thus if [other] stores values in list
-  /// then result will not be an exact copy.
-  TTMultiMapList.from(TTMultiMap<V> other, [KeyMapping keyMapping])
+  /// Throws Error if [keys] and [values] are not of same length.
+  ///
+  /// Throws Error if any key in [keys] is empty after [KeyMapping] applied.
+  TTMultiMapList.fromIterables(Iterable<String> keys, Iterable<V> values,
+      [KeyMapping keyMapping])
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
                 NodeList<V>(runes, priorityGenerator, parent, _runePool),
             keyMapping) {
-    ArgumentError.checkNotNull(other, 'other');
-    _setFromJson(
-        (List<dynamic> json, Random priorityGenerator, Node<V> parent,
-                HashSet<RunePoolEntry> _runePool) =>
-            NodeList.fromJson(json, priorityGenerator, parent, _runePool),
-        other.toJson());
+    _setFromIterables(keys, values);
   }
 
   /// Create a [TTMultiMapList] from a [Map].
@@ -279,19 +351,24 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
       InOrderMapEntryIterableList<V>(_root, _version);
 
   @override
-  PrefixEditDistanceIterable<MapEntry<String, List<V>>> entriesByKeyPrefix(
-          String prefix,
-          {int maxPrefixEditDistance = 0}) =>
-      InOrderMapEntryIterableList<V>(_root, _version,
-          prefix: _mapKeyErrorOnEmpty(prefix).runes.toList(),
-          maxPrefixEditDistance: maxPrefixEditDistance);
+  TTIterable<MapEntry<String, List<V>>> entriesByKeyPrefix(String prefix,
+      {int maxPrefixEditDistance = 0}) {
+    final key = _mapKey(prefix);
+    return (key.isEmpty)
+        ? InOrderMapEntryIterableList<V>(null, _version)
+        : InOrderMapEntryIterableList<V>(_root, _version,
+            prefixSearchResult: identical(_root, null)
+                ? null
+                : _root.getClosestPrefixDescendant(key.runes.toList()),
+            maxPrefixEditDistance: maxPrefixEditDistance);
+  }
 
   @override
   void forEachKey(void Function(String key, List<V> values) f) {
     ArgumentError.checkNotNull(f, 'f');
-    final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
-    while (entryItr.moveNext()) {
-      f(entryItr.currentKey, entryItr.currentValue as List<V>);
+    final keyItr = keys.iterator as InOrderKeyIterator<V>;
+    while (keyItr.moveNext()) {
+      f(keyItr.currentKey, keyItr.currentValue as List<V>);
     }
   }
 
@@ -301,8 +378,8 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
       {int maxPrefixEditDistance = 0}) {
     ArgumentError.checkNotNull(f, 'f');
     final itr =
-        entriesByKeyPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
-            .iterator as InOrderMapEntryIterator<V>;
+        keysByPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
+            .iterator as InOrderKeyIterator<V>;
 
     while (itr.moveNext()) {
       f(itr.currentKey, itr.currentValue as List<V>);
@@ -324,8 +401,12 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   /// [KeyMapping] to be applied to all keys processed by this [TTMultiMap].
   _TTMultiMapImpl(this._nodeFactory, KeyMapping keyMapping)
       : _keyMapping = keyMapping ?? identity,
-        _version = ByRef(0),
-        _root = null;
+        _version = ByRef(0);
+
+  _TTMultiMapImpl.from(_TTMultiMapImpl<V> other)
+      : _nodeFactory = other._nodeFactory,
+        _keyMapping = other._keyMapping,
+        _version = ByRef(0);
 
   /// The [KeyMapping] in use by this [TTMultiMap]
   ///
@@ -349,13 +430,13 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   Iterable<V> operator [](String key) =>
-      _root?.getKeyNode(_mapKeyErrorOnEmpty(key))?.values;
+      _root?.getKeyNode(_mapKeyNonEmpty(key))?.values;
 
   @override
   void operator []=(String key, Iterable<V> values) {
     ArgumentError.checkNotNull(values, 'values');
-    final addResult =
-        _add(_root, _mapKeyErrorOnEmpty(key).runes.toList(), null);
+
+    final addResult = _add(_root, _mapKeyNonEmpty(key).runes.toList(), null);
 
     _root = addResult.rootNode;
 
@@ -367,8 +448,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   @override
   bool add(String key, V value) {
     ArgumentError.checkNotNull(value, 'value');
-    final addResult =
-        _add(_root, _mapKeyErrorOnEmpty(key).runes.toList(), value);
+    final addResult = _add(_root, _mapKeyNonEmpty(key).runes.toList(), value);
 
     _root = addResult.rootNode;
 
@@ -380,11 +460,14 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   @override
   void addAll(TTMultiMap<V> other) {
     ArgumentError.checkNotNull(other, 'other');
-    final entryItr = other.entries.iterator as InOrderMapEntryIterator<V>;
+    final keyItr = other.entries.iterator as InOrderKeyIterator<V>;
 
-    while (entryItr.moveNext()) {
-      _addIterable(_mapKeyErrorOnEmpty(entryItr.currentKey).runes.toList(),
-          entryItr.currentValue);
+    while (keyItr.moveNext()) {
+      final key = _mapKey(keyItr.currentKey);
+      // Keys from other may not map usefully to key domain of this.
+      if (key.isNotEmpty) {
+        _addIterable(key.runes.toList(), keyItr.currentValue);
+      }
     }
 
     _incVersion();
@@ -394,7 +477,10 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   void addEntries(Iterable<MapEntry<String, Iterable<V>>> entries) {
     ArgumentError.checkNotNull(entries, 'entries');
     entries.forEach((final entry) {
-      _addIterable(_mapKeyErrorOnEmpty(entry.key).runes.toList(), entry.value);
+      final key = _mapKey(entry.key);
+      if (key.isNotEmpty) {
+        _addIterable(key.runes.toList(), entry.value);
+      }
     });
 
     _incVersion();
@@ -402,8 +488,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   bool addKey(String key) {
-    final addResult =
-        _add(_root, _mapKeyErrorOnEmpty(key).runes.toList(), null);
+    final addResult = _add(_root, _mapKeyNonEmpty(key).runes.toList(), null);
 
     _root = addResult.rootNode;
 
@@ -418,20 +503,9 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       });
 
   @override
-  void addKeyValue(V keyValue) {
-    add(keyValue.toString(), keyValue);
-  }
-
-  @override
-  void addKeyValues(Iterable<V> keyValues) =>
-      keyValues.forEach((final keyValue) {
-        addKeyValue(keyValue);
-      });
-
-  @override
   void addValues(String key, Iterable<V> values) {
     ArgumentError.checkNotNull(values, 'values');
-    _addIterable(_mapKeyErrorOnEmpty(key).runes.toList(), values);
+    _addIterable(_mapKeyNonEmpty(key).runes.toList(), values);
 
     _incVersion();
   }
@@ -449,7 +523,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   bool contains(String key, V value) {
-    final keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
+    final keyNode = _root?.getKeyNode(_mapKey(key));
 
     // Does the key map to anything?
     if (identical(keyNode, null)) {
@@ -470,21 +544,26 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       InOrderMapEntryIterable<V>(_root, _version);
 
   @override
-  PrefixEditDistanceIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(
-          String prefix,
-          {int maxPrefixEditDistance = 0}) =>
-      InOrderMapEntryIterable<V>(_root, _version,
-          prefix: _mapKeyErrorOnEmpty(prefix).runes.toList(),
-          maxPrefixEditDistance: maxPrefixEditDistance);
+  TTIterable<MapEntry<String, Iterable<V>>> entriesByKeyPrefix(String prefix,
+      {int maxPrefixEditDistance = 0}) {
+    final key = _mapKey(prefix);
+    return (key.isEmpty)
+        ? InOrderMapEntryIterable<V>(null, _version)
+        : InOrderMapEntryIterable<V>(_root, _version,
+            prefixSearchResult: identical(_root, null)
+                ? null
+                : _root.getClosestPrefixDescendant(key.runes.toList()),
+            maxPrefixEditDistance: maxPrefixEditDistance);
+  }
 
   @override
   void forEach(void Function(String key, V value) f) {
     ArgumentError.checkNotNull(f, 'f');
-    final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
+    final keyItr = keys.iterator as InOrderKeyIterator<V>;
 
-    while (entryItr.moveNext()) {
-      for (final value in entryItr.currentValue) {
-        f(entryItr.currentKey, value);
+    while (keyItr.moveNext()) {
+      for (final value in keyItr.currentValue) {
+        f(keyItr.currentKey, value);
       }
     }
   }
@@ -492,9 +571,9 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   @override
   void forEachKey(void Function(String key, Iterable<V> values) f) {
     ArgumentError.checkNotNull(f, 'f');
-    final entryItr = entries.iterator as InOrderMapEntryIterator<V>;
-    while (entryItr.moveNext()) {
-      f(entryItr.currentKey, entryItr.currentValue);
+    final keyItr = keys.iterator as InOrderKeyIterator<V>;
+    while (keyItr.moveNext()) {
+      f(keyItr.currentKey, keyItr.currentValue);
     }
   }
 
@@ -504,8 +583,8 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       {int maxPrefixEditDistance = 0}) {
     ArgumentError.checkNotNull(f, 'f');
     final itr =
-        entriesByKeyPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
-            .iterator as InOrderMapEntryIterator<V>;
+        keysByPrefix(prefix, maxPrefixEditDistance: maxPrefixEditDistance)
+            .iterator as InOrderKeyIterator<V>;
 
     while (itr.moveNext()) {
       f(itr.currentKey, itr.currentValue);
@@ -519,33 +598,19 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   bool get isNotEmpty => !identical(_root, null);
 
   @override
-  Iterable<String> get keys => InOrderKeyIterable<V>(_root, _version);
+  TTIterable<String> get keys => InOrderKeyIterable<V>(_root, _version);
 
   @override
-  PrefixEditDistanceIterable<String> keysByPrefix(String prefix,
-          {int maxPrefixEditDistance = 0, bool filterMarked = false}) =>
-      InOrderKeyIterable<V>(_root, _version,
-          prefix: _mapKeyErrorOnEmpty(prefix).runes.toList(),
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filterMarked: filterMarked);
-
-  @override
-  int keyDepth(String key) {
-    if (identical(_root, null)) {
-      return -1;
-    }
-
-    final prefixDescendant = _root
-        .getClosestPrefixDescendant(_mapKeyErrorOnEmpty(key).runes.toList());
-
-    // The node must represent only this key
-    if (!prefixDescendant.isPrefixMatch ||
-        prefixDescendant.nodeRuneIdx !=
-            prefixDescendant.node.runes.length - 1 ||
-        !prefixDescendant.node.isKeyEnd) {
-      throw ArgumentError('key: $key not found');
-    }
-    return prefixDescendant.depth;
+  TTIterable<String> keysByPrefix(String prefix,
+      {int maxPrefixEditDistance = 0}) {
+    final key = _mapKey(prefix);
+    return (key.isEmpty)
+        ? InOrderKeyIterable<V>(null, _version)
+        : InOrderKeyIterable<V>(_root, _version,
+            prefixSearchResult: identical(_root, null)
+                ? null
+                : _root.getClosestPrefixDescendant(key.runes.toList()),
+            maxPrefixEditDistance: maxPrefixEditDistance);
   }
 
   @override
@@ -555,80 +620,27 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   int get length => identical(_root, null) ? 0 : _root.sizeDFSTree;
 
   @override
-  void markKey(String key) {
-    var keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
+  bool markKey(String key) {
+    var keyNode = _root?.getKeyNode(_mapKeyNonEmpty(key));
 
     if (identical(keyNode, null)) {
       throw ArgumentError('key: $key not found');
     }
 
-    // Promote node priority
-    keyNode.mark();
-
-    var changed = false;
-
-    while (true) {
-      // Find next non mid child ancestor and its parent
-      var parent = keyNode.parent;
-      if (!identical(parent, null)) {
-        while (keyNode == parent.mid) {
-          if (identical( parent.parent, null)) {
-            // Can't go any higher
-            break;
-          }
-          keyNode = parent;
-          parent = keyNode.parent;
-        }
-
-        final parentIsRoot = parent == _root;
-
-        // Also need grandparent to swap parent child relationship.
-        // Or if at root then assign rotated node as new root.
-        final grandparent = parent.parent;
-        if (!identical(grandparent, null) || parentIsRoot) {
-          // Swap priority with parent if it is higher
-          if (parent.priority > keyNode.priority) {
-            final parentPriority = parent.priority;
-            parent.priority = keyNode.priority;
-            keyNode.priority = parentPriority;
-          }
-
-          // Rotate parent node such that it's position is swapped with node.
-          if (keyNode == parent.left) {
-            if (parentIsRoot) {
-              _root = parent.rotateRight();
-            } else {
-              grandparent.updateChild(parent, parent.rotateRight());
-            }
-          } else {
-            if (parentIsRoot) {
-              _root = parent.rotateLeft();
-            } else {
-              grandparent.updateChild(parent, parent.rotateLeft());
-            }
-          }
-          changed = true;
-          // Final run
-          if (parentIsRoot) {
-            break;
-          }
-        } else {
-          break;
-        }
-      }
-    }
-    if (changed) {
+    if (keyNode.mark()) {
       _incVersion();
+      return true;
     }
+    return false;
   }
 
   @override
   V lookup(String key, V value) =>
-      _root?.getKeyNode(_mapKeyErrorOnEmpty(key))?.lookupValue(value);
+      _root?.getKeyNode(_mapKey(key))?.lookupValue(value);
 
   @override
   bool remove(String key, V value) {
-    final keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
+    final keyNode = _root?.getKeyNode(_mapKey(key));
 
     if (!identical(keyNode, null) && keyNode.removeValue(value)) {
       _incVersion();
@@ -639,26 +651,35 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  Iterable<V> removeValues(String key) {
-    final keyNode = _root?.getKeyNode(_mapKeyErrorOnEmpty(key));
-
-    if (!identical(keyNode, null)) {
-      _incVersion();
-      return keyNode.removeValues();
+  Iterable<V> removeKey(String key) {
+    if (identical(_root, null)) {
+      return null;
     }
-    return null;
+
+    final mappedKey = _mapKey(key);
+    if (mappedKey.isEmpty) {
+      return null;
+    }
+
+    final values = _remove(_root, mappedKey.runes.toList());
+    if (identical(values, null)) {
+      return null;
+    }
+
+    _incVersion();
+    return values;
   }
 
   @override
-  Iterable<V> removeKey(String key) {
-    Iterable<V> values;
-    if (!identical(_root, null)) {
-      values = _remove(_root, _mapKeyErrorOnEmpty(key).runes.toList());
-      if (!identical(values, null)) {
-        _incVersion();
-      }
+  Iterable<V> removeValues(String key) {
+    final keyNode = _root?.getKeyNode(_mapKey(key));
+
+    if (identical(keyNode, null)) {
+      return null;
     }
-    return values;
+
+    _incVersion();
+    return keyNode.removeValues();
   }
 
   @override
@@ -689,33 +710,6 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  String lastMarkedKeyForPrefix(String key) {
-    final prefix = _mapKeyErrorOnEmpty(key).runes.toList();
-    final searchResult = _root?.getClosestPrefixDescendant(prefix);
-
-    if (identical(searchResult, null) || !searchResult.isPrefixMatch) {
-      return null;
-    }
-
-    // Expand prefix with remaining node runes
-    var expansion = [
-      ...prefix.getRange(0, searchResult.prefixRuneIdx),
-      ...searchResult.node.runes
-          .getRange(searchResult.nodeRuneIdx, searchResult.node.runes.length)
-    ];
-
-    // Concatenate mid descendants until key is found
-    var suggestionNode = searchResult.node;
-
-    while (!suggestionNode.isMarked && !identical(suggestionNode.mid, null)) {
-      suggestionNode = suggestionNode.mid;
-      expansion += suggestionNode.runes;
-    }
-
-    return suggestionNode.isMarked ? String.fromCharCodes(expansion) : null;
-  }
-
-  @override
   String toString([String paddingChar = '-']) {
     final buffer = StringBuffer();
     _toString(_root, paddingChar, '', buffer);
@@ -738,38 +732,50 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  Map<String, dynamic> toJson([bool includeValues = true]) {
+  Map<String, dynamic> toJson(
+      {bool includeValues = true, dynamic Function(V value) valueToEncodable}) {
     ArgumentError.checkNotNull(includeValues, 'includeValues');
+
+    // Default value transform
+    valueToEncodable ??= (V e) => e;
+
     final map = <String, dynamic>{};
     final nodes = <List<dynamic>>[];
-    _toJson(_root, nodes, includeValues);
+    _toJson(_root, nodes, includeValues, valueToEncodable);
     map[_JSONKEY_NODES] = nodes;
     map[_JSONKEY_KEYMAPPING] = keyMapping(null);
     return map;
   }
 
-  void _toJson(Node<V> node, List<dynamic> nodes, bool includeValues) {
+  void _toJson(Node<V> node, List<dynamic> nodes, bool includeValues,
+      dynamic Function(V value) toEncodable) {
     if (identical(node, null)) {
       // Empty list as placeholder for null node
       nodes.add([]);
       return;
     }
-    nodes.add(node.toJson(includeValues));
+    nodes.add(node.toJson(includeValues, toEncodable));
 
-    _toJson(node.left, nodes, includeValues);
-    _toJson(node.mid, nodes, includeValues);
-    _toJson(node.right, nodes, includeValues);
+    _toJson(node.left, nodes, includeValues, toEncodable);
+    _toJson(node.mid, nodes, includeValues, toEncodable);
+    _toJson(node.right, nodes, includeValues, toEncodable);
   }
 
   @override
   Iterable<V> get values => InOrderValuesIterable<V>(_root, _version);
 
   @override
-  PrefixEditDistanceIterable<V> valuesByKeyPrefix(String prefix,
-          {int maxPrefixEditDistance = 0}) =>
-      InOrderValuesIterable<V>(_root, _version,
-          prefix: _mapKeyErrorOnEmpty(prefix).runes.toList(),
-          maxPrefixEditDistance: maxPrefixEditDistance);
+  TTIterable<V> valuesByKeyPrefix(String prefix,
+      {int maxPrefixEditDistance = 0}) {
+    final key = _mapKey(prefix);
+    return (key.isEmpty)
+        ? InOrderValuesIterable<V>(null, _version)
+        : InOrderValuesIterable<V>(_root, _version,
+            prefixSearchResult: identical(_root, null)
+                ? null
+                : _root.getClosestPrefixDescendant(key.runes.toList()),
+            maxPrefixEditDistance: maxPrefixEditDistance);
+  }
 
   /// Increment modification _version.
   /// Wrap backto 0 when [_MAX_SAFE_INTEGER] exceeded
@@ -778,53 +784,55 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
         (_version.value >= _MAX_SAFE_INTEGER) ? 1 : _version.value + 1;
   }
 
-  /// Add or update node for [key] starting from [searchRoot] and attach [value].
+  /// Add or update node for [keyRunesNotEmpty] starting from [searchRoot] and attach [value].
+  ///
+  /// Assumes [keyRunesNotEmpty] is not empty.
   ///
   /// Return a [_AddResult] with:
   /// * [_AddResult.rootNode]: New root node which may not be the same as [searchRoot] due
   /// to possible rotation.
-  /// * [_AddResult.addedNode]: The new or existing end node corresponding to [key]
-  /// * [_AddResult.newKey]: True if [key] was new to this [TernaryTreap].
+  /// * [_AddResult.addedNode]: The new or existing end node corresponding to [keyRunesNotEmpty]
+  /// * [_AddResult.newKey]: True if [keyRunesNotEmpty] was new to this [TernaryTreap].
   ///
   ///_AddResult(this.rootNode, this.addedNode, this.newKey);
   /// Iterative version: More complicated than recursive
   /// but 4 times as fast.
-  _AddResult<V> _add(Node<V> rootNode, List<int> keyRunes, V value) {
+  _AddResult<V> _add(Node<V> rootNode, List<int> keyRunesNotEmpty, V value) {
     var keyRuneIdx = 0;
     var _rootNode = rootNode;
 
     // Create new root node if needed
     if (identical(_rootNode, null)) {
-      _rootNode = _nodeFactory(keyRunes, _random, null, _runePool);
-      keyRuneIdx = keyRunes.length;
+      _rootNode = _nodeFactory(keyRunesNotEmpty, _random, null, _runePool);
+      keyRuneIdx = keyRunesNotEmpty.length;
     }
 
     var currentNode = _rootNode;
 
     // Create a path down to key node, rotating as we go.
-    while (keyRuneIdx < keyRunes.length) {
-      final keyRune = keyRunes[keyRuneIdx];
+    while (keyRuneIdx < keyRunesNotEmpty.length) {
+      final keyRune = keyRunesNotEmpty[keyRuneIdx];
       if (keyRune < currentNode.runes[0]) {
         // create left path as end node if able
         if (identical(currentNode.left, null)) {
           currentNode.left = _nodeFactory(
-              keyRunes.getRange(keyRuneIdx, keyRunes.length),
+              keyRunesNotEmpty.getRange(keyRuneIdx, keyRunesNotEmpty.length),
               _random,
               currentNode,
               _runePool);
 
-          keyRuneIdx = keyRunes.length;
+          keyRuneIdx = keyRunesNotEmpty.length;
         }
         currentNode = currentNode.left;
       } else if (keyRune > currentNode.runes[0]) {
         // Create right path if needed
         if (identical(currentNode.right, null)) {
           currentNode.right = _nodeFactory(
-              keyRunes.getRange(keyRuneIdx, keyRunes.length),
+              keyRunesNotEmpty.getRange(keyRuneIdx, keyRunesNotEmpty.length),
               _random,
               currentNode,
               _runePool);
-          keyRuneIdx = keyRunes.length;
+          keyRuneIdx = keyRunesNotEmpty.length;
         }
         currentNode = currentNode.right;
       } else {
@@ -836,15 +844,15 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
         var nodeCodeIdx = 1;
 
         // Match node runes as far as possible
-        while (keyRuneIdx < keyRunes.length &&
+        while (keyRuneIdx < keyRunesNotEmpty.length &&
             nodeCodeIdx < currentNode.runes.length &&
-            currentNode.runes[nodeCodeIdx] == keyRunes[keyRuneIdx]) {
+            currentNode.runes[nodeCodeIdx] == keyRunesNotEmpty[keyRuneIdx]) {
           nodeCodeIdx++;
           keyRuneIdx++;
         }
 
         // If key was not consumed entirely
-        if (keyRuneIdx < keyRunes.length) {
+        if (keyRuneIdx < keyRunesNotEmpty.length) {
           if (nodeCodeIdx < currentNode.runes.length) {
             // if neither node or key were consumed then split and
             // continue on from new child
@@ -854,11 +862,12 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
             // and continue from new child
             if (identical(currentNode.mid, null)) {
               currentNode.mid = _nodeFactory(
-                  keyRunes.getRange(keyRuneIdx, keyRunes.length),
+                  keyRunesNotEmpty.getRange(
+                      keyRuneIdx, keyRunesNotEmpty.length),
                   _random,
                   currentNode,
                   _runePool);
-              keyRuneIdx = keyRunes.length;
+              keyRuneIdx = keyRunesNotEmpty.length;
             }
           }
         } else {
@@ -912,19 +921,28 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
     tuple.targetNode.addValues(values);
   }
 
-  /// Map key and throw error if result is empty
-  String _mapKeyErrorOnEmpty(String key) {
+  /// Map [key] and return empty Iterable if result is empty
+  String _mapKey(String key) {
     if (key.isEmpty) {
       throw ArgumentError.value('key is empty');
     }
     final mappedKey = keyMapping(key);
     if (mappedKey.isEmpty) {
-      throw ArgumentError('key $key is empty after KeyMapping applied');
+      Iterable<String>.empty();
     }
     return mappedKey;
   }
 
-  /// Delete node for [transformedKey] starting from [rootNode] and return values
+  /// Map [key] and return empty Iterable if result is empty
+  String _mapKeyNonEmpty(String key) {
+    final mappedKey = _mapKey(key);
+    if (mappedKey.isEmpty) {
+      throw ArgumentError.value(key, 'Key mapped to empty string');
+    }
+    return mappedKey;
+  }
+
+  /// Delete node for [keyRunes] starting from [rootNode] and return values
   /// or null if key does not exist.
   Iterable<V> _remove(Node<V> rootNode, List<int> keyRunes) {
     assert(!identical(rootNode, null));
@@ -986,11 +1004,12 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       values = currentNode.values;
 
       // If node has no key descendants we can eliminate it and all its children!
-      if (!identical(currentNode, _root) && currentNode.numDFSDescendants == 0) {
+      if (!identical(currentNode, _root) &&
+          currentNode.numDFSDescendants == 0) {
         // Delete from parent
         currentNode.parent.deleteChild(currentNode, _runePool);
       } else {
-        // Otherwise sinply remove its key end status
+        // Otherwise sinply remove its key end and marked status
         currentNode.clearKeyEnd();
       }
 
@@ -1055,21 +1074,42 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
     // If node was a keyend then it transfers this to child
     if (node.isKeyEnd) {
-      // Child inherits values and keyend status
-      child.takeValues(node);
+      // Child inherits values and keyend/marked status
+      child.takeKeyEndMarked(node);
 
       // and thus gains a key descendant
       node.numDFSDescendants++;
     }
   }
 
+  void _setFromIterables(Iterable<String> keys, Iterable<V> values) {
+    ArgumentError.checkNotNull(keys, 'keys');
+    ArgumentError.checkNotNull(values, 'values');
+    if (keys.length != values.length) {
+      throw ArgumentError('keys.length != values.length');
+    }
+    final keyItr = keys.iterator;
+    final valItr = values.iterator;
+    while (keyItr.moveNext() && valItr.moveNext()) {
+      add(keyItr.current, valItr.current);
+    }
+  }
+
   void _setFromJson(
       JsonNodeFactory<V> jsonNodeFactory, Map<String, dynamic> json) {
+    // Insist on same keymapping
+    final jsonKeymapping = json[_JSONKEY_KEYMAPPING];
+    final expectedKeymapping = keyMapping(null);
+    if (jsonKeymapping != expectedKeymapping) {
+      throw ArgumentError.value(json,
+          'Expected keymapping:$expectedKeymapping, got keymapping:$jsonKeymapping');
+    }
+
     final nodes = json[_JSONKEY_NODES];
 
     if (nodes is List<dynamic>) {
       final nodeIdx = ByRef<int>(0);
-      _root = _nodesFromJson(jsonNodeFactory, null, nodes, nodeIdx);
+      _root = _nodeTreeFromJson(jsonNodeFactory, nodes, nodeIdx, null);
       if (nodeIdx.value != nodes.length) {
         throw ArgumentError.value(json,
             'nodeIdx.value (${nodeIdx.value}) != nodes.length (${nodes.length})');
@@ -1079,18 +1119,21 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
     }
   }
 
-  Node<V> _nodesFromJson(JsonNodeFactory<V> jsonNodeFactory, Node<V> parent,
-      List<dynamic> nodesJson, ByRef<int> nodesIdx) {
+  Node<V> _nodeTreeFromJson(JsonNodeFactory<V> jsonNodeFactory,
+      List<dynamic> nodesJson, ByRef<int> nodesIdx, Node<V> parent) {
     if (nodesIdx.value < nodesJson.length) {
       parent = jsonNodeFactory(nodesJson[nodesIdx.value++] as List<dynamic>,
           _random, parent, _runePool);
       if (!identical(parent, null)) {
         parent
-          ..left = _nodesFromJson(jsonNodeFactory, parent, nodesJson, nodesIdx)
+          ..left =
+              _nodeTreeFromJson(jsonNodeFactory, nodesJson, nodesIdx, parent)
           ..adjustPrioritiesForChild(parent.left)
-          ..mid = _nodesFromJson(jsonNodeFactory, parent, nodesJson, nodesIdx)
+          ..mid =
+              _nodeTreeFromJson(jsonNodeFactory, nodesJson, nodesIdx, parent)
           ..adjustPrioritiesForChild(parent.mid)
-          ..right = _nodesFromJson(jsonNodeFactory, parent, nodesJson, nodesIdx)
+          ..right =
+              _nodeTreeFromJson(jsonNodeFactory, nodesJson, nodesIdx, parent)
           ..adjustPrioritiesForChild(parent.right)
           ..updateDescendantCounts();
         return parent;
