@@ -12,8 +12,6 @@ import 'ttiterable.dart';
 import 'ttmultimap.dart';
 import 'utility.dart';
 
-/// (2^53)-1 because javascript
-const int _MAX_SAFE_INTEGER = 9007199254740991;
 const _JSONKEY_NODES = 'nodes';
 const _JSONKEY_KEYMAPPING = 'keymapping';
 
@@ -21,13 +19,15 @@ const _JSONKEY_KEYMAPPING = 'keymapping';
 class _AddResult<V> {
   /// [rootNode] is the potentially new root node of treap after add.
   /// [targetNode] is the node created or affected by the add.
-  /// [newKeyValue] is true if a new key or value was created by this add.
-  _AddResult(this.rootNode, this.targetNode, this.newKeyValue)
+  /// [newKey] is true if a new key was created by this add.
+  /// [valueChanged] is true if value of key is changed by this add.
+  _AddResult(this.rootNode, this.targetNode, this.newKey, this.valueChanged)
       : assert(!identical(rootNode, null)),
         assert(!identical(targetNode, null));
   final Node<V> rootNode;
   final Node<V> targetNode;
-  final bool newKeyValue;
+  final bool newKey;
+  final bool valueChanged;
 }
 
 /// Defines equality between [TTMultiMap] instance.
@@ -401,12 +401,12 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   /// [KeyMapping] to be applied to all keys processed by this [TTMultiMap].
   _TTMultiMapImpl(this._nodeFactory, KeyMapping keyMapping)
       : _keyMapping = keyMapping ?? identity,
-        _version = ByRef(0);
+        _version = ByRef(Version(0, 0));
 
   _TTMultiMapImpl.from(_TTMultiMapImpl<V> other)
       : _nodeFactory = other._nodeFactory,
         _keyMapping = other._keyMapping,
-        _version = ByRef(0);
+        _version = ByRef(Version(0, 0));
 
   /// The [KeyMapping] in use by this [TTMultiMap]
   ///
@@ -423,7 +423,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   /// Allows tracking of modifications
   /// ByRef so as to allow sharing with Iterators
-  final ByRef<int> _version;
+  final ByRef<Version> _version;
 
   /// Entry point into [Node] tree.
   Node<V> _root;
@@ -442,7 +442,11 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
     addResult.targetNode.setValues(values);
 
-    _incVersion();
+    if (addResult.newKey) {
+      _version.value.incKeysVersion();
+    }
+
+    _version.value.incValuesVersion();
   }
 
   @override
@@ -452,38 +456,56 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
     _root = addResult.rootNode;
 
-    _incVersion();
+    // Operation may change keys, values, both, or nothing
+    if (addResult.newKey) {
+      _version.value.incKeysVersion();
+    }
+    if (addResult.valueChanged) {
+      _version.value.incValuesVersion();
+    }
 
-    return addResult.newKeyValue;
+    return addResult.newKey || addResult.valueChanged;
   }
 
   @override
   void addAll(TTMultiMap<V> other) {
     ArgumentError.checkNotNull(other, 'other');
-    final keyItr = other.entries.iterator as InOrderKeyIterator<V>;
+    final keyItr = other.keys.iterator as InOrderKeyIterator<V>;
 
+    var newKey = false;
     while (keyItr.moveNext()) {
       final key = _mapKey(keyItr.currentKey);
       // Keys from other may not map usefully to key domain of this.
       if (key.isNotEmpty) {
-        _addIterable(key.runes.toList(), keyItr.currentValue);
+        newKey |= _addIterable(key.runes.toList(), keyItr.currentValue);
       }
     }
 
-    _incVersion();
+    if (newKey) {
+      _version.value.incKeysVersion();
+    }
+
+    // Lot of work to determine if value change has occured so just assume it has
+    _version.value.incValuesVersion();
   }
 
   @override
   void addEntries(Iterable<MapEntry<String, Iterable<V>>> entries) {
     ArgumentError.checkNotNull(entries, 'entries');
+    var newKey = false;
     entries.forEach((final entry) {
       final key = _mapKey(entry.key);
       if (key.isNotEmpty) {
-        _addIterable(key.runes.toList(), entry.value);
+        newKey |= _addIterable(key.runes.toList(), entry.value);
       }
     });
 
-    _incVersion();
+    if (newKey) {
+      _version.value.incKeysVersion();
+    }
+
+    // Lot of work to determine if value change has occured so just assume it has
+    _version.value.incValuesVersion();
   }
 
   @override
@@ -492,9 +514,12 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
     _root = addResult.rootNode;
 
-    _incVersion();
+    // Change only occurs if key is new
+    if (addResult.newKey) {
+      _version.value.incKeysVersion();
+    }
 
-    return addResult.newKeyValue;
+    return addResult.newKey;
   }
 
   @override
@@ -505,9 +530,12 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   @override
   void addValues(String key, Iterable<V> values) {
     ArgumentError.checkNotNull(values, 'values');
-    _addIterable(_mapKeyNonEmpty(key).runes.toList(), values);
+    if (_addIterable(_mapKeyNonEmpty(key).runes.toList(), values)) {
+      _version.value.incKeysVersion();
+    }
 
-    _incVersion();
+    // Lot of work to determine if value change has occured so just assume it has
+    _version.value.incValuesVersion();
   }
 
   @override
@@ -517,7 +545,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   void clear() {
-    _incVersion();
+    _version.value.incVersions();
     _root = null;
   }
 
@@ -628,7 +656,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
     }
 
     if (keyNode.mark()) {
-      _incVersion();
+      _version.value.incVersions();
       return true;
     }
     return false;
@@ -643,7 +671,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
     final keyNode = _root?.getKeyNode(_mapKey(key));
 
     if (!identical(keyNode, null) && keyNode.removeValue(value)) {
-      _incVersion();
+      _version.value.incVersions();
       return true;
     }
 
@@ -666,7 +694,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       return null;
     }
 
-    _incVersion();
+    _version.value.incVersions();
     return values;
   }
 
@@ -678,7 +706,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       return null;
     }
 
-    _incVersion();
+    _version.value.incVersions();
     return keyNode.removeValues();
   }
 
@@ -775,13 +803,6 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
                 ? null
                 : _root.getClosestPrefixDescendant(key.runes.toList()),
             maxPrefixEditDistance: maxPrefixEditDistance);
-  }
-
-  /// Increment modification _version.
-  /// Wrap backto 0 when [_MAX_SAFE_INTEGER] exceeded
-  void _incVersion() {
-    _version.value =
-        (_version.value >= _MAX_SAFE_INTEGER) ? 1 : _version.value + 1;
   }
 
   /// Add or update node for [keyRunesNotEmpty] starting from [searchRoot] and attach [value].
@@ -888,8 +909,8 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       }
     }
 
-    bool newKeyValue;
-    if (newKeyValue = currentNode.setAsKeyEnd()) {
+    final newKey = currentNode.setAsKeyEnd();
+    if (newKey) {
       // If new node was inserted reverse back up to root node
 
       var reverseNode = currentNode;
@@ -906,19 +927,22 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       }
     }
 
-    if (!identical(value, null)) {
-      newKeyValue = currentNode.addValue(value) || newKeyValue;
-    }
-
-    return _AddResult<V>(_rootNode, currentNode, newKeyValue);
+    return _AddResult<V>(_rootNode, currentNode, newKey,
+        identical(value, null) ? false : currentNode.addValue(value));
   }
 
-  void _addIterable(List<int> keyRunes, Iterable<V> values) {
+  /// Add Iterable of values to key.
+  ///
+  /// Equivilent to [_add]`(`value`)` for all [values].
+  ///
+  /// Returns `true` if new key was created.
+  bool _addIterable(List<int> keyRunes, Iterable<V> values) {
     // map key alone for case where no data is associated with key
-    final tuple = _add(_root, keyRunes, null);
-    _root = tuple.rootNode;
+    final addResult = _add(_root, keyRunes, null);
+    _root = addResult.rootNode;
 
-    tuple.targetNode.addValues(values);
+    addResult.targetNode.addValues(values);
+    return addResult.newKey;
   }
 
   /// Map [key] and return empty Iterable if result is empty
@@ -933,7 +957,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
     return mappedKey;
   }
 
-  /// Map [key] and return empty Iterable if result is empty
+  /// Map [key] and throw Error if result empty.
   String _mapKeyNonEmpty(String key) {
     final mappedKey = _mapKey(key);
     if (mappedKey.isEmpty) {

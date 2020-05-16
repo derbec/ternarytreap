@@ -378,8 +378,6 @@ abstract class Node<V> {
   V lookupValue(V value);
 
   /// Set to shallow copy of [values]
-  ///
-  /// Throws error if node not already keyEnd
   void setValues(Iterable<V> values) {
     assert(isKeyEnd);
     _values =

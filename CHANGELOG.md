@@ -30,4 +30,7 @@
 
 - Added distance searching
 
+## 1.0.8
+
+- Changed iterator to allow value alteration during key iteration
 

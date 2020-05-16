@@ -11,6 +11,9 @@ const int _INVALID_DISTANCE = -1;
 
 const int _INVALID_RUNE_IDX = -1;
 
+/// (2^53)-1 because javascript
+const int _MAX_SAFE_INTEGER = 9007199254740991;
+
 /// Filter options
 enum Filter {
   /// No filter
@@ -21,6 +24,70 @@ enum Filter {
 
   /// Return only unmarked keys.
   unmarked,
+}
+
+/// Store version information for [TTMultiMap]
+class Version {
+  /// Create new version
+  Version(this._keysVersion, this._valuesVersion);
+
+  /// Current version of structure updates
+  int _keysVersion;
+
+  /// Current version of value updates
+  int _valuesVersion;
+
+  /// Increment keys/structure version
+  void incKeysVersion() {
+    _keysVersion = (_keysVersion >= _MAX_SAFE_INTEGER) ? 1 : _keysVersion + 1;
+  }
+
+  /// Increment values version
+  void incValuesVersion() {
+    _valuesVersion =
+        (_valuesVersion >= _MAX_SAFE_INTEGER) ? 1 : _valuesVersion + 1;
+  }
+
+  /// Increment both key and values versions
+  void incVersions() {
+    incKeysVersion();
+    incValuesVersion();
+  }
+
+  /// Check keys version is valid
+  void checkKeysVersion(VersionSnapshot snapshot) {
+    if (snapshot.keysVersion != _keysVersion) {
+      throw ConcurrentModificationError();
+    }
+  }
+
+  /// Check keys version is valid
+  void checkValuesVersion(VersionSnapshot snapshot) {
+    if (snapshot.valuesVersion != _valuesVersion) {
+      throw ConcurrentModificationError();
+    }
+  }
+
+  /// Check both versions are valid
+  void checkVersions(VersionSnapshot snapshot) {
+    checkKeysVersion(snapshot);
+    checkValuesVersion(snapshot);
+  }
+
+  /// Return [VersionSnapshot] of current state
+  VersionSnapshot snapshot() => VersionSnapshot(_keysVersion, _valuesVersion);
+}
+
+/// snapshot of version info
+class VersionSnapshot {
+  /// Construct new snapshot
+  VersionSnapshot(this.keysVersion, this.valuesVersion);
+
+  /// Keys version
+  final int keysVersion;
+
+  /// Values version
+  final int valuesVersion;
 }
 
 /// Base class for in order iterables
@@ -34,21 +101,19 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
       : assert(!identical(maxPrefixEditDistance, null)),
         assert(!identical(filter, null)),
         assert(!identical(_currentVersion, null)),
-        _validVersion = _currentVersion.value;
+        _validVersion = _currentVersion.value.snapshot();
 
   /// Maximum edit distance of returns
   final int maxPrefixEditDistance;
   final Filter filter;
   final PrefixSearchResult<V> prefixSearchResult;
-  final int _validVersion;
-  final ByRef<int> _currentVersion;
+  final VersionSnapshot _validVersion;
+  final ByRef<Version> _currentVersion;
   final Node<V> _root;
 
   @override
   int get length {
-    if (_currentVersion.value != _validVersion) {
-      throw ConcurrentModificationError();
-    }
+    _currentVersion.value.checkVersions(_validVersion);
 
     if (identical(_root, null)) {
       return 0;
@@ -80,7 +145,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
 /// Iterates through keys inorder.
 class InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
   /// Construct InOrderKeyIterable
-  InOrderKeyIterable(Node<V> root, ByRef<int> currentVersion,
+  InOrderKeyIterable(Node<V> root, ByRef<Version> currentVersion,
       {PrefixSearchResult<V> prefixSearchResult,
       int maxPrefixEditDistance = 0,
       Filter filter = Filter.none})
@@ -119,7 +184,7 @@ class InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
 /// empty [Iterable] is returned.
 class InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
   /// Constructs a TernaryTreeValuesIterable
-  InOrderValuesIterable(Node<V> root, ByRef<int> currentVersion,
+  InOrderValuesIterable(Node<V> root, ByRef<Version> currentVersion,
       {PrefixSearchResult<V> prefixSearchResult,
       int maxPrefixEditDistance = 0,
       Filter filter = Filter.none})
@@ -150,7 +215,7 @@ class InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
 class InOrderMapEntryIterable<V>
     extends _InOrderIterableBase<V, MapEntry<String, Iterable<V>>> {
   /// Constructs a InOrderMapEntryIterable
-  InOrderMapEntryIterable(Node<V> root, ByRef<int> currentVersion,
+  InOrderMapEntryIterable(Node<V> root, ByRef<Version> currentVersion,
       {PrefixSearchResult<V> prefixSearchResult,
       int maxPrefixEditDistance = 0,
       Filter filter = Filter.none})
@@ -184,7 +249,7 @@ class InOrderMapEntryIterable<V>
 class InOrderMapEntryIterableSet<V>
     extends _InOrderIterableBase<V, MapEntry<String, Set<V>>> {
   /// Constructs a InOrderMapEntryIterableSet
-  InOrderMapEntryIterableSet(Node<V> root, ByRef<int> currentVersion,
+  InOrderMapEntryIterableSet(Node<V> root, ByRef<Version> currentVersion,
       {PrefixSearchResult<V> prefixSearchResult,
       int maxPrefixEditDistance = 0,
       Filter filter = Filter.none})
@@ -218,7 +283,7 @@ class InOrderMapEntryIterableSet<V>
 class InOrderMapEntryIterableList<V>
     extends _InOrderIterableBase<V, MapEntry<String, List<V>>> {
   /// Constructs a InOrderMapEntryIterableList
-  InOrderMapEntryIterableList(Node<V> root, ByRef<int> currentVersion,
+  InOrderMapEntryIterableList(Node<V> root, ByRef<Version> currentVersion,
       {PrefixSearchResult<V> prefixSearchResult,
       int maxPrefixEditDistance = 0,
       Filter filter = Filter.none})
@@ -392,9 +457,9 @@ abstract class _InOrderIteratorBase<V> {
   final Stack<_StackFrame<V>> stack;
 
   /// Version for which this iterator is valid
-  final int validVersion;
+  final VersionSnapshot validVersion;
 
-  final ByRef<int> currentVersion;
+  final ByRef<Version> currentVersion;
 
   final Node<V> root;
 
@@ -427,6 +492,14 @@ abstract class _InOrderIteratorBase<V> {
   String currentKey;
   Iterable<V> currentValue;
 
+  /// Apply appropriate modification checks.
+  /// By default checks both keys and values.
+  /// Some iterators have looser constraints thus may
+  /// override this check.
+  void checkVersion() {
+    currentVersion.value.checkVersions(validVersion);
+  }
+
   /// Moves to the next element.
   ///
   /// Returns true if current contains the next element.
@@ -437,9 +510,7 @@ abstract class _InOrderIteratorBase<V> {
   /// A call to moveNext may throw [ConcurrentModificationError] if
   /// iteration has been broken by changing the underlying collection.
   bool moveNext() {
-    if (currentVersion.value != validVersion) {
-      throw ConcurrentModificationError();
-    }
+    checkVersion();
     if (!identical(root, null)) {
       while (prefixEditDistance <= maxPrefixEditDistance) {
         while (stack.isNotEmpty) {
@@ -652,11 +723,17 @@ abstract class _InOrderIteratorBase<V> {
 class InOrderKeyIterator<V> extends _InOrderIteratorBase<V>
     implements TTIterator<String> {
   /// Construct new [InOrderKeyIterator]
-  InOrderKeyIterator._(Node<V> root, ByRef<int> currentVersion,
-      int validVersion, PrefixSearchResult<V> prefixRoot,
+  InOrderKeyIterator._(Node<V> root, ByRef<Version> currentVersion,
+      VersionSnapshot validVersion, PrefixSearchResult<V> prefixRoot,
       {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
       : super(root, currentVersion, validVersion, prefixRoot,
             maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+
+  /// Deny alteration of keys but allow for values.
+  @override
+  void checkVersion() {
+    currentVersion.value.checkKeysVersion(validVersion);
+  }
 
   @override
   String get current => currentKey;
@@ -666,8 +743,8 @@ class InOrderKeyIterator<V> extends _InOrderIteratorBase<V>
 class InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
     implements TTIterator<V> {
   /// Construct new [InOrderKeyIterator]
-  InOrderValuesIterator(Node<V> root, ByRef<int> currentVersion,
-      int validVersion, PrefixSearchResult<V> prefixRoot,
+  InOrderValuesIterator(Node<V> root, ByRef<Version> currentVersion,
+      VersionSnapshot validVersion, PrefixSearchResult<V> prefixRoot,
       {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
       : super(root, currentVersion, validVersion, prefixRoot,
             maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
@@ -719,8 +796,8 @@ class InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
 /// Iterate through entries
 abstract class InOrderMapEntryIterator<V> extends _InOrderIteratorBase<V> {
   /// Construct new [InOrderKeyIterator]
-  InOrderMapEntryIterator(Node<V> root, ByRef<int> currentVersion,
-      int validVersion, PrefixSearchResult<V> prefixSearchResult,
+  InOrderMapEntryIterator(Node<V> root, ByRef<Version> currentVersion,
+      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
       {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
@@ -729,8 +806,8 @@ abstract class InOrderMapEntryIterator<V> extends _InOrderIteratorBase<V> {
 class _InOrderMapEntryIteratorIterator<V> extends InOrderMapEntryIterator<V>
     implements TTIterator<MapEntry<String, Iterable<V>>> {
   /// Construct new [InOrderKeyIterator]
-  _InOrderMapEntryIteratorIterator(Node<V> root, ByRef<int> currentVersion,
-      int validVersion, PrefixSearchResult<V> prefixSearchResult,
+  _InOrderMapEntryIteratorIterator(Node<V> root, ByRef<Version> currentVersion,
+      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
       {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
@@ -744,8 +821,8 @@ class _InOrderMapEntryIteratorIterator<V> extends InOrderMapEntryIterator<V>
 class InOrderMapEntryIteratorSet<V> extends InOrderMapEntryIterator<V>
     implements TTIterator<MapEntry<String, Set<V>>> {
   /// Construct new [InOrderKeyIterator]
-  InOrderMapEntryIteratorSet(Node<V> root, ByRef<int> currentVersion,
-      int validVersion, PrefixSearchResult<V> prefixSearchResult,
+  InOrderMapEntryIteratorSet(Node<V> root, ByRef<Version> currentVersion,
+      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
       {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
@@ -759,8 +836,8 @@ class InOrderMapEntryIteratorSet<V> extends InOrderMapEntryIterator<V>
 class InOrderMapEntryIteratorList<V> extends InOrderMapEntryIterator<V>
     implements TTIterator<MapEntry<String, List<V>>> {
   /// Construct new [InOrderKeyIterator]
-  InOrderMapEntryIteratorList(Node<V> root, ByRef<int> currentVersion,
-      int validVersion, PrefixSearchResult<V> prefixSearchResult,
+  InOrderMapEntryIteratorList(Node<V> root, ByRef<Version> currentVersion,
+      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
       {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);

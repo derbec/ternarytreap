@@ -1,6 +1,6 @@
 name: ternarytreap
-description: Self balancing ternary tree. Optimised for autocompletion tasks. A generic Map with fast prefix and near neighbour searching on keys.
-version: 1.0.6
+description: Self balancing ternary tree. A generic MultiMap with fast prefix and near neighbour searching on keys.
+version: 1.0.8
 homepage: https://github.com/derbec/ternarytreap
 
 environment:
@@ -13,4 +13,4 @@ dependencies:
 dev_dependencies:
   # effective_dart: ^1.2.0
   pedantic: ^1.9.0
-  test: ^1.6.0
+  test: ^1.14.3

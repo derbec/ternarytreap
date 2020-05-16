@@ -158,10 +158,41 @@ void main() {
     });
 
     test('concurrentModificationError', () {
+      // CANNOT alter structure (keys) during iteration of keys
       expect(() {
         numberTST.forEachKey((String key, Iterable<int> data) {
           numberTST.add('NOT ALLOWED', 9);
         });
+      }, throwsA(TypeMatcher<ConcurrentModificationError>()));
+      expect(() {
+        for (final _ in numberTST.keys) {
+          numberTST['DOES NOT EXIST YET'] = [1, 2, 3];
+        }
+      }, throwsA(TypeMatcher<ConcurrentModificationError>()));
+
+      // CAN alter values during iteration of keys
+      numberTST.forEachKey((String key, Iterable<int> data) {
+        numberTST[key] = [1, 2, 3];
+        numberTST.addValues(key, [4, 5, 6]);
+        expect(numberTST[key], equals([1, 2, 3, 4, 5, 6]));
+      });
+
+      // CANNOT alter values or structure during iteration of values
+      final lastKey = numberTST.keys.last;
+      expect(() {
+        for (final _ in numberTST.values) {
+          numberTST[lastKey] = [1, 2, 3];
+        }
+      }, throwsA(TypeMatcher<ConcurrentModificationError>()));
+      expect(() {
+        for (final _ in numberTST.values) {
+          numberTST.addValues(lastKey, [4, 5, 6]);
+        }
+      }, throwsA(TypeMatcher<ConcurrentModificationError>()));
+      expect(() {
+        for (final _ in numberTST.values) {
+          numberTST['DOESNT EXIST'] = [12];
+        }
       }, throwsA(TypeMatcher<ConcurrentModificationError>()));
     });
 
