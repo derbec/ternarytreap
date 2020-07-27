@@ -402,7 +402,7 @@ abstract class TTMultiMap<V> {
   /// Key nodes will be distinguishable by a values collection appended
   /// to the key.
   @override
-  String toString([String paddingChar = '-']);
+  String toString({String paddingChar = '-'});
 
   /// Return Json representation of [TTMultiMap].
   ///

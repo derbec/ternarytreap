@@ -363,27 +363,30 @@ void main() {
 
       final tt2 = ternarytreap.TTMultiMapSet.from(tt1);
 
-      expect(
-          TTMultiMapSetEquality<String>().equals(tt1, tt2, true), equals(true));
-
-      expect(
-          TTMultiMapListEquality<String>().equals(
-              ternarytreap.TTMultiMapList<String>.from(wordTST), wordTST, true),
+      expect(TTMultiMapSetEquality<String>().equals(tt1, tt2, strict: true),
           equals(true));
 
       expect(
           TTMultiMapListEquality<String>().equals(
-              wordTST, ternarytreap.TTMultiMapList<String>.from(wordTST), true),
+              ternarytreap.TTMultiMapList<String>.from(wordTST), wordTST,
+              strict: true),
+          equals(true));
+
+      expect(
+          TTMultiMapListEquality<String>().equals(
+              wordTST, ternarytreap.TTMultiMapList<String>.from(wordTST),
+              strict: true),
           equals(true));
     });
 
     test('fromIterables', () {
       final keyValues = ['TeStInG', 'Cat', 'cAt', 'testinG', 'DOG', 'dog'];
       final tt = ternarytreap.TTMultiMapSet<String>.fromIterables(
-          keyValues, keyValues, ternarytreap.lowercase);
+          keyValues, keyValues,
+          keyMapping: ternarytreap.lowercase);
 
-      final compare =
-          ternarytreap.TTMultiMapSet<String>(ternarytreap.lowercase);
+      final compare = ternarytreap.TTMultiMapSet<String>(
+          keyMapping: ternarytreap.lowercase);
       for (final keyVal in keyValues) {
         compare.add(keyVal, keyVal);
       }
@@ -401,7 +404,7 @@ void main() {
       expect(rehydrated.length, equals(wordTST.length));
       expect(rehydrated.keys, equals(wordTST.keys));
       expect(rehydrated.values, equals(wordTST.values));
-      expect(eq.equals(rehydrated, wordTST, true), equals(true));
+      expect(eq.equals(rehydrated, wordTST, strict: true), equals(true));
 
       final key = 'this is a test';
       final val = 'test result';
@@ -409,7 +412,7 @@ void main() {
       wordTST.addKey(key);
       expect(
           eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST,
-              true),
+              strict: true),
           equals(false));
 
       wordTST.add(key, val);
@@ -417,14 +420,14 @@ void main() {
 
       expect(
           eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST,
-              true),
+              strict: true),
           equals(false));
 
       final json2 = wordTST.toJson();
       final rehydrated2 = ternarytreap.TTMultiMapList<String>.fromJson(json2);
 
-      expect(eq.equals(rehydrated2, wordTST, true), equals(true));
-      expect(eq.equals(rehydrated2, rehydrated, true), equals(false));
+      expect(eq.equals(rehydrated2, wordTST, strict: true), equals(true));
+      expect(eq.equals(rehydrated2, rehydrated, strict: true), equals(false));
 
       expect(rehydrated2.length, equals(rehydrated.length + 1));
       expect(
@@ -437,8 +440,9 @@ void main() {
       wordTST.markKey(key);
 
       expect(
-          eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json3),
-              wordTST, true),
+          eq.equals(
+              ternarytreap.TTMultiMapList<String>.fromJson(json3), wordTST,
+              strict: true),
           equals(false));
 
       final ttSet = ternarytreap.TTSet.fromIterable(wordTST.keys);
@@ -446,7 +450,7 @@ void main() {
 
       expect(
           ternarytreap.TTSetEquality()
-              .equals(TTSet.fromJson(json4), ttSet, true),
+              .equals(TTSet.fromJson(json4), ttSet, strict: true),
           equals(true));
     });
 
@@ -472,7 +476,8 @@ void main() {
     });
 
     test('[]=', () {
-      final tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
+      final tree =
+          ternarytreap.TTMultiMapSet<int>(keyMapping: ternarytreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -498,10 +503,10 @@ void main() {
       final original = _TestObject('I am an object');
       final copy = _TestObject('I am an object');
 
-      var treeSet =
-          ternarytreap.TTMultiMapSet<_TestObject>(ternarytreap.lowercase);
-      var treeList =
-          ternarytreap.TTMultiMapList<_TestObject>(ternarytreap.lowercase);
+      var treeSet = ternarytreap.TTMultiMapSet<_TestObject>(
+          keyMapping: ternarytreap.lowercase);
+      var treeList = ternarytreap.TTMultiMapList<_TestObject>(
+          keyMapping: ternarytreap.lowercase);
 
       treeSet.add('this is a key', original);
       treeList.add('this is a key', original);
@@ -536,8 +541,9 @@ void main() {
     });
 
     test('KeyMapping', () {
-      var tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase)
-        ..add('TeStInG', 1);
+      var tree =
+          ternarytreap.TTMultiMapSet<int>(keyMapping: ternarytreap.lowercase)
+            ..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
 
@@ -549,7 +555,7 @@ void main() {
 
       testIdempotence(tree, 'DSAF DF SD FSDRTE ');
 
-      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.uppercase)
+      tree = ternarytreap.TTMultiMapSet<int>(keyMapping: ternarytreap.uppercase)
         ..add('TeStInG', 1);
 
       expect(tree['fake'], equals(null));
@@ -562,7 +568,8 @@ void main() {
 
       testIdempotence(tree, 'asdas KJHGJGH fsdfsdf ');
 
-      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.collapseWhitespace)
+      tree = ternarytreap.TTMultiMapSet<int>(
+          keyMapping: ternarytreap.collapseWhitespace)
         ..add(' t es   ti     ng  ', 1);
       expect(
           tree['t             '
@@ -573,7 +580,8 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowerCollapse)
+      tree = ternarytreap.TTMultiMapSet<int>(
+          keyMapping: ternarytreap.lowerCollapse)
         ..add(' T eS   KK     Bg  ', 1);
       expect(
           tree['       t es'
@@ -584,7 +592,8 @@ void main() {
 
       testIdempotence(tree, '   asdas          KJHG  JGH fsdf  sdf   ');
 
-      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.nonLetterToSpace)
+      tree = ternarytreap.TTMultiMapSet<int>(
+          keyMapping: ternarytreap.nonLetterToSpace)
         ..add('*T_eS  -KK  ,  Bg )\n\t', 1);
       expect(tree[' T eS  ^KK %* ^Bg ;  '], <int>[1]);
 
@@ -592,7 +601,8 @@ void main() {
 
       testIdempotence(tree, ' %  asd+=as   & & ^J%@HG  J(GH f`sdf  s*df   )!');
 
-      tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.joinSingleLetters)
+      tree = ternarytreap.TTMultiMapSet<int>(
+          keyMapping: ternarytreap.joinSingleLetters)
         ..add('    a     b .  ab.cd a  b abcd a        b', 1);
 
       expect(tree['ab .  ab.cd ab abcd ab'], equals(<int>[1]));
@@ -614,7 +624,8 @@ void main() {
     });
 
     test('removeValues', () {
-      final tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
+      final tree =
+          ternarytreap.TTMultiMapSet<int>(keyMapping: ternarytreap.lowercase);
 
       tree['At'] = <int>[1];
 
@@ -631,7 +642,8 @@ void main() {
     });
 
     test('removeKey', () {
-      final tree = ternarytreap.TTMultiMapSet<int>(ternarytreap.lowercase);
+      final tree =
+          ternarytreap.TTMultiMapSet<int>(keyMapping: ternarytreap.lowercase);
 
       tree['At'] = <int>[1];
 

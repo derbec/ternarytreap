@@ -93,7 +93,7 @@ class TTMultiMapSetEquality<V> implements Equality<TTMultiMapSet<V>> {
   /// [strict] == 'false' should suffice for almost all cases.
   @override
   bool equals(TTMultiMapSet<V> e1, TTMultiMapSet<V> e2,
-          [bool strict = false]) =>
+          {bool strict = false}) =>
       _ttMultiMapEquality.equals(e1, e2, _valueEquality, strict);
 
   @override
@@ -114,7 +114,7 @@ class TTMultiMapListEquality<V> implements Equality<TTMultiMapList<V>> {
   /// [strict] == 'false' should suffice for almost all cases.
   @override
   bool equals(TTMultiMapList<V> e1, TTMultiMapList<V> e2,
-          [bool strict = false]) =>
+          {bool strict = false}) =>
       _ttMultiMapEquality.equals(e1, e2, _valueEquality, strict);
 
   @override
@@ -143,12 +143,12 @@ class TTMultiMapListEquality<V> implements Equality<TTMultiMapList<V>> {
 /// you require only a set of Keys for searching purposes.
 class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   /// Construct a new [TTMultiMapSet] with an optional [keyMapping]
-  TTMultiMapSet([KeyMapping keyMapping])
+  TTMultiMapSet({KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
                 NodeSet<V>(runes, priorityGenerator, parent, _runePool),
-            keyMapping);
+            keyMapping ?? identity);
 
   /// Create a [TTMultiMapSet] from a [TTMultiMap].
   ///
@@ -169,22 +169,23 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   ///
   /// Throws Error if any key in [keys] is empty after [KeyMapping] applied.
   TTMultiMapSet.fromIterables(Iterable<String> keys, Iterable<V> values,
-      [KeyMapping keyMapping])
+      {KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
                 NodeSet<V>(runes, priorityGenerator, parent, _runePool),
-            keyMapping) {
+            keyMapping ?? identity) {
     _setFromIterables(keys, values);
   }
 
   /// Construct a [TTMultiMapSet] from the given Json
-  TTMultiMapSet.fromJson(Map<String, dynamic> json, [KeyMapping keyMapping])
+  TTMultiMapSet.fromJson(Map<String, dynamic> json,
+      {KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
                 NodeSet<V>(runes, priorityGenerator, parent, _runePool),
-            keyMapping) {
+            keyMapping ?? identity) {
     _setFromJson(
         (List<dynamic> json, Random priorityGenerator, Node<V> parent,
                 HashSet<RunePoolEntry> _runePool) =>
@@ -193,12 +194,13 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   /// Create a [TTMultiMapSet] from a [Map].
-  TTMultiMapSet.fromMap(Map<String, Iterable<V>> map, [KeyMapping keyMapping])
+  TTMultiMapSet.fromMap(Map<String, Iterable<V>> map,
+      {KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
                 NodeSet<V>(runes, priorityGenerator, parent, _runePool),
-            keyMapping) {
+            keyMapping ?? identity) {
     for (final key in map.keys) {
       addValues(key, map[key]);
     }
@@ -281,7 +283,7 @@ class TTMultiMapSet<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
 /// you require only a set of Keys for searching purposes.
 class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   /// Construct a new [TTMultiMapList] with an optional [keyMapping]
-  TTMultiMapList([KeyMapping keyMapping])
+  TTMultiMapList({KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     final HashSet<RunePoolEntry> _runePool) =>
@@ -303,7 +305,7 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   ///
   /// Throws Error if any key in [keys] is empty after [KeyMapping] applied.
   TTMultiMapList.fromIterables(Iterable<String> keys, Iterable<V> values,
-      [KeyMapping keyMapping])
+      {KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
@@ -313,7 +315,8 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   /// Create a [TTMultiMapList] from a [Map].
-  TTMultiMapList.fromMap(Map<String, Iterable<V>> map, [KeyMapping keyMapping])
+  TTMultiMapList.fromMap(Map<String, Iterable<V>> map,
+      {KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
@@ -325,7 +328,8 @@ class TTMultiMapList<V> extends _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   /// Construct a NodeList from the given Json
-  TTMultiMapList.fromJson(Map<String, dynamic> json, [KeyMapping keyMapping])
+  TTMultiMapList.fromJson(Map<String, dynamic> json,
+      {KeyMapping keyMapping = identity})
       : super(
             (Iterable<int> runes, Random priorityGenerator, Node<V> parent,
                     HashSet<RunePoolEntry> _runePool) =>
@@ -738,7 +742,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   }
 
   @override
-  String toString([String paddingChar = '-']) {
+  String toString({String paddingChar = '-'}) {
     final buffer = StringBuffer();
     _toString(_root, paddingChar, '', buffer);
     return buffer.toString();

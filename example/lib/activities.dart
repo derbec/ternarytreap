@@ -80,9 +80,9 @@ class InputActivity extends Activity {
   InputActivity({KeyMapping keyMapping, List<String> preload})
       : _ternaryTreap = keyMapping == null
             ? TTMultiMapSet<DictEntry>()
-            : TTMultiMapSet<DictEntry>(keyMapping) {
+            : TTMultiMapSet<DictEntry>(keyMapping: keyMapping) {
     if (preload.isNotEmpty) {
-      for (final  word in preload) {
+      for (final word in preload) {
         // fabricate dict entry
         _ternaryTreap.add(word, DictEntry(word, 'meaning of $word'));
       }

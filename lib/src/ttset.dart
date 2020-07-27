@@ -9,9 +9,10 @@ class TTSetEquality implements Equality<TTSet> {
   final _ttMultiMapEquality = TTMultiMapListEquality<dynamic>();
 
   @override
-  bool equals(TTSet e1, TTSet e2, [bool strict]) =>
+  bool equals(TTSet e1, TTSet e2, {bool strict = false}) =>
       (!identical(e1, null) && !identical(e2, null)) &&
-      _ttMultiMapEquality.equals(e1._ttMultiMap, e2._ttMultiMap, strict);
+      _ttMultiMapEquality.equals(e1._ttMultiMap, e2._ttMultiMap,
+          strict: strict);
 
   @override
   int hash(TTSet e) => identical(e, null)
@@ -95,18 +96,21 @@ class TTSetEquality implements Equality<TTSet> {
 /// ```
 class TTSet extends SetBase<String> implements TTIterable<String> {
   /// Construct a new [TTSet]
-  TTSet([KeyMapping keyMapping]) : _ttMultiMap = TTMultiMapList(keyMapping);
+  TTSet({KeyMapping keyMapping = identity})
+      : _ttMultiMap = TTMultiMapList(keyMapping: keyMapping ?? identity);
 
   /// Construct a new [TTSet] and fill with [elements].
-  TTSet.fromIterable(Iterable<String> elements, [KeyMapping keyMapping])
-      : _ttMultiMap = TTMultiMapList(keyMapping) {
+  TTSet.fromIterable(Iterable<String> elements,
+      {KeyMapping keyMapping = identity})
+      : _ttMultiMap = TTMultiMapList(keyMapping: keyMapping ?? identity) {
     ArgumentError.checkNotNull(elements, 'elements');
     addAll(elements);
   }
 
   /// Construct a new [TTSet] from [json].
-  TTSet.fromJson(Map<String, dynamic> json, [KeyMapping keyMapping])
-      : _ttMultiMap = TTMultiMapList.fromJson(json, keyMapping);
+  TTSet.fromJson(Map<String, dynamic> json, {KeyMapping keyMapping = identity})
+      : _ttMultiMap =
+            TTMultiMapList.fromJson(json, keyMapping: keyMapping ?? identity);
 
   final TTMultiMapList _ttMultiMap;
 
