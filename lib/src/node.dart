@@ -70,8 +70,6 @@ bool nodeEquality(Node e1, Node e2) {
           (e1.hasRight == e2.hasRight) &&
           // Compare keyEnd
           (e1.isKeyEnd == e2.isKeyEnd) &&
-          // Compare marked
-          (e1.isMarked == e2.isMarked) &&
           // Compare descendant count
           (e1.numDFSDescendants == e2.numDFSDescendants) &&
           // Compare runes
@@ -336,9 +334,6 @@ abstract class Node<V> {
     includeValues &= isKeyEnd;
     final json = <dynamic>[];
     json.add(String.fromCharCodes(runes));
-    if (isMarked) {
-      json.add(1);
-    }
     if (isKeyEnd) {
       if (includeValues) {
         json.add(valuesToJson(toEncodable));
@@ -358,18 +353,12 @@ abstract class Node<V> {
   /// Remove key end status from node
   void clearKeyEnd() {
     _values = null;
-    // Node can only be marked if it is a key end
-    unmark();
   }
 
   /// Take keyend and marked status from [other].
   void takeKeyEndMarked(Node<V> other) {
     _values = other._values;
     other._values = null;
-    if (other.isMarked) {
-      mark();
-      other.unmark();
-    }
   }
 
   /// Return first value that is equal to [value]
@@ -421,32 +410,6 @@ abstract class Node<V> {
 
   /// Does this node have a left node?
   bool get hasRight => !identical(right, null);
-
-  /// True if this node has been previously marked, false otherwise.
-  bool get isMarked => isKeyEnd && priority >= _MAX_PRIORITY;
-
-  /// Map node priority into the 'promoted' codomain.
-  ///
-  /// Return true if key was not already marked, false otherwise
-  bool mark() {
-    assert(isKeyEnd);
-    if (priority < _MAX_PRIORITY) {
-      priority += _MAX_PRIORITY;
-      return true;
-    }
-    return false;
-  }
-
-  /// Reverse [mark].
-  ///
-  /// Return true if key was previously marked, false otherwise
-  bool unmark() {
-    if (priority >= _MAX_PRIORITY) {
-      priority -= _MAX_PRIORITY;
-      return true;
-    }
-    return false;
-  }
 
   /// return number of end nodes in subtree with this node as root
   int get sizeDFSTree =>
@@ -574,7 +537,7 @@ abstract class Node<V> {
     if (!identical(child, null)) {
       assert(identical(child.parent, this));
       // Marked nodes always have higer priority than unmarked
-      if ((isMarked || !child.isMarked) && child.priority > priority) {
+      if (child.priority > priority) {
         final tmp = priority;
         priority = child.priority;
         child.priority = tmp;
@@ -758,19 +721,6 @@ abstract class Node<V> {
   /// Update node values from json
   void _setFromJson(List<dynamic> json) {
     if (json.length > 1) {
-      final obj = json[1];
-      //   Could be either node marked specifier or list of values
-      if (obj is List) {
-        setAsKeyEnd();
-        setValues(obj.cast<V>().toList());
-      } else if ((obj as int) == 1) {
-        mark();
-      } else {
-        throw ArgumentError.value(obj, 'Invalid Json value');
-      }
-    }
-
-    if (json.length > 2) {
       final obj = json[1];
 
       if (obj is List) {

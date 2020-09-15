@@ -146,12 +146,9 @@ class TTSet extends SetBase<String> implements TTIterable<String> {
   ///
   /// Throws ArgumentError if [prefix] is empty or null.
   TTIterable<String> lookupByPrefix(String prefix,
-          {int maxPrefixEditDistance = 0, bool filterMarked = false}) =>
+          {int maxPrefixEditDistance = 0}) =>
       _ttMultiMap.keysByPrefix(prefix,
           maxPrefixEditDistance: maxPrefixEditDistance);
-
-  /// see: [TTMultiMap.markKey]
-  bool markKey(String key) => _ttMultiMap.markKey(key);
 
   @override
   bool remove(Object value) =>

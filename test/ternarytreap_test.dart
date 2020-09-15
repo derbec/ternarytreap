@@ -437,13 +437,11 @@ void main() {
 
       final json3 = wordTST.toJson();
 
-      wordTST.markKey(key);
-
       expect(
           eq.equals(
               ternarytreap.TTMultiMapList<String>.fromJson(json3), wordTST,
               strict: true),
-          equals(false));
+          equals(true));
 
       final ttSet = ternarytreap.TTSet.fromIterable(wordTST.keys);
       final json4 = ttSet.toJson();
@@ -882,18 +880,6 @@ void main() {
               equals(json.encode(checker, toEncodable: toEncodable)));
         }
       }
-    });
-
-    test('markKey', () {
-      final ttSet = ternarytreap.TTSet.fromIterable(
-          ['grab', 'angry', 'camel', 'axe', 'animal', 'bike', 'announced']);
-
-      ttSet.markKey('announced');
-
-      expect(ttSet.marked.toList(), equals(['announced']));
-
-      expect(ttSet.unmarked.toList(),
-          equals(['angry', 'animal', 'axe', 'bike', 'camel', 'grab']));
     });
   });
 }

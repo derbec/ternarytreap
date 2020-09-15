@@ -12,8 +12,8 @@ import 'ttiterable.dart';
 import 'ttmultimap.dart';
 import 'utility.dart';
 
-const _JSONKEY_NODES = 'nodes';
-const _JSONKEY_KEYMAPPING = 'keymapping';
+const _JSONKEY_NODES = 'a';
+const _JSONKEY_KEYMAPPING = 'b';
 
 /// The result of an add operation.
 class _AddResult<V> {
@@ -650,21 +650,6 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
 
   @override
   int get length => identical(_root, null) ? 0 : _root.sizeDFSTree;
-
-  @override
-  bool markKey(String key) {
-    var keyNode = _root?.getKeyNode(_mapKeyNonEmpty(key));
-
-    if (identical(keyNode, null)) {
-      throw ArgumentError('key: $key not found');
-    }
-
-    if (keyNode.mark()) {
-      _version.value.incVersions();
-      return true;
-    }
-    return false;
-  }
 
   @override
   V lookup(String key, V value) =>

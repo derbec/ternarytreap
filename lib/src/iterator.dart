@@ -14,18 +14,6 @@ const int _INVALID_RUNE_IDX = -1;
 /// (2^53)-1 because javascript
 const int _MAX_SAFE_INTEGER = 9007199254740991;
 
-/// Filter options
-enum Filter {
-  /// No filter
-  none,
-
-  /// Return only marked keys.
-  marked,
-
-  /// Return only unmarked keys.
-  unmarked,
-}
-
 /// Store version information for [TTMultiMap]
 class Version {
   /// Create new version
@@ -95,17 +83,13 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
     implements TTIterable<I> {
   /// Construct InOrderIterableBase
   _InOrderIterableBase(this._root, this._currentVersion,
-      {this.prefixSearchResult,
-      this.maxPrefixEditDistance = 0,
-      this.filter = Filter.none})
+      {this.prefixSearchResult, this.maxPrefixEditDistance = 0})
       : assert(!identical(maxPrefixEditDistance, null)),
-        assert(!identical(filter, null)),
         assert(!identical(_currentVersion, null)),
         _validVersion = _currentVersion.value.snapshot();
 
   /// Maximum edit distance of returns
   final int maxPrefixEditDistance;
-  final Filter filter;
   final PrefixSearchResult<V> prefixSearchResult;
   final VersionSnapshot _validVersion;
   final ByRef<Version> _currentVersion;
@@ -130,7 +114,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
     }
 
     // No shortcut to calulate length for distance or filtered queries
-    if ((filter != Filter.none) || maxPrefixEditDistance > 0.0) {
+    if (maxPrefixEditDistance > 0.0) {
       return super.length;
     }
 
@@ -146,31 +130,26 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
 class InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
   /// Construct InOrderKeyIterable
   InOrderKeyIterable(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult,
-      int maxPrefixEditDistance = 0,
-      Filter filter = Filter.none})
+      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance,
-            filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterator<String> get iterator => InOrderKeyIterator<V>._(
       _root, _currentVersion, _validVersion, prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+      maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterable<String> get marked => InOrderKeyIterable<V>(_root, _currentVersion,
       prefixSearchResult: prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance,
-      filter: Filter.marked);
+      maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterable<String> get unmarked =>
       InOrderKeyIterable<V>(_root, _currentVersion,
           prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filter: Filter.unmarked);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through values.
@@ -185,30 +164,25 @@ class InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
 class InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
   /// Constructs a TernaryTreeValuesIterable
   InOrderValuesIterable(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult,
-      int maxPrefixEditDistance = 0,
-      Filter filter = Filter.none})
+      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance,
-            filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterator<V> get iterator => InOrderValuesIterator<V>(
       _root, _currentVersion, _validVersion, prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+      maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterable<V> get marked => InOrderValuesIterable<V>(_root, _currentVersion,
       prefixSearchResult: prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance,
-      filter: Filter.marked);
+      maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterable<V> get unmarked => InOrderValuesIterable<V>(_root, _currentVersion,
       prefixSearchResult: prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance,
-      filter: Filter.unmarked);
+      maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through map entries with value as Iterable.
@@ -216,33 +190,28 @@ class InOrderMapEntryIterable<V>
     extends _InOrderIterableBase<V, MapEntry<String, Iterable<V>>> {
   /// Constructs a InOrderMapEntryIterable
   InOrderMapEntryIterable(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult,
-      int maxPrefixEditDistance = 0,
-      Filter filter = Filter.none})
+      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance,
-            filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterator<MapEntry<String, Iterable<V>>> get iterator =>
       _InOrderMapEntryIteratorIterator<V>(
           _root, _currentVersion, _validVersion, prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   InOrderMapEntryIterable<V> get marked =>
       InOrderMapEntryIterable<V>(_root, _currentVersion,
           prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filter: Filter.marked);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   InOrderMapEntryIterable<V> get unmarked =>
       InOrderMapEntryIterable<V>(_root, _currentVersion,
           prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filter: Filter.unmarked);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through map entries with value as Set.
@@ -250,33 +219,28 @@ class InOrderMapEntryIterableSet<V>
     extends _InOrderIterableBase<V, MapEntry<String, Set<V>>> {
   /// Constructs a InOrderMapEntryIterableSet
   InOrderMapEntryIterableSet(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult,
-      int maxPrefixEditDistance = 0,
-      Filter filter = Filter.none})
+      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance,
-            filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterator<MapEntry<String, Set<V>>> get iterator =>
       InOrderMapEntryIteratorSet<V>(
           _root, _currentVersion, _validVersion, prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   InOrderMapEntryIterableSet<V> get marked =>
       InOrderMapEntryIterableSet<V>(_root, _currentVersion,
           prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filter: Filter.marked);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   InOrderMapEntryIterableSet<V> get unmarked =>
       InOrderMapEntryIterableSet<V>(_root, _currentVersion,
           prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filter: Filter.unmarked);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through map entries of the with value as List.
@@ -284,33 +248,28 @@ class InOrderMapEntryIterableList<V>
     extends _InOrderIterableBase<V, MapEntry<String, List<V>>> {
   /// Constructs a InOrderMapEntryIterableList
   InOrderMapEntryIterableList(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult,
-      int maxPrefixEditDistance = 0,
-      Filter filter = Filter.none})
+      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance,
-            filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   TTIterator<MapEntry<String, List<V>>> get iterator =>
       InOrderMapEntryIteratorList<V>(
           _root, _currentVersion, _validVersion, prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   InOrderMapEntryIterableList<V> get marked =>
       InOrderMapEntryIterableList<V>(_root, _currentVersion,
           prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filter: Filter.marked);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   InOrderMapEntryIterableList<V> get unmarked =>
       InOrderMapEntryIterableList<V>(_root, _currentVersion,
           prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance,
-          filter: Filter.unmarked);
+          maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// store call stack data for iterators
@@ -365,9 +324,8 @@ abstract class _InOrderIteratorBase<V> {
   /// non fuzzy matching.
   _InOrderIteratorBase(this.root, this.currentVersion, this.validVersion,
       this.prefixSearchResult,
-      {int maxPrefixEditDistance = 0, this.filter = Filter.none})
+      {int maxPrefixEditDistance = 0})
       : assert(!identical(maxPrefixEditDistance, null)),
-        assert(!identical(filter, null)),
         assert(!identical(currentVersion, null)),
         assert(!identical(validVersion, null)),
         maxPrefixEditDistance = identical(prefixSearchResult, null)
@@ -470,9 +428,6 @@ abstract class _InOrderIteratorBase<V> {
   /// [maxPrefixEditDistance] +1.
   final int maxPrefixEditDistance;
 
-  /// Only return keys that have been marked
-  final Filter filter;
-
   /// Collection of nodes and associated distance for future processing.
   /// Tree traversal and calculation of node distance is fairly expensive so we
   /// trade memory for speed. Nodes are sorted first by edit distance, then by
@@ -550,16 +505,11 @@ abstract class _InOrderIteratorBase<V> {
           }
 
           // If key has current distance then return
-          // Filter if needed
-          if (context.node.isKeyEnd &&
-              ((filter == Filter.none) ||
-                  ((filter == Filter.marked) && context.node.isMarked) ||
-                  ((filter == Filter.unmarked) && !context.node.isMarked))) {
+          if (context.node.isKeyEnd) {
             if (nodeDistance == prefixEditDistance) {
               currentKey = String.fromCharCodes(
                   nodeRunes ?? context.prefix + context.node.runes);
               currentValue = context.node.values;
-              isMarked = context.node.isMarked;
               return true;
             } else {
               // ... other wise save for future
@@ -725,9 +675,9 @@ class InOrderKeyIterator<V> extends _InOrderIteratorBase<V>
   /// Construct new [InOrderKeyIterator]
   InOrderKeyIterator._(Node<V> root, ByRef<Version> currentVersion,
       VersionSnapshot validVersion, PrefixSearchResult<V> prefixRoot,
-      {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
+      {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixRoot,
-            maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   /// Deny alteration of keys but allow for values.
   @override
@@ -745,9 +695,9 @@ class InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
   /// Construct new [InOrderKeyIterator]
   InOrderValuesIterator(Node<V> root, ByRef<Version> currentVersion,
       VersionSnapshot validVersion, PrefixSearchResult<V> prefixRoot,
-      {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
+      {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixRoot,
-            maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   Iterator<V> _currentItr;
 
@@ -798,9 +748,9 @@ abstract class InOrderMapEntryIterator<V> extends _InOrderIteratorBase<V> {
   /// Construct new [InOrderKeyIterator]
   InOrderMapEntryIterator(Node<V> root, ByRef<Version> currentVersion,
       VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
-      {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
+      {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 class _InOrderMapEntryIteratorIterator<V> extends InOrderMapEntryIterator<V>
@@ -808,9 +758,9 @@ class _InOrderMapEntryIteratorIterator<V> extends InOrderMapEntryIterator<V>
   /// Construct new [InOrderKeyIterator]
   _InOrderMapEntryIteratorIterator(Node<V> root, ByRef<Version> currentVersion,
       VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
-      {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
+      {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   MapEntry<String, Iterable<V>> get current =>
@@ -823,9 +773,9 @@ class InOrderMapEntryIteratorSet<V> extends InOrderMapEntryIterator<V>
   /// Construct new [InOrderKeyIterator]
   InOrderMapEntryIteratorSet(Node<V> root, ByRef<Version> currentVersion,
       VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
-      {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
+      {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   MapEntry<String, Set<V>> get current =>
@@ -838,9 +788,9 @@ class InOrderMapEntryIteratorList<V> extends InOrderMapEntryIterator<V>
   /// Construct new [InOrderKeyIterator]
   InOrderMapEntryIteratorList(Node<V> root, ByRef<Version> currentVersion,
       VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
-      {int maxPrefixEditDistance = 0, Filter filter = Filter.none})
+      {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
-            maxPrefixEditDistance: maxPrefixEditDistance, filter: filter);
+            maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
   MapEntry<String, List<V>> get current =>

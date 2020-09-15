@@ -342,17 +342,6 @@ abstract class TTMultiMap<V> {
   /// The number of keys in the [TTMultiMap].
   int get length;
 
-  /// Add a key to the marked set.
-  ///
-  /// This key may be retrieved later via the `filterMarked` parameter of [keysByPrefix].
-  ///
-  /// see: [keysByPrefix]
-  ///
-  /// Throws [ArgumentError] if [key] is empty or null.
-  ///
-  /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
-  bool markKey(String key);
-
   /// If [TTMultiMap] contains specified ([key], [value]) pair
   /// then return stored value.
   ///
