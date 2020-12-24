@@ -90,7 +90,7 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
 
   /// Maximum edit distance of returns
   final int maxPrefixEditDistance;
-  final PrefixSearchResult<V> prefixSearchResult;
+  final PrefixSearchResult<V>? prefixSearchResult;
   final VersionSnapshot _validVersion;
   final ByRef<Version> _currentVersion;
   final Node<V> _root;
@@ -102,6 +102,8 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
     if (identical(_root, null)) {
       return 0;
     }
+
+    final prefixSearchResult = this.prefixSearchResult;
 
     // No query, traversing entire tree
     if (identical(prefixSearchResult, null)) {
@@ -130,7 +132,8 @@ abstract class _InOrderIterableBase<V, I> extends IterableMixin<I>
 class InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
   /// Construct InOrderKeyIterable
   InOrderKeyIterable(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
+      {PrefixSearchResult<V>? prefixSearchResult,
+      int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -139,17 +142,6 @@ class InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
   TTIterator<String> get iterator => InOrderKeyIterator<V>._(
       _root, _currentVersion, _validVersion, prefixSearchResult,
       maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  TTIterable<String> get marked => InOrderKeyIterable<V>(_root, _currentVersion,
-      prefixSearchResult: prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  TTIterable<String> get unmarked =>
-      InOrderKeyIterable<V>(_root, _currentVersion,
-          prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through values.
@@ -164,7 +156,8 @@ class InOrderKeyIterable<V> extends _InOrderIterableBase<V, String> {
 class InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
   /// Constructs a TernaryTreeValuesIterable
   InOrderValuesIterable(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
+      {PrefixSearchResult<V>? prefixSearchResult,
+      int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -173,16 +166,6 @@ class InOrderValuesIterable<V> extends _InOrderIterableBase<V, V> {
   TTIterator<V> get iterator => InOrderValuesIterator<V>(
       _root, _currentVersion, _validVersion, prefixSearchResult,
       maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  TTIterable<V> get marked => InOrderValuesIterable<V>(_root, _currentVersion,
-      prefixSearchResult: prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  TTIterable<V> get unmarked => InOrderValuesIterable<V>(_root, _currentVersion,
-      prefixSearchResult: prefixSearchResult,
-      maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through map entries with value as Iterable.
@@ -190,7 +173,8 @@ class InOrderMapEntryIterable<V>
     extends _InOrderIterableBase<V, MapEntry<String, Iterable<V>>> {
   /// Constructs a InOrderMapEntryIterable
   InOrderMapEntryIterable(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
+      {PrefixSearchResult<V>? prefixSearchResult,
+      int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -200,18 +184,6 @@ class InOrderMapEntryIterable<V>
       _InOrderMapEntryIteratorIterator<V>(
           _root, _currentVersion, _validVersion, prefixSearchResult,
           maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  InOrderMapEntryIterable<V> get marked =>
-      InOrderMapEntryIterable<V>(_root, _currentVersion,
-          prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  InOrderMapEntryIterable<V> get unmarked =>
-      InOrderMapEntryIterable<V>(_root, _currentVersion,
-          prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through map entries with value as Set.
@@ -219,7 +191,8 @@ class InOrderMapEntryIterableSet<V>
     extends _InOrderIterableBase<V, MapEntry<String, Set<V>>> {
   /// Constructs a InOrderMapEntryIterableSet
   InOrderMapEntryIterableSet(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
+      {PrefixSearchResult<V>? prefixSearchResult,
+      int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -229,18 +202,6 @@ class InOrderMapEntryIterableSet<V>
       InOrderMapEntryIteratorSet<V>(
           _root, _currentVersion, _validVersion, prefixSearchResult,
           maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  InOrderMapEntryIterableSet<V> get marked =>
-      InOrderMapEntryIterableSet<V>(_root, _currentVersion,
-          prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  InOrderMapEntryIterableSet<V> get unmarked =>
-      InOrderMapEntryIterableSet<V>(_root, _currentVersion,
-          prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
 /// Iterates through map entries of the with value as List.
@@ -248,7 +209,8 @@ class InOrderMapEntryIterableList<V>
     extends _InOrderIterableBase<V, MapEntry<String, List<V>>> {
   /// Constructs a InOrderMapEntryIterableList
   InOrderMapEntryIterableList(Node<V> root, ByRef<Version> currentVersion,
-      {PrefixSearchResult<V> prefixSearchResult, int maxPrefixEditDistance = 0})
+      {PrefixSearchResult<V>? prefixSearchResult,
+      int maxPrefixEditDistance = 0})
       : super(root, currentVersion,
             prefixSearchResult: prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -257,18 +219,6 @@ class InOrderMapEntryIterableList<V>
   TTIterator<MapEntry<String, List<V>>> get iterator =>
       InOrderMapEntryIteratorList<V>(
           _root, _currentVersion, _validVersion, prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  InOrderMapEntryIterableList<V> get marked =>
-      InOrderMapEntryIterableList<V>(_root, _currentVersion,
-          prefixSearchResult: prefixSearchResult,
-          maxPrefixEditDistance: maxPrefixEditDistance);
-
-  @override
-  InOrderMapEntryIterableList<V> get unmarked =>
-      InOrderMapEntryIterableList<V>(_root, _currentVersion,
-          prefixSearchResult: prefixSearchResult,
           maxPrefixEditDistance: maxPrefixEditDistance);
 }
 
@@ -281,18 +231,18 @@ class _StackFrame<V> {
   final int distance;
 
   final List<int> prefix;
-  final Node<V> ignoreChild;
+  final Node<V>? ignoreChild;
 
   @override
   String toString() =>
       '${String.fromCharCodes(prefix)} : $node : ignoreChild -> $ignoreChild -> $distance';
 
   _StackFrame<V> copyWith(
-          {Node<V> node,
-          List<int> prefix,
-          int distance,
-          Node<V> ignoreChild,
-          bool ignoreThis}) =>
+          {Node<V>? node,
+          List<int>? prefix,
+          int? distance,
+          Node<V>? ignoreChild,
+          bool? ignoreThis}) =>
       _StackFrame<V>(node ?? this.node, prefix ?? this.prefix,
           distance: distance ?? this.distance,
           ignoreChild: ignoreChild ?? this.ignoreChild);
@@ -305,7 +255,7 @@ class _UnVisited<V> {
   final Node<V> node;
 }
 
-enum _DistanceState { DISTANCE_INIT, FUZZY_WORKING, NO_DISTANCE }
+enum _DistanceState { DISTANCE_INIT, FUZZY_WORKING }
 
 /// Base class for in order iterators.
 abstract class _InOrderIteratorBase<V> {
@@ -333,82 +283,80 @@ abstract class _InOrderIteratorBase<V> {
             : min(maxPrefixEditDistance,
                 prefixSearchResult.prefixRunes.length - 1),
         stack = Stack<_StackFrame<V>>(10),
-        distanceState = maxPrefixEditDistance > 0
-            ? _DistanceState.DISTANCE_INIT
-            : _DistanceState.NO_DISTANCE,
+        distanceState = _DistanceState.DISTANCE_INIT,
         // Init the worklist for fuzzy search if needed
         distanceList = maxPrefixEditDistance > 0
-            ? List<ListQueue<_UnVisited<V>>>(maxPrefixEditDistance + 1)
+            ? List<ListQueue<_UnVisited<V>>>.generate(maxPrefixEditDistance + 1,
+                (int index) => ListQueue<_UnVisited<V>>())
             : null {
+    final prefixSearchResult = this.prefixSearchResult;
     if (identical(prefixSearchResult, null) && maxPrefixEditDistance > 0) {
       throw ArgumentError(
           'identical(prefixSearchResult , null) && maxPrefixEditDistance > 0');
     }
 
-    if (!identical(root, null)) {
-      if (identical(prefixSearchResult, null)) {
-        // Simple DFS traversal requested
-        pushDFS(_StackFrame<V>(root, []));
+    if (identical(prefixSearchResult, null)) {
+      // Simple DFS traversal requested
+      pushDFS(_StackFrame<V>(root, []));
+      return;
+    }
+
+    // A search was requested, what sort of match was found?
+    // Set up intial stack frame parameters
+    if (prefixSearchResult.prefixRuneIdx == _INVALID_RUNE_IDX) {
+      // No match at all was found
+      if (maxPrefixEditDistance < 1) {
+        /// Bail if fuzzy not selected
         return;
       }
 
-      // A search was requested, what sort of match was found?
-      // Set up intial stack frame parameters
-      if (prefixSearchResult.prefixRuneIdx == _INVALID_RUNE_IDX) {
-        // No match at all was found
-        if (maxPrefixEditDistance < 1) {
-          /// Bail if fuzzy not selected
-          return;
-        }
+      // All we know is that minimum possible distance is 1
+      prefixEditDistance = 1;
 
-        // All we know is that minimum possible distance is 1
+      // Search entire tree from root
+      prefixFrame = _StackFrame<V>(root, []);
+
+      // There is no initial subtree intialisation to dodge around
+      distanceState = _DistanceState.FUZZY_WORKING;
+
+      pushDFS(prefixFrame);
+    } else {
+      // Some kind of match was found
+      var matchDistance = 0;
+
+      // What distance is intial match?
+      if (!prefixSearchResult.isPrefixMatch) {
+        // Prefix was only partially matched so trim accordingly and
+        // add any remainding runes of match node
+        // Calculate distance of this partial match
+        matchDistance = prefixDistance(
+            prefixSearchResult.prefixRunes,
+            prefixSearchResult.prefixRunes
+                .getRange(0, prefixSearchResult.prefixRuneIdx),
+            prefixSearchResult.node.runes.getRange(
+                prefixSearchResult.nodeRuneIdx,
+                prefixSearchResult.node.runes.length));
+
+        // Given no exact match present, minimum possible search distance is 1
         prefixEditDistance = 1;
-
-        // Search entire tree from root
-        prefixFrame = _StackFrame<V>(root, []);
-
-        // There is no initial subtree intialisation to dodge around
-        distanceState = _DistanceState.FUZZY_WORKING;
-
-        pushDFS(prefixFrame);
-      } else {
-        // Some kind of match was found
-        var matchDistance = 0;
-
-        // What distance is intial match?
-        if (!prefixSearchResult.isPrefixMatch) {
-          // Prefix was only partially matched so trim accordingly and
-          // add any remainding runes of match node
-          // Calculate distance of this partial match
-          matchDistance = prefixDistance(
-              prefixSearchResult.prefixRunes,
-              prefixSearchResult.prefixRunes
-                  .getRange(0, prefixSearchResult.prefixRuneIdx),
-              prefixSearchResult.node.runes.getRange(
-                  prefixSearchResult.nodeRuneIdx,
-                  prefixSearchResult.node.runes.length));
-
-          // Given no exact match present, minimum possible search distance is 1
-          prefixEditDistance = 1;
-        }
-
-        // Set the start frame for prefix query.
-        // Because the moveNext method constructs keys as:
-        // prefix + runes we need to remove matched runes from
-        // the prefix.
-        prefixFrame = _StackFrame<V>(
-            prefixSearchResult.node,
-            prefixSearchResult.prefixRunes.sublist(
-                0,
-                prefixSearchResult.prefixRuneIdx -
-                    prefixSearchResult.nodeRuneIdx),
-            distance: matchDistance);
-
-        // Ensure that only mid child explored for initial run
-        // by instructing moveNext() to ignore right child
-        stack.push(
-            prefixFrame.copyWith(ignoreChild: prefixSearchResult.node.right));
       }
+
+      // Set the start frame for prefix query.
+      // Because the moveNext method constructs keys as:
+      // prefix + runes we need to remove matched runes from
+      // the prefix.
+      prefixFrame = _StackFrame<V>(
+          prefixSearchResult.node,
+          prefixSearchResult.prefixRunes.sublist(
+              0,
+              prefixSearchResult.prefixRuneIdx -
+                  prefixSearchResult.nodeRuneIdx),
+          distance: matchDistance);
+
+      // Ensure that only mid child explored for initial run
+      // by instructing moveNext() to ignore right child
+      stack.push(
+          prefixFrame.copyWith(ignoreChild: prefixSearchResult.node.right));
     }
   }
 
@@ -421,7 +369,7 @@ abstract class _InOrderIteratorBase<V> {
 
   final Node<V> root;
 
-  final PrefixSearchResult<V> prefixSearchResult;
+  final PrefixSearchResult<V>? prefixSearchResult;
 
   /// Max distance is when all but one prefix runes are altered.
   /// Because 0 is a valid distance the total number of distances explored is
@@ -432,20 +380,19 @@ abstract class _InOrderIteratorBase<V> {
   /// Tree traversal and calculation of node distance is fairly expensive so we
   /// trade memory for speed. Nodes are sorted first by edit distance, then by
   /// occurance in tree in order traversal.
-  final List<ListQueue<_UnVisited<V>>> distanceList;
+  final List<ListQueue<_UnVisited<V>>>? distanceList;
 
   /// Current state of fuzzy search
   _DistanceState distanceState;
 
-  /// The startying frame for each search distance
-  _StackFrame<V> prefixFrame;
+  /// The starting frame for each search distance
+  late _StackFrame<V> prefixFrame;
 
   /// Distance currently being explored
   int prefixEditDistance = 0;
-  bool isMarked;
 
-  String currentKey;
-  Iterable<V> currentValue;
+  late String currentKey;
+  late Iterable<V> currentValue;
 
   /// Apply appropriate modification checks.
   /// By default checks both keys and values.
@@ -466,69 +413,72 @@ abstract class _InOrderIteratorBase<V> {
   /// iteration has been broken by changing the underlying collection.
   bool moveNext() {
     checkVersion();
-    if (!identical(root, null)) {
-      while (prefixEditDistance <= maxPrefixEditDistance) {
-        while (stack.isNotEmpty) {
-          final context = stack.pop();
 
-          // Avoid recalculating if possible
-          final nodeDistance = identical(prefixSearchResult, null)
-              ? 0
-              : context.distance == _INVALID_DISTANCE
-                  ? prefixDistance(prefixSearchResult.prefixRunes,
-                      context.prefix, context.node.runes)
-                  : context.distance;
+    final distanceList = this.distanceList;
+    final prefixSearchResult = this.prefixSearchResult;
 
-          // Push right for later consumption
-          // Exclude initial path root
-          if (!identical(context.node.right, null) &&
-              !identical(context.node.right, context.ignoreChild)) {
-            pushDFS(_StackFrame<V>(context.node.right, context.prefix));
-          }
+    while (prefixEditDistance <= maxPrefixEditDistance) {
+      while (stack.isNotEmpty) {
+        final context = stack.pop();
 
-          // Only generate this if necessary
-          List<int> nodeRunes;
+        // Avoid recalculating if possible
+        final nodeDistance = identical(prefixSearchResult, null)
+            ? 0
+            : context.distance == _INVALID_DISTANCE
+                ? prefixDistance(prefixSearchResult.prefixRunes, context.prefix,
+                    context.node.runes)
+                : context.distance;
 
-          // Push right for later consumption
-          // Exclude initial path root
-          if (!identical(context.node.mid, null) &&
-              !identical(context.node.mid, context.ignoreChild) &&
-              // Only follow if within max distance or
-              // not computable. Must follow uncomputable pathways
-              // to gain access to computable children.
-              nodeDistance <= maxPrefixEditDistance) {
-            nodeRunes = context.prefix + context.node.runes;
-            pushDFS(
-                _StackFrame<V>(context.node.mid, nodeRunes,
-                    distance: nodeDistance),
-                nodeDistance);
-          }
+        // Push right for later consumption
+        // Exclude initial path root
+        if (!identical(context.node.right, null) &&
+            !identical(context.node.right, context.ignoreChild)) {
+          pushDFS(_StackFrame<V>(context.node.right!, context.prefix));
+        }
 
-          // If key has current distance then return
-          if (context.node.isKeyEnd) {
-            if (nodeDistance == prefixEditDistance) {
-              currentKey = String.fromCharCodes(
-                  nodeRunes ?? context.prefix + context.node.runes);
-              currentValue = context.node.values;
-              return true;
-            } else {
-              // ... other wise save for future
-              if (!identical(distanceList, null) &&
-                  nodeDistance != _INVALID_DISTANCE &&
-                  nodeDistance <= maxPrefixEditDistance) {
-                final fuzzyIdx = nodeDistance;
+        // Only generate this if necessary
+        List<int>? nodeRunes;
 
-                if (identical(distanceList[fuzzyIdx], null)) {
-                  distanceList[fuzzyIdx] = ListQueue<_UnVisited<V>>(1);
-                }
-                distanceList[fuzzyIdx]
-                    .addLast(_UnVisited<V>(context.node, context.prefix));
-              }
+        // Push right for later consumption
+        // Exclude initial path root
+        if (!identical(context.node.mid, null) &&
+            !identical(context.node.mid, context.ignoreChild) &&
+            // Only follow if within max distance or
+            // not computable. Must follow uncomputable pathways
+            // to gain access to computable children.
+            nodeDistance <= maxPrefixEditDistance) {
+          nodeRunes = context.prefix + context.node.runes;
+          pushDFS(
+              _StackFrame<V>(context.node.mid!, nodeRunes,
+                  distance: nodeDistance),
+              nodeDistance);
+        }
+
+        // If key has current distance then return
+        if (context.node.isKeyEnd) {
+          if (nodeDistance == prefixEditDistance) {
+            currentKey = String.fromCharCodes(
+                nodeRunes ?? context.prefix + context.node.runes);
+            currentValue = context.node.values;
+            return true;
+          } else {
+            // ... other wise save for future
+            if (!identical(distanceList, null) &&
+                nodeDistance != _INVALID_DISTANCE &&
+                nodeDistance <= maxPrefixEditDistance) {
+              final fuzzyIdx = nodeDistance;
+
+              distanceList[fuzzyIdx]
+                  .addLast(_UnVisited<V>(context.node, context.prefix));
             }
           }
         }
+      }
 
-        // Complete fuzzy search if requested
+      // Complete fuzzy search if requested
+      if (identical(distanceList, null)) {
+        return false;
+      } else {
         switch (distanceState) {
           case _DistanceState.DISTANCE_INIT:
             // Backtrack
@@ -549,12 +499,10 @@ abstract class _InOrderIteratorBase<V> {
 
             prefixEditDistance++;
             break;
-          default:
-            // Fuzzy search not requested to stop
-            return false;
         }
       }
     }
+
     return false;
   }
 
@@ -573,33 +521,36 @@ abstract class _InOrderIteratorBase<V> {
 
     // prefixNode and prefixNode->mid have already been explored so explore left and right only
     if (!identical(prefixNode.left, null)) {
-      pushDFS(_StackFrame<V>(prefixNode.left, currentPrefix));
+      pushDFS(_StackFrame<V>(prefixNode.left!, currentPrefix));
     }
 
     if (!identical(prefixNode.right, null)) {
-      pushDFS(_StackFrame<V>(prefixNode.right, currentPrefix));
+      pushDFS(_StackFrame<V>(prefixNode.right!, currentPrefix));
     }
 
     while (!identical(prefixNode, root)) {
       var parentNode = prefixNode.parent;
-      assert(!identical(parentNode, null));
-      // Parent node prefix depends upon child position.
-      // If mid child then need to remove parent runes.
-      if (identical(prefixNode, parentNode.mid)) {
-        currentPrefix = currentPrefix.sublist(
-            0, currentPrefix.length - parentNode.runes.length);
-      }
-
-      // DFS from parent if last node is not left child
-      if (!identical(parentNode.left, prefixNode)) {
-        pushDFS(
-            _StackFrame<V>(parentNode, currentPrefix, ignoreChild: prefixNode));
+      if (identical(parentNode, null)) {
+        throw StateError('Node parent not set');
       } else {
-        stack.push(
-            _StackFrame<V>(parentNode, currentPrefix, ignoreChild: prefixNode));
-      }
+        // Parent node prefix depends upon child position.
+        // If mid child then need to remove parent runes.
+        if (identical(prefixNode, parentNode.mid)) {
+          currentPrefix = currentPrefix.sublist(
+              0, currentPrefix.length - parentNode.runes.length);
+        }
 
-      prefixNode = parentNode;
+        // DFS from parent if last node is not left child
+        if (!identical(parentNode.left, prefixNode)) {
+          pushDFS(_StackFrame<V>(parentNode, currentPrefix,
+              ignoreChild: prefixNode));
+        } else {
+          stack.push(_StackFrame<V>(parentNode, currentPrefix,
+              ignoreChild: prefixNode));
+        }
+
+        prefixNode = parentNode;
+      }
     }
 
     stack.reverse();
@@ -663,7 +614,7 @@ abstract class _InOrderIteratorBase<V> {
 
     var node = context.node;
     while (!identical(node.left, null)) {
-      node = node.left;
+      node = node.left!;
       stack.push(_StackFrame<V>(node, context.prefix, distance: distance));
     }
   }
@@ -674,7 +625,7 @@ class InOrderKeyIterator<V> extends _InOrderIteratorBase<V>
     implements TTIterator<String> {
   /// Construct new [InOrderKeyIterator]
   InOrderKeyIterator._(Node<V> root, ByRef<Version> currentVersion,
-      VersionSnapshot validVersion, PrefixSearchResult<V> prefixRoot,
+      VersionSnapshot validVersion, PrefixSearchResult<V>? prefixRoot,
       {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixRoot,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -694,34 +645,20 @@ class InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
     implements TTIterator<V> {
   /// Construct new [InOrderKeyIterator]
   InOrderValuesIterator(Node<V> root, ByRef<Version> currentVersion,
-      VersionSnapshot validVersion, PrefixSearchResult<V> prefixRoot,
+      VersionSnapshot validVersion, PrefixSearchResult<V>? prefixRoot,
       {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixRoot,
-            maxPrefixEditDistance: maxPrefixEditDistance);
+            maxPrefixEditDistance: maxPrefixEditDistance) {
+    _currentItr = Iterable<V>.empty().iterator;
+  }
 
-  Iterator<V> _currentItr;
+  late Iterator<V> _currentItr;
 
   @override
   bool moveNext() {
-    // Flatten out value collections into single iterable
-    var next = false;
-
-    // First time round
-    if (identical(_currentItr, null)) {
-      next = super.moveNext();
-      //  Skip empty collections
-      while (next && currentValue.isEmpty) {
-        next = super.moveNext();
-      }
-      if (next) {
-        _currentItr = currentValue.iterator;
-        return _currentItr.moveNext();
-      }
-      return false;
-    }
-
+    // Flatten out values iterator
     // Check current iterator
-    next = _currentItr.moveNext();
+    var next = _currentItr.moveNext();
     if (next) {
       return true;
     }
@@ -747,7 +684,7 @@ class InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
 abstract class InOrderMapEntryIterator<V> extends _InOrderIteratorBase<V> {
   /// Construct new [InOrderKeyIterator]
   InOrderMapEntryIterator(Node<V> root, ByRef<Version> currentVersion,
-      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
+      VersionSnapshot validVersion, PrefixSearchResult<V>? prefixSearchResult,
       {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -757,7 +694,7 @@ class _InOrderMapEntryIteratorIterator<V> extends InOrderMapEntryIterator<V>
     implements TTIterator<MapEntry<String, Iterable<V>>> {
   /// Construct new [InOrderKeyIterator]
   _InOrderMapEntryIteratorIterator(Node<V> root, ByRef<Version> currentVersion,
-      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
+      VersionSnapshot validVersion, PrefixSearchResult<V>? prefixSearchResult,
       {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -772,7 +709,7 @@ class InOrderMapEntryIteratorSet<V> extends InOrderMapEntryIterator<V>
     implements TTIterator<MapEntry<String, Set<V>>> {
   /// Construct new [InOrderKeyIterator]
   InOrderMapEntryIteratorSet(Node<V> root, ByRef<Version> currentVersion,
-      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
+      VersionSnapshot validVersion, PrefixSearchResult<V>? prefixSearchResult,
       {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);
@@ -787,7 +724,7 @@ class InOrderMapEntryIteratorList<V> extends InOrderMapEntryIterator<V>
     implements TTIterator<MapEntry<String, List<V>>> {
   /// Construct new [InOrderKeyIterator]
   InOrderMapEntryIteratorList(Node<V> root, ByRef<Version> currentVersion,
-      VersionSnapshot validVersion, PrefixSearchResult<V> prefixSearchResult,
+      VersionSnapshot validVersion, PrefixSearchResult<V>? prefixSearchResult,
       {int maxPrefixEditDistance = 0})
       : super(root, currentVersion, validVersion, prefixSearchResult,
             maxPrefixEditDistance: maxPrefixEditDistance);

@@ -46,12 +46,11 @@ final _setEquality = SetEquality();
 /// * parent status is same
 /// * child status is same
 /// * keyEnd status is same
-/// * marked status is same
 /// * runes are same
 /// * values collection type and content are same
 /// * decendant count are same
 /// * subtree is same
-bool nodeEquality(Node e1, Node e2) {
+bool nodeEquality(Node? e1, Node? e2) {
   // If both are null or same object then true
   if (identical(e1, e2)) {
     return true;
@@ -88,39 +87,51 @@ bool nodeEquality(Node e1, Node e2) {
 }
 
 /// Pointer to function for generating [Node] objects
-typedef NodeFactory<V> = Node<V> Function(Iterable<int> runes,
-    Random priorityGenerator, Node<V> parent, HashSet<RunePoolEntry> _runePool);
+typedef NodeFactory<V> = Node<V> Function(
+    Iterable<int> runes,
+    Random priorityGenerator,
+    Node<V>? parent,
+    HashSet<RunePoolEntry> _runePool);
 
 /// Pointer to function for generating [Node] objects from json
-typedef JsonNodeFactory<V> = Node<V> Function(List<dynamic> json,
-    Random priorityGenerator, Node<V> parent, HashSet<RunePoolEntry> _runePool);
+typedef JsonNodeFactory<V> = Node<V> Function(
+    List<dynamic> json,
+    Random priorityGenerator,
+    Node<V>? parent,
+    HashSet<RunePoolEntry> _runePool);
 
 /// A Node that stores values in [Set].
 class NodeSet<V> extends Node<V> {
   /// Construct a NodeSet representing specified runes
-  NodeSet(Iterable<int> runes, Random priorityGenerator, Node<V> parent,
+  NodeSet(Iterable<int> runes, Random priorityGenerator, Node<V>? parent,
       HashSet<RunePoolEntry> _runePool)
       : super(runes, priorityGenerator, parent, _runePool);
 
-  /// Construct a NodeSet from [other]
-  NodeSet.from(Node<V> other, Node<V> parent, HashSet<RunePoolEntry> _runePool)
+  /// Construct a NodeSet from [other] with parent [parent]
+  NodeSet.from(Node<V> other, Node<V>? parent, HashSet<RunePoolEntry> _runePool)
       : super.from(other, parent, _runePool) {
-    if (!identical(other.left, null)) {
-      left = NodeSet.from(other.left, this, _runePool);
-    }
-    if (!identical(other.mid, null)) {
-      mid = NodeSet.from(other.mid, this, _runePool);
-    }
-    if (!identical(other.right, null)) {
-      right = NodeSet.from(other.right, this, _runePool);
-    }
+    final otherLeft = other.left,
+        otherMid = other.mid,
+        otherRight = other.right;
+
+    left = identical(otherLeft, null)
+        ? null
+        : NodeSet.from(otherLeft, this, _runePool);
+
+    mid = identical(otherMid, null)
+        ? null
+        : NodeSet.from(otherMid, this, _runePool);
+
+    right = identical(otherRight, null)
+        ? null
+        : NodeSet.from(otherRight, this, _runePool);
   }
 
   /// Construct a NodeSet from the given Json
   factory NodeSet.fromJson(List<dynamic> json, Random priorityGenerator,
-      Node<V> parent, HashSet<RunePoolEntry> _runePool) {
+      Node<V>? parent, HashSet<RunePoolEntry> _runePool) {
     if (json.isEmpty) {
-      return null;
+      throw ArgumentError.value(json, 'json', 'Empty json');
     }
 
     final runes = json[0].toString().runes.toList();
@@ -131,7 +142,9 @@ class NodeSet<V> extends Node<V> {
 
   @override
   Set<V> get values =>
-      identical(_values, Node._emptyValues) ? <V>{} : super._values as Set<V>;
+      identical(_values, null) || identical(_values, Node._emptyValues)
+          ? <V>{}
+          : super._values as Set<V>;
 
   /// Return values as a Json encodable type
   @override
@@ -139,7 +152,7 @@ class NodeSet<V> extends Node<V> {
       values.map((e) => toEncodable(e)).toList();
 
   @override
-  V lookupValue(V value) => values.lookup(value);
+  V? lookupValue(V value) => values.lookup(value);
 
   @override
   Object _createValuesCollection(Iterable<V> values) => Set<V>.from(values);
@@ -173,29 +186,35 @@ class NodeSet<V> extends Node<V> {
 /// A Node that stores values in [List].
 class NodeList<V> extends Node<V> {
   /// Construct a NodeList
-  NodeList(Iterable<int> rune, Random priorityGenerator, Node<V> parent,
+  NodeList(Iterable<int> rune, Random priorityGenerator, Node<V>? parent,
       HashSet<RunePoolEntry> _runePool)
       : super(rune, priorityGenerator, parent, _runePool);
 
   /// Construct a NodeList from [other]
-  NodeList.from(Node<V> other, Node<V> parent, HashSet<RunePoolEntry> _runePool)
+  NodeList.from(
+      Node<V> other, Node<V>? parent, HashSet<RunePoolEntry> _runePool)
       : super.from(other, parent, _runePool) {
-    if (!identical(other.left, null)) {
-      left = NodeList.from(other.left, this, _runePool);
-    }
-    if (!identical(other.mid, null)) {
-      mid = NodeList.from(other.mid, this, _runePool);
-    }
-    if (!identical(other.right, null)) {
-      right = NodeList.from(other.right, this, _runePool);
-    }
+    final otherLeft = other.left,
+        otherMid = other.mid,
+        otherRight = other.right;
+    left = identical(otherLeft, null)
+        ? null
+        : NodeList.from(otherLeft, this, _runePool);
+
+    mid = identical(otherMid, null)
+        ? null
+        : NodeList.from(otherMid, this, _runePool);
+
+    right = identical(otherRight, null)
+        ? null
+        : NodeList.from(otherRight, this, _runePool);
   }
 
   /// Construct a NodeSet from the given Json
   factory NodeList.fromJson(List<dynamic> json, Random priorityGenerator,
-      Node<V> parent, HashSet<RunePoolEntry> _runePool) {
+      Node<V>? parent, HashSet<RunePoolEntry> _runePool) {
     if (json.isEmpty) {
-      return null;
+      throw ArgumentError.value(json, 'json', 'Empty json');
     }
 
     final runes = json[0].toString().runes.toList();
@@ -206,10 +225,12 @@ class NodeList<V> extends Node<V> {
 
   @override
   List<V> get values =>
-      identical(_values, Node._emptyValues) ? <V>[] : super._values as List<V>;
+      identical(_values, null) || identical(_values, Node._emptyValues)
+          ? <V>[]
+          : super._values as List<V>;
 
   @override
-  V lookupValue(V value) {
+  V? lookupValue(V value) {
     for (final val in values) {
       if (val == value) {
         return val;
@@ -296,34 +317,32 @@ abstract class Node<V> {
   int numDFSDescendants = 0;
 
   /// Left child
-  Node<V> left;
+  Node<V>? left;
 
   /// Mid child
-  Node<V> mid;
+  Node<V>? mid;
 
   /// Right child
-  Node<V> right;
+  Node<V>? right;
 
   /// Costs space but much faster than maintaining explicit stack.
   /// during add operation and useful for near neighbour search.
-  Node<V> parent;
+  Node<V>? parent;
 
   /// A single node may map to multiple values.
   /// How this is managed depends on Node sub class.
   /// If null then is not end node
-  Object _values;
+  Object? _values;
 
   /// If node is not already key End then set as key end
   ///
   /// If node was not already a key end then returns true, false otherwaise.
-  /// Optional [values] with which to init node.
-  bool setAsKeyEnd([Iterable<V> values]) {
+  bool setAsKeyEnd() {
     if (identical(_values, null)) {
       _values = _emptyValues;
       return true;
-    } else {
-      return false;
     }
+    return false;
   }
 
   /// Return Map for Json conversion
@@ -355,8 +374,8 @@ abstract class Node<V> {
     _values = null;
   }
 
-  /// Take keyend and marked status from [other].
-  void takeKeyEndMarked(Node<V> other) {
+  /// Take keyend status from [other].
+  void takeKeyEnd(Node<V> other) {
     _values = other._values;
     other._values = null;
   }
@@ -364,7 +383,7 @@ abstract class Node<V> {
   /// Return first value that is equal to [value]
   ///
   /// If not found return null.
-  V lookupValue(V value);
+  V? lookupValue(V value);
 
   /// Set to shallow copy of [values]
   void setValues(Iterable<V> values) {
@@ -416,14 +435,8 @@ abstract class Node<V> {
       identical(_values, null) ? numDFSDescendants : numDFSDescendants + 1;
 
   /// return number of end nodes in subtree with this node as prefix root
-  int get sizePrefixTree {
-    var size = identical(_values, null) ? 0 : 1;
-    if (!identical(mid, null)) {
-      size += mid.sizeDFSTree;
-    }
-
-    return size;
-  }
+  int get sizePrefixTree =>
+      (identical(_values, null) ? 0 : 1) + (mid?.sizeDFSTree ?? 0);
 
   /// Set runes to fixed size array
   void setRunes(Iterable<int> runes, final HashSet<RunePoolEntry> _runePool) {
@@ -434,7 +447,7 @@ abstract class Node<V> {
   /// Return _Node descendant corresponding to a transformed key.
   /// Returns null if key does not map to a node.
   /// Assumes key has already been transformed by KeyMapping
-  Node<V> getKeyNode(String transformedKey) {
+  Node<V>? getKeyNode(String transformedKey) {
     if (transformedKey.isEmpty) {
       return null;
     }
@@ -466,8 +479,8 @@ abstract class Node<V> {
     assert(!identical(prefixRunes, null));
     final prefixRunesLength = prefixRunes.length;
 
-    Node<V> closestNode;
-    var nextNode = this;
+    var closestNode = this;
+    Node<V>? nextNode = this;
     var prefixIdx = 0;
     var runeIdx = 0;
     //var depth = -1;
@@ -526,17 +539,15 @@ abstract class Node<V> {
 
   /// Accumulate prefix descendant counts and update own count
   void updateDescendantCounts() {
-    numDFSDescendants = (identical(left, null) ? 0 : left.sizeDFSTree) +
-        (identical(mid, null) ? 0 : mid.sizeDFSTree) +
-        (identical(right, null) ? 0 : right.sizeDFSTree);
+    numDFSDescendants = (left?.sizeDFSTree ?? 0) +
+        (mid?.sizeDFSTree ?? 0) +
+        (right?.sizeDFSTree ?? 0);
   }
 
   /// Adjust priority relationship with the specified child
-  /// Keep operation within marked/unmarked sets.
-  void adjustPrioritiesForChild(Node<V> child) {
+  void adjustPrioritiesForChild(Node<V>? child) {
     if (!identical(child, null)) {
       assert(identical(child.parent, this));
-      // Marked nodes always have higer priority than unmarked
       if (child.priority > priority) {
         final tmp = priority;
         priority = child.priority;
@@ -546,7 +557,7 @@ abstract class Node<V> {
   }
 
   /// Update [oldChild] with [newChild]
-  void updateChild(Node<V> oldChild, Node<V> newChild) {
+  void updateChild(Node<V> oldChild, Node<V>? newChild) {
     if (identical(left, oldChild)) {
       left = newChild;
     } else if (identical(mid, oldChild)) {
@@ -566,13 +577,8 @@ abstract class Node<V> {
 
   /// If children exist then rotate if needed.
   void rotateChildren() {
-    if (!identical(left, null)) {
-      left = left.rotateIfNeeded();
-    }
-
-    if (!identical(right, null)) {
-      right = right.rotateIfNeeded();
-    }
+    left = left?.rotateIfNeeded();
+    right = right?.rotateIfNeeded();
   }
 
   /// Rotate node tree if needed to maintain
@@ -583,6 +589,7 @@ abstract class Node<V> {
   ///
   /// Return possibly new root of rotated node tree
   Node<V> rotateIfNeeded() {
+    final left = this.left, right = this.right;
     if (!identical(left, null) && left.priority > priority) {
       return rotateRight();
     }
@@ -689,7 +696,7 @@ abstract class Node<V> {
       return;
     }
 
-    final child = mid;
+    final child = mid!;
 
     if (!identical(child.left, null) || !identical(child.right, null)) {
       // Would disrupt tree ordering
@@ -704,14 +711,13 @@ abstract class Node<V> {
     // Node takes on child values/keyend status
     // If child was a key node then node has 1 less descendant
     if (child.isKeyEnd) {
-      takeKeyEndMarked(child);
+      takeKeyEnd(child);
       // Child has been absorbed so 1 less descendant
       numDFSDescendants--;
     }
 
-    if (!identical(mid, null)) {
-      mid.parent = this;
-    }
+    mid?.parent = this;
+
     child.destroy(_runePool);
   }
 

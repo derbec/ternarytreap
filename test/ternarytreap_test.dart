@@ -56,12 +56,12 @@ void main() {
   // Total number of keys taking into account overlap and special keys
   final numKeys = (numUniqueKeys * 1.5).round() + 3;
   const startVal = 17;
-  List<String> sortedNumberKeys;
-  List<String> sortedWordKeys;
-  Map<String, List<int>> numberMap;
-  Map<String, List<String>> wordMap;
-  ternarytreap.TTMultiMap<int> numberTST;
-  ternarytreap.TTMultiMapList<String> wordTST;
+  var sortedNumberKeys = <String>[];
+  var sortedWordKeys = <String>[];
+  var numberMap = <String, List<int>>{};
+  var wordMap = <String, List<String>>{};
+  ternarytreap.TTMultiMap<int> numberTST = TTMultiMapSet<int>();
+  var wordTST = TTMultiMapSet<String>();
 
   setUp(() {
     //Test data
@@ -80,8 +80,8 @@ void main() {
     numberMap = <String, List<int>>{};
     for (final x in numberKeys) {
       if (numberMap.containsKey(x.toString())) {
-        if (!numberMap[x.toString()].contains(x)) {
-          numberMap[x.toString()].add(x);
+        if (!numberMap[x.toString()]!.contains(x)) {
+          numberMap[x.toString()]!.add(x);
         }
       } else {
         // Map special keys to empty data
@@ -120,9 +120,9 @@ void main() {
       }
     }
 
-    wordTST = ternarytreap.TTMultiMapList<String>();
+    wordTST = ternarytreap.TTMultiMapSet<String>();
     for (final x in wordMap.keys) {
-      wordTST[x] = wordMap[x];
+      wordTST[x] = wordMap[x]!;
     }
   });
 
@@ -130,7 +130,7 @@ void main() {
     test('forEach', () {
       final expectedOutput = <MapEntry<String, int>>[
         for (String word in sortedNumberKeys)
-          for (int x in numberMap[word]) MapEntry<String, int>(word, x)
+          for (int x in numberMap[word]!) MapEntry<String, int>(word, x)
       ];
 
       final result = <MapEntry<String, int>>[];
@@ -145,7 +145,7 @@ void main() {
     test('forEachKey', () {
       final expectedOutput = <MapEntry<String, Iterable<int>>>[
         for (String word in sortedNumberKeys)
-          MapEntry<String, Iterable<int>>(word, numberMap[word])
+          MapEntry<String, Iterable<int>>(word, numberMap[word]!)
       ];
 
       final result = <MapEntry<String, Iterable<int>>>[];
@@ -207,7 +207,7 @@ void main() {
         final expectedOutput = <MapEntry<String, List<int>>>[
           for (String word in sortedNumberKeys)
             if (word.startsWith(prefix))
-              MapEntry<String, List<int>>(word, numberMap[word])
+              MapEntry<String, List<int>>(word, numberMap[word]!)
         ];
 
         final result = <MapEntry<String, Iterable<int>>>[];
@@ -256,12 +256,12 @@ void main() {
       //Filter out empty lists
       final expectedNumberOutput = <int>[
         for (String word in sortedNumberKeys)
-          if (numberMap[word].isNotEmpty) ...numberMap[word]
+          if (numberMap[word]!.isNotEmpty) ...numberMap[word]!
       ];
 
       final expectedWordOutput = <String>[
         for (String word in sortedWordKeys)
-          if (wordMap[word].isNotEmpty) ...wordMap[word]
+          if (wordMap[word]!.isNotEmpty) ...wordMap[word]!
       ];
 
       expect(numberTST.values.toList(), equals(expectedNumberOutput));
@@ -270,7 +270,7 @@ void main() {
     test('entries', () {
       final expectedOutput = <MapEntry<String, Iterable<int>>>[
         for (String word in sortedNumberKeys)
-          MapEntry<String, Iterable<int>>(word, numberMap[word])
+          MapEntry<String, Iterable<int>>(word, numberMap[word]!)
       ];
       expect(json.encode(numberTST.entries.toList(), toEncodable: toEncodable),
           equals(json.encode(expectedOutput, toEncodable: toEncodable)));
@@ -287,7 +287,7 @@ void main() {
         final expectedOutput = <MapEntry<String, Iterable<int>>>[
           for (String word in sortedNumberKeys)
             if (word.startsWith(prefix))
-              MapEntry<String, Iterable<int>>(word, numberMap[word])
+              MapEntry<String, Iterable<int>>(word, numberMap[word]!)
         ];
 
         expect(
@@ -343,7 +343,7 @@ void main() {
 
         final expectedOutput = <int>[
           for (String word in sortedNumberKeys)
-            if (word.startsWith(prefix)) ...numberMap[word]
+            if (word.startsWith(prefix)) ...numberMap[word]!
         ];
 
         expect(numberTST.valuesByKeyPrefix(prefix).toList(),
@@ -367,14 +367,14 @@ void main() {
           equals(true));
 
       expect(
-          TTMultiMapListEquality<String>().equals(
-              ternarytreap.TTMultiMapList<String>.from(wordTST), wordTST,
+          TTMultiMapSetEquality<String>().equals(
+              ternarytreap.TTMultiMapSet<String>.from(wordTST), wordTST,
               strict: true),
           equals(true));
 
       expect(
-          TTMultiMapListEquality<String>().equals(
-              wordTST, ternarytreap.TTMultiMapList<String>.from(wordTST),
+          TTMultiMapSetEquality<String>().equals(
+              wordTST, ternarytreap.TTMultiMapSet<String>.from(wordTST),
               strict: true),
           equals(true));
     });
@@ -397,9 +397,9 @@ void main() {
     });
 
     test('fromJson', () {
-      final eq = TTMultiMapListEquality<String>();
+      final eq = TTMultiMapSetEquality<String>();
       final json = wordTST.toJson();
-      final rehydrated = ternarytreap.TTMultiMapList<String>.fromJson(json);
+      final rehydrated = ternarytreap.TTMultiMapSet<String>.fromJson(json);
 
       expect(rehydrated.length, equals(wordTST.length));
       expect(rehydrated.keys, equals(wordTST.keys));
@@ -411,7 +411,7 @@ void main() {
 
       wordTST.addKey(key);
       expect(
-          eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST,
+          eq.equals(ternarytreap.TTMultiMapSet<String>.fromJson(json), wordTST,
               strict: true),
           equals(false));
 
@@ -419,12 +419,12 @@ void main() {
       expect(wordTST.lookup(key, val), equals(val));
 
       expect(
-          eq.equals(ternarytreap.TTMultiMapList<String>.fromJson(json), wordTST,
+          eq.equals(ternarytreap.TTMultiMapSet<String>.fromJson(json), wordTST,
               strict: true),
           equals(false));
 
       final json2 = wordTST.toJson();
-      final rehydrated2 = ternarytreap.TTMultiMapList<String>.fromJson(json2);
+      final rehydrated2 = ternarytreap.TTMultiMapSet<String>.fromJson(json2);
 
       expect(eq.equals(rehydrated2, wordTST, strict: true), equals(true));
       expect(eq.equals(rehydrated2, rehydrated, strict: true), equals(false));
@@ -438,8 +438,7 @@ void main() {
       final json3 = wordTST.toJson();
 
       expect(
-          eq.equals(
-              ternarytreap.TTMultiMapList<String>.fromJson(json3), wordTST,
+          eq.equals(ternarytreap.TTMultiMapSet<String>.fromJson(json3), wordTST,
               strict: true),
           equals(true));
 
@@ -488,7 +487,7 @@ void main() {
 
     test('contains', () {
       for (final key in sortedNumberKeys) {
-        for (final val in numberMap[key]) {
+        for (final val in numberMap[key]!) {
           expect(numberTST.contains(key, val), equals(true));
           expect(numberTST.contains(key, -val), equals(false));
         }
@@ -527,7 +526,7 @@ void main() {
 
     test('containsValue', () {
       for (final key in sortedNumberKeys) {
-        for (final val in numberMap[key]) {
+        for (final val in numberMap[key]!) {
           expect(numberTST.containsValue(val), equals(true));
           expect(numberTST.containsValue(-val), equals(false));
         }
@@ -612,7 +611,7 @@ void main() {
 
     test('remove', () {
       for (final key in sortedNumberKeys) {
-        for (final val in numberMap[key]) {
+        for (final val in numberMap[key]!) {
           expect(numberTST.remove(key, val), equals(true));
           expect(numberTST.remove(key, -val), equals(false));
         }
@@ -701,7 +700,7 @@ void main() {
       tree['be'] = <int>[2, 3];
 
       for (final key in numberTST.keys) {
-        tree.addValues(key, numberTST[key]);
+        tree.addValues(key, numberTST[key]!);
       }
 
       expect(tree.length, equals(numberTST.length + 2));
@@ -717,7 +716,7 @@ void main() {
 
       // Check set behaviour by adding again
       for (final key in numberTST.keys) {
-        tree.addValues(key, numberTST[key]);
+        tree.addValues(key, numberTST[key]!);
       }
 
       // All mappings from tst should be the same
@@ -742,7 +741,7 @@ void main() {
             final distance = prefixDistance(
                 prefix.runes.toList(), key.runes.toList(), Iterable.empty());
             if (distance > -1 && distance <= maxPrefixEditDistance) {
-              checker.add(wordMap[key]);
+              checker.add(wordMap[key]!);
             }
           }
 
@@ -832,7 +831,7 @@ void main() {
                 prefix.runes.toList(), key.runes.toList(), Iterable.empty());
             if (distance > -1 && distance <= maxPrefixEditDistance) {
               checker
-                  .add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
+                  .add(MapEntry<String, Iterable<String>>(key, wordMap[key]!));
             }
           }
 
@@ -862,7 +861,7 @@ void main() {
                 prefix.runes.toList(), key.runes.toList(), Iterable.empty());
             if (distance > -1 && distance <= maxPrefixEditDistance) {
               checker
-                  .add(MapEntry<String, Iterable<String>>(key, wordMap[key]));
+                  .add(MapEntry<String, Iterable<String>>(key, wordMap[key]!));
             }
           }
 

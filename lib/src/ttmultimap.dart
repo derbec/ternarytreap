@@ -162,7 +162,7 @@ abstract class TTMultiMap<V> {
   /// Throws [ArgumentError] if [key] is empty or null.
   ///
   /// Throws [ArgumentError] if [keyMapping]`(`[key]`)` is empty or null.
-  Iterable<V> operator [](String key);
+  Iterable<V>? operator [](String key);
 
   /// Set [Iterable] of values corresponding to [key].
   ///
@@ -354,7 +354,7 @@ abstract class TTMultiMap<V> {
   /// If ([key], [value]) pair is not present then returns null.
   ///
   /// Throws [ArgumentError] if [key] is empty or null.
-  V lookup(String key, V value);
+  V? lookup(String key, V value);
 
   /// Removes the association between the given [key] and [value].
   ///
@@ -365,14 +365,14 @@ abstract class TTMultiMap<V> {
   ///
   /// Returns the collection of values associated with key,
   /// or null if key was unmapped.
-  Iterable<V> removeKey(String key);
+  Iterable<V>? removeKey(String key);
 
   /// Removes all values associated with [key].
   /// The key remains present, mapped to an empty iterable.
   ///
   /// Returns the collection of values associated with key,
   /// or null if key was unmapped.
-  Iterable<V> removeValues(String key);
+  Iterable<V>? removeValues(String key);
 
   /// Return approximate size of tree in bytes
   ///

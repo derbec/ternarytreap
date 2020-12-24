@@ -20,7 +20,7 @@ class TTSetEquality implements Equality<TTSet> {
       : _ttMultiMapEquality.hash(e._ttMultiMap);
 
   @override
-  bool isValidKey(Object o) => o is TTSet;
+  bool isValidKey(Object? o) => o is TTSet;
 }
 
 /// A `Set<String>` with prefix and near neighbour searching capability
@@ -97,20 +97,19 @@ class TTSetEquality implements Equality<TTSet> {
 class TTSet extends SetBase<String> implements TTIterable<String> {
   /// Construct a new [TTSet]
   TTSet({KeyMapping keyMapping = identity})
-      : _ttMultiMap = TTMultiMapList(keyMapping: keyMapping ?? identity);
+      : _ttMultiMap = TTMultiMapList(keyMapping: keyMapping);
 
   /// Construct a new [TTSet] and fill with [elements].
   TTSet.fromIterable(Iterable<String> elements,
       {KeyMapping keyMapping = identity})
-      : _ttMultiMap = TTMultiMapList(keyMapping: keyMapping ?? identity) {
+      : _ttMultiMap = TTMultiMapList(keyMapping: keyMapping) {
     ArgumentError.checkNotNull(elements, 'elements');
     addAll(elements);
   }
 
   /// Construct a new [TTSet] from [json].
   TTSet.fromJson(Map<String, dynamic> json, {KeyMapping keyMapping = identity})
-      : _ttMultiMap =
-            TTMultiMapList.fromJson(json, keyMapping: keyMapping ?? identity);
+      : _ttMultiMap = TTMultiMapList.fromJson(json, keyMapping: keyMapping);
 
   final TTMultiMapList _ttMultiMap;
 
@@ -118,7 +117,7 @@ class TTSet extends SetBase<String> implements TTIterable<String> {
   bool add(String value) => _ttMultiMap.addKey(value);
 
   @override
-  bool contains(Object element) =>
+  bool contains(Object? element) =>
       (element is String) && _ttMultiMap.containsKey(element);
 
   @override
@@ -133,7 +132,7 @@ class TTSet extends SetBase<String> implements TTIterable<String> {
   int get length => _ttMultiMap.length;
 
   @override
-  String lookup(Object element) =>
+  String? lookup(Object? element) =>
       (element is String && _ttMultiMap.containsKey(element)) ? element : null;
 
   /// Iterates through [TTSet] elements such
@@ -151,7 +150,7 @@ class TTSet extends SetBase<String> implements TTIterable<String> {
           maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
-  bool remove(Object value) =>
+  bool remove(Object? value) =>
       value is String && !identical(_ttMultiMap.removeKey(value), null);
 
   /// Return structure for Json encoding
@@ -161,10 +160,4 @@ class TTSet extends SetBase<String> implements TTIterable<String> {
 
   @override
   Set<String> toSet() => Set<String>.from(_ttMultiMap.keys);
-
-  @override
-  TTIterable<String> get marked => _ttMultiMap.keys.marked;
-
-  @override
-  TTIterable<String> get unmarked => _ttMultiMap.keys.unmarked;
 }

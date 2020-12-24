@@ -58,10 +58,12 @@ List<int> allocateRunes(Iterable<int> runes, HashSet<RunePoolEntry> runePool) {
 void freeRunes(Iterable<int> runes, HashSet<RunePoolEntry> runePool) {
   final key = RunePoolEntry(runes, 0);
   final poolEntry = runePool.lookup(key);
-  // Avoid check for null because the getter will check anyways
-  poolEntry._count--;
+  if (!identical(poolEntry, null)) {
+    // Avoid check for null because the getter will check anyways
+    poolEntry._count--;
 
-  if (poolEntry._count < 1) {
-    runePool.remove(key);
+    if (poolEntry._count < 1) {
+      runePool.remove(key);
+    }
   }
 }

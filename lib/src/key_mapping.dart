@@ -43,22 +43,22 @@ final RegExp _matchSeparators = RegExp(r'[\p{Zl}\p{Zp}\p{Zs}]+', unicode: true);
 /// * [joinSingleLetters]
 ///
 /// If [str] is null then the name of the keymapping is returned.
-typedef KeyMapping = String Function(String str);
+typedef KeyMapping = String Function(String? str);
 
 /// Return [str] unchanged.
-String identity(String str) => str ?? 'identity';
+String identity(String? str) => str ?? 'identity';
 
 /// Transform [str] such that all characters are lowercase.
-String lowercase(String str) =>
+String lowercase(String? str) =>
     identical(str, null) ? 'lowercase' : str.toLowerCase();
 
 /// Transform [str] such that all characters are uppercase.
-String uppercase(String str) =>
+String uppercase(String? str) =>
     identical(str, null) ? 'uppercase' : str.toUpperCase();
 
 /// Transform [str] such that each non letter character is
 /// replaced by a space character.
-String nonLetterToSpace(String str) => identical(str, null)
+String nonLetterToSpace(String? str) => identical(str, null)
     ? 'nonLetterToSpace'
     : str.replaceAll(_matchNonAlphaNumeric, ' ');
 
@@ -72,7 +72,7 @@ String nonLetterToSpace(String str) => identical(str, null)
 ///
 /// Note: This transform trims and collapses whitespace during operation
 /// and is thus equivilent also to performing [collapseWhitespace].
-String joinSingleLetters(String str) {
+String joinSingleLetters(String? str) {
   if (identical(str, null)) {
     return 'joinSingleLetters';
   }
@@ -105,11 +105,11 @@ String joinSingleLetters(String str) {
 ///
 /// * Whitespace is trimmed from start and end
 /// * Runs of multiple whitespace characters are collapsed into a single ' '.
-String collapseWhitespace(String str) => identical(str, null)
+String collapseWhitespace(String? str) => identical(str, null)
     ? 'collapseWhitespace'
     : str.trim().replaceAll(_matchSeparators, ' ');
 
 /// Transform [str] with both [lowercase] and [collapseWhitespace].
-String lowerCollapse(String str) => identical(str, null)
+String lowerCollapse(String? str) => identical(str, null)
     ? 'lowerCollapse'
     : collapseWhitespace(str).toLowerCase();
