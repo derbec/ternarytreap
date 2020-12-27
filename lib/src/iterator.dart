@@ -311,7 +311,7 @@ abstract class _InOrderIteratorBase<V> {
       }
 
       // All we know is that minimum possible distance is 1
-      prefixEditDistance = 1;
+      _prefixEditDistance = 1;
 
       // Search entire tree from root
       prefixFrame = _StackFrame<V>(root, []);
@@ -338,7 +338,7 @@ abstract class _InOrderIteratorBase<V> {
                 prefixSearchResult.node.runes.length));
 
         // Given no exact match present, minimum possible search distance is 1
-        prefixEditDistance = 1;
+        _prefixEditDistance = 1;
       }
 
       // Set the start frame for prefix query.
@@ -389,10 +389,18 @@ abstract class _InOrderIteratorBase<V> {
   late _StackFrame<V> prefixFrame;
 
   /// Distance currently being explored
-  int prefixEditDistance = 0;
+  int _prefixEditDistance = 0;
+
+  int get prefixEditDistance => hasCurrentValue
+      ? _prefixEditDistance
+      : throw TTIterator.noPrefixEditDistanceError;
 
   late String currentKey;
   late Iterable<V> currentValue;
+
+  /// Have [currentKey] and [currentValue] been set yet?
+  /// Why doesn't Dart provide a way to check if late variables have been initialised?
+  bool hasCurrentValue = false;
 
   /// Apply appropriate modification checks.
   /// By default checks both keys and values.
@@ -417,7 +425,7 @@ abstract class _InOrderIteratorBase<V> {
     final distanceList = this.distanceList;
     final prefixSearchResult = this.prefixSearchResult;
 
-    while (prefixEditDistance <= maxPrefixEditDistance) {
+    while (_prefixEditDistance <= maxPrefixEditDistance) {
       while (stack.isNotEmpty) {
         final context = stack.pop();
 
@@ -456,10 +464,11 @@ abstract class _InOrderIteratorBase<V> {
 
         // If key has current distance then return
         if (context.node.isKeyEnd) {
-          if (nodeDistance == prefixEditDistance) {
+          if (nodeDistance == _prefixEditDistance) {
             currentKey = String.fromCharCodes(
                 nodeRunes ?? context.prefix + context.node.runes);
             currentValue = context.node.values;
+            hasCurrentValue = true;
             return true;
           } else {
             // ... other wise save for future
@@ -487,17 +496,18 @@ abstract class _InOrderIteratorBase<V> {
             break;
           case _DistanceState.FUZZY_WORKING:
             // return the next key/value for current distance if available
-            final fuzzyQueue = distanceList[prefixEditDistance];
+            final fuzzyQueue = distanceList[_prefixEditDistance];
 
             if (!identical(fuzzyQueue, null) && fuzzyQueue.isNotEmpty) {
               final visit = fuzzyQueue.removeFirst();
               currentKey =
                   String.fromCharCodes(visit.prefix + visit.node.runes);
               currentValue = visit.node.values;
+              hasCurrentValue = true;
               return true;
             }
 
-            prefixEditDistance++;
+            _prefixEditDistance++;
             break;
         }
       }
@@ -637,7 +647,8 @@ class InOrderKeyIterator<V> extends _InOrderIteratorBase<V>
   }
 
   @override
-  String get current => currentKey;
+  String get current =>
+      hasCurrentValue ? currentKey : throw TTIterator.noCurrentValueError;
 }
 
 /// Iterate through values
@@ -677,7 +688,9 @@ class InOrderValuesIterator<V> extends _InOrderIteratorBase<V>
   }
 
   @override
-  V get current => _currentItr.current;
+  V get current => hasCurrentValue
+      ? _currentItr.current
+      : throw TTIterator.noCurrentValueError;
 }
 
 /// Iterate through entries
@@ -700,8 +713,9 @@ class _InOrderMapEntryIteratorIterator<V> extends InOrderMapEntryIterator<V>
             maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
-  MapEntry<String, Iterable<V>> get current =>
-      MapEntry<String, Iterable<V>>(currentKey, currentValue as Set<V>);
+  MapEntry<String, Iterable<V>> get current => hasCurrentValue
+      ? MapEntry<String, Iterable<V>>(currentKey, currentValue as Set<V>)
+      : throw TTIterator.noCurrentValueError;
 }
 
 /// Iterator for Map entries with Set value
@@ -715,8 +729,9 @@ class InOrderMapEntryIteratorSet<V> extends InOrderMapEntryIterator<V>
             maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
-  MapEntry<String, Set<V>> get current =>
-      MapEntry<String, Set<V>>(currentKey, currentValue as Set<V>);
+  MapEntry<String, Set<V>> get current => hasCurrentValue
+      ? MapEntry<String, Set<V>>(currentKey, currentValue as Set<V>)
+      : throw TTIterator.noCurrentValueError;
 }
 
 /// Iterator for Map entries with List value
@@ -730,6 +745,7 @@ class InOrderMapEntryIteratorList<V> extends InOrderMapEntryIterator<V>
             maxPrefixEditDistance: maxPrefixEditDistance);
 
   @override
-  MapEntry<String, List<V>> get current =>
-      MapEntry<String, List<V>>(currentKey, currentValue as List<V>);
+  MapEntry<String, List<V>> get current => hasCurrentValue
+      ? MapEntry<String, List<V>>(currentKey, currentValue as List<V>)
+      : throw TTIterator.noCurrentValueError;
 }

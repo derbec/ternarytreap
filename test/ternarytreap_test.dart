@@ -272,6 +272,7 @@ void main() {
         for (String word in sortedNumberKeys)
           MapEntry<String, Iterable<int>>(word, numberMap[word]!)
       ];
+
       expect(json.encode(numberTST.entries.toList(), toEncodable: toEncodable),
           equals(json.encode(expectedOutput, toEncodable: toEncodable)));
     });
