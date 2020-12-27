@@ -267,6 +267,20 @@ void main() {
       expect(numberTST.values.toList(), equals(expectedNumberOutput));
       expect(wordTST.values.toList(), equals(expectedWordOutput));
     });
+
+    test('Iterator errors', () {
+      expect(() {
+        numberTST.values.iterator.current;
+      }, throwsA(TypeMatcher<StateError>()));
+
+      expect(() {
+        numberTST
+            .valuesByKeyPrefix(numberTST.keys.first)
+            .iterator
+            .prefixEditDistance;
+      }, throwsA(TypeMatcher<StateError>()));
+    });
+
     test('entries', () {
       final expectedOutput = <MapEntry<String, Iterable<int>>>[
         for (String word in sortedNumberKeys)
