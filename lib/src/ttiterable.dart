@@ -20,6 +20,12 @@ abstract class TTIterator<V> implements Iterator<V> {
 
   /// The key prefix edit distance associated with current iterator value.
   int get prefixEditDistance;
+
+  /// Return true if current value is set, otherwise false.
+  /// Accessing [current] or [prefixEditDistance] before calling
+  /// [moveNext] throws [StateError]. This getter provides a way to check
+  /// if iterator has been initialised without triggering this error.
+  bool get hasCurrentValue;
 }
 
 class _EmptyTTIterable<V> extends TTIterable<V> {
@@ -36,4 +42,7 @@ class _EmptyTTIterator<V> extends TTIterator<V> {
 
   @override
   int get prefixEditDistance => throw TTIterator.noPrefixEditDistanceError;
+
+  @override
+  bool get hasCurrentValue => false;
 }

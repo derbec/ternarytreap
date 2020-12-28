@@ -281,6 +281,31 @@ void main() {
       }, throwsA(TypeMatcher<StateError>()));
     });
 
+    test('Iterator hasCurrentValue', () {
+      expect(
+          numberTST
+              .valuesByKeyPrefix(numberTST.keys.first)
+              .iterator
+              .hasCurrentValue,
+          false);
+
+      final itr = numberTST.valuesByKeyPrefix(numberTST.keys.first).iterator;
+      itr.moveNext();
+
+      expect(itr.hasCurrentValue, true);
+
+      expect(() {
+        numberTST.values.iterator.current;
+      }, throwsA(TypeMatcher<StateError>()));
+
+      expect(() {
+        numberTST
+            .valuesByKeyPrefix(numberTST.keys.first)
+            .iterator
+            .prefixEditDistance;
+      }, throwsA(TypeMatcher<StateError>()));
+    });
+
     test('entries', () {
       final expectedOutput = <MapEntry<String, Iterable<int>>>[
         for (String word in sortedNumberKeys)

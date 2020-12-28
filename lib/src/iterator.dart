@@ -391,7 +391,7 @@ abstract class _InOrderIteratorBase<V> {
   /// Distance currently being explored
   int _prefixEditDistance = 0;
 
-  int get prefixEditDistance => hasCurrentValue
+  int get prefixEditDistance => _hasCurrentValue
       ? _prefixEditDistance
       : throw TTIterator.noPrefixEditDistanceError;
 
@@ -400,7 +400,9 @@ abstract class _InOrderIteratorBase<V> {
 
   /// Have [currentKey] and [currentValue] been set yet?
   /// Why doesn't Dart provide a way to check if late variables have been initialised?
-  bool hasCurrentValue = false;
+  bool _hasCurrentValue = false;
+
+  bool get hasCurrentValue => _hasCurrentValue;
 
   /// Apply appropriate modification checks.
   /// By default checks both keys and values.
@@ -468,7 +470,7 @@ abstract class _InOrderIteratorBase<V> {
             currentKey = String.fromCharCodes(
                 nodeRunes ?? context.prefix + context.node.runes);
             currentValue = context.node.values;
-            hasCurrentValue = true;
+            _hasCurrentValue = true;
             return true;
           } else {
             // ... other wise save for future
@@ -503,7 +505,7 @@ abstract class _InOrderIteratorBase<V> {
               currentKey =
                   String.fromCharCodes(visit.prefix + visit.node.runes);
               currentValue = visit.node.values;
-              hasCurrentValue = true;
+              _hasCurrentValue = true;
               return true;
             }
 
