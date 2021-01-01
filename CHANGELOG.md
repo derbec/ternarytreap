@@ -37,3 +37,8 @@
 ## 2.0.0-nullsafety.0
 
 - Migrated to null safe
+
+## 2.0.1-nullsafety.0
+
+- TTITerator now reports if currentValue available
+

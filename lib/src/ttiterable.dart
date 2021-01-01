@@ -10,7 +10,7 @@ abstract class TTIterable<V> extends Iterable<V> {
   TTIterator<V> get iterator;
 }
 
-/// An iterator that also reports [prefixEditDistance] and [isMarked].
+/// An iterator that also reports [prefixEditDistance].
 abstract class TTIterator<V> implements Iterator<V> {
   /// Value thrown when [current] accessed before calling [moveNext].
   static final noCurrentValueError = StateError('No current value');
