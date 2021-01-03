@@ -42,3 +42,6 @@
 
 - TTITerator now reports if currentValue available
 
+## 2.0.1-nullsafety.1
+
+- Fixed migration issues

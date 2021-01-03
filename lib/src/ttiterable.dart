@@ -1,4 +1,7 @@
 /// An iterable that returns [TTIterator].
+///
+/// Throws [ConcurrentModificationError] if underlying collection changes between calls
+/// to [iterator].
 abstract class TTIterable<V> extends Iterable<V> {
   /// Construct [TTIterable]
   TTIterable();
@@ -11,6 +14,8 @@ abstract class TTIterable<V> extends Iterable<V> {
 }
 
 /// An iterator that also reports [prefixEditDistance].
+///
+/// Throws [ConcurrentModificationError] if underlying collection changes during calls to [moveNext].
 abstract class TTIterator<V> implements Iterator<V> {
   /// Value thrown when [current] accessed before calling [moveNext].
   static final noCurrentValueError = StateError('No current value');
