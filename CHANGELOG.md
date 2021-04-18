@@ -45,3 +45,7 @@
 ## 2.0.1-nullsafety.1
 
 - Fixed migration issues
+
+## 2.0.2
+
+- Updated dependancies
