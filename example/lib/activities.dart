@@ -1,6 +1,6 @@
 import 'package:ternarytreap/ternarytreap.dart';
 import 'package:meta/meta.dart';
-import 'package:quiver_hashcode/hashcode.dart';
+import 'package:quiver/core.dart';
 
 /// An example of a data object, a dictionary entry that takes a [word] and
 /// [definition], and adds a timestamp.
@@ -77,11 +77,11 @@ abstract class Activity {
 /// Manage input round
 class InputActivity extends Activity {
   /// Constructor for [InputActivity]
-  InputActivity({KeyMapping keyMapping, List<String> preload})
+  InputActivity({KeyMapping? keyMapping, List<String>? preload})
       : _ternaryTreap = keyMapping == null
             ? TTMultiMapSet<DictEntry>()
             : TTMultiMapSet<DictEntry>(keyMapping: keyMapping) {
-    if (preload.isNotEmpty) {
+    if (!identical(preload, null) && preload.isNotEmpty) {
       for (final word in preload) {
         // fabricate dict entry
         _ternaryTreap.add(word, DictEntry(word, 'meaning of $word'));
@@ -96,7 +96,7 @@ class InputActivity extends Activity {
   TTMultiMap<DictEntry> get ternaryTreap => _ternaryTreap;
 
   /// Word currently being inserted
-  String word;
+  String? word;
 
   /// Process a single line of data from client.
   /// If empty title entered then session over and
@@ -116,7 +116,7 @@ class InputActivity extends Activity {
       }
     } else {
       // store input as value
-      _ternaryTreap.add(word, DictEntry(word, line));
+      _ternaryTreap.add(word!, DictEntry(word!, line));
 
       // Reset for next round
       word = null;
@@ -146,7 +146,7 @@ class QueryActivity extends Activity {
   @override
   TTMultiMap<DictEntry> get ternaryTreap => _inputSession.ternaryTreap;
 
-  String _query;
+  String? _query;
 
   /// Process a single line of data from client.
   /// If empty title entered then session over and
@@ -167,7 +167,7 @@ class QueryActivity extends Activity {
   String get prompt {
     final result = StringBuffer();
     if (_query != null) {
-      result.writeln(ternaryTreap.valuesByKeyPrefix(_query));
+      result.writeln(ternaryTreap.valuesByKeyPrefix(_query!));
     }
     result
       ..writeln()

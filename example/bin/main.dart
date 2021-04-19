@@ -5,8 +5,8 @@ import 'package:ternarytreap/ternarytreap.dart' as ternarytreap;
 import 'package:example/activities.dart';
 import '../../../ternarytreap/test/words.dart';
 
-Activity _session;
-StreamSubscription<String> _subscription;
+late Activity _session;
+late StreamSubscription<String> _subscription;
 
 void main(List<String> args) {
   if (args.isEmpty) {
@@ -108,6 +108,5 @@ void _displayHelp() {
     ..writeln('dart main.dart 1')
     ..writeln('dart main.dart 2')
     ..writeln('dart main.dart 3 preload')
-    ..writeln('dart main.dart 2 preload')
-    ;
+    ..writeln('dart main.dart 2 preload');
 }
