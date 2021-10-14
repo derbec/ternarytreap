@@ -53,3 +53,8 @@
 ## 2.0.3
 
 - Downgraded dependancies to sdk 2.12.1 as pub dev does not recognise latest.
+
+## 2.0.4
+
+- Updated dependancies. Added example main_map.dart.
+

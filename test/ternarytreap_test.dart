@@ -42,7 +42,7 @@ void testIdempotence(ternarytreap.TTMultiMap<int> tree, String key) {
 
 class _TestObject {
   _TestObject(this._name);
-  final _name;
+  final String _name;
   @override
   bool operator ==(final dynamic other) =>
       identical(this, other) || _name == other._name;
