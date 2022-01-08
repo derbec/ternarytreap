@@ -271,6 +271,7 @@ const List<String> words = <String>[
   'fifty',
   'upper',
   'general',
+  'card',
   'needle',
   'frighten',
   'evening',
@@ -282,6 +283,7 @@ const List<String> words = <String>[
   'stopped',
   'example',
   'sure',
+  'cars',
   'hurried',
   'colony',
   'press',
@@ -305,5 +307,6 @@ const List<String> words = <String>[
   'select',
   'government',
   'brown',
-  'rich'
+  'rich',
+  'car',
 ];

@@ -160,4 +160,11 @@ class TTSet extends SetBase<String> implements TTIterable<String> {
 
   @override
   Set<String> toSet() => Set<String>.from(_ttMultiMap.keys);
+
+  /// Find the longest common key prefix for all keys prefixed
+  /// by prefix.
+  ///
+  /// see: [TTMultiMap.longestCommonKeyPrefixByKeyPrefix]
+  String longestCommonKeyPrefixByKeyPrefix(String prefix) =>
+      _ttMultiMap.longestCommonKeyPrefixByKeyPrefix(prefix);
 }

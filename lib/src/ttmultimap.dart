@@ -426,4 +426,49 @@ abstract class TTMultiMap<V> {
   /// Throws ArgumentError if [prefix] is empty or null.
   TTIterable<V> valuesByKeyPrefix(String prefix,
       {int maxPrefixEditDistance = 0});
+
+  /// Find the longest common key prefix for all keys prefixed
+  /// by prefix.
+  ///
+  ///```dart
+  /// final set = ternarytreap.TTSet.fromIterable([
+  ///   'test',
+  ///   'testOne',
+  ///   'frog',
+  ///   'testTwo',
+  ///   'testThree',
+  ///   'testThreeandfour'
+  /// ]);
+  ///
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('t'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('te'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('tes'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('test'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('testT'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('testTw'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('testTh'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('testThree'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('testThreea'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('f'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix('testO'));
+  /// print(set.longestCommonKeyPrefixByKeyPrefix(''));
+  ///
+  /// ```
+  ///
+  ///
+  /// ```shell
+  ///
+  /// test
+  /// test
+  /// test
+  /// test
+  /// testT
+  /// testTwo
+  /// testThree
+  /// testThree
+  /// testThreeandfour
+  /// frog
+  /// testOne
+  /// ```
+  String longestCommonKeyPrefixByKeyPrefix(String prefix);
 }

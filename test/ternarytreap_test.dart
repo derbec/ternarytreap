@@ -573,6 +573,42 @@ void main() {
       }
     });
 
+    test('longestCommonKeyPrefixByKeyPrefix', () {
+      final set = ternarytreap.TTSet.fromIterable([
+        'test',
+        'testOne',
+        'frog',
+        'testTwo',
+        'testThree',
+        'testThreeandfour'
+      ]);
+
+      expect(set.longestCommonKeyPrefixByKeyPrefix('t'), equals('test'));
+      expect(set.longestCommonKeyPrefixByKeyPrefix('te'), equals('test'));
+      expect(set.longestCommonKeyPrefixByKeyPrefix('tes'), equals('test'));
+      expect(set.longestCommonKeyPrefixByKeyPrefix('test'), equals('test'));
+
+      expect(set.longestCommonKeyPrefixByKeyPrefix('testT'), equals('testT'));
+
+      expect(
+          set.longestCommonKeyPrefixByKeyPrefix('testTw'), equals('testTwo'));
+
+      expect(
+          set.longestCommonKeyPrefixByKeyPrefix('testTh'), equals('testThree'));
+
+      expect(set.longestCommonKeyPrefixByKeyPrefix('testThree'),
+          equals('testThree'));
+
+      expect(set.longestCommonKeyPrefixByKeyPrefix('testThreea'),
+          equals('testThreeandfour'));
+
+      expect(set.longestCommonKeyPrefixByKeyPrefix('f'), equals('frog'));
+
+      expect(set.longestCommonKeyPrefixByKeyPrefix('testO'), equals('testOne'));
+
+      expect(set.longestCommonKeyPrefixByKeyPrefix(''), equals(''));
+    });
+
     test('length', () {
       expect(numberTST.length, equals(numKeys));
     });

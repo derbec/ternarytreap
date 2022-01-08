@@ -965,7 +965,7 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
   /// Map [key] and return empty Iterable if result is empty
   String _mapKey(String key) {
     if (key.isEmpty) {
-      throw ArgumentError.value('key is empty');
+      return '';
     }
     final mappedKey = keyMapping(key);
     if (mappedKey.isEmpty) {
@@ -1190,5 +1190,32 @@ class _TTMultiMapImpl<V> implements TTMultiMap<V> {
       }
     }
     return null;
+  }
+
+  @override
+  String longestCommonKeyPrefixByKeyPrefix(String prefix) {
+    final key = _mapKey(prefix);
+    final root = _root;
+
+    if (identical(root, null) || key.isEmpty) {
+      return '';
+    }
+
+    final keyRunes = key.runes.toList();
+
+    final searchResult = root.getClosestPrefixDescendant(keyRunes);
+
+    if (!searchResult.isPrefixMatch) {
+      return '';
+    }
+
+    return String.fromCharCodes(
+        searchResult.prefixRuneIdx > searchResult.nodeRuneIdx
+            ? [
+                ...(keyRunes.slice(
+                    0, searchResult.prefixRuneIdx - searchResult.nodeRuneIdx)),
+                ...searchResult.node.runes
+              ]
+            : searchResult.node.runes);
   }
 }

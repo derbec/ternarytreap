@@ -1,6 +1,6 @@
 name: ternarytreap
 description: Self balancing ternary tree. A generic MultiMap with fast prefix and near neighbour searching on keys.
-version: 2.0.4
+version: 2.0.5
 homepage: https://github.com/derbec/ternarytreap
 
 environment:

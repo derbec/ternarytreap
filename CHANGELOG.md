@@ -58,3 +58,7 @@
 
 - Updated dependancies. Added example main_map.dart.
 
+## 2.0.5
+
+- Updated dependancies. Added longestCommonKeyPrefixByKeyPrefix to TTMultiMap.
+
